@@ -1,6 +1,6 @@
 project:
   type: book
-  output-dir: _book
+  output-dir: __book
 # https://quarto.org/docs/reference/projects/books.html
 # https://quarto.org/docs/reference/projects/books.html#navbar
 # https://quarto.org/docs/reference/projects/books.html#sidebar
