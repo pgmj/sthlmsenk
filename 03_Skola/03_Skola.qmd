@@ -1,0 +1,1037 @@
+---
+title: "Skola"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-08-19'
+format: 
+  html:
+    toc: true
+    self-contained: true
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 300
+  pdf:
+    papersize: a4
+    documentclass: report #article, report or book
+    classoption: [onecolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: true
+    self-contained: false
+#    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggrepel)
+library(arrow)
+library(car)
+library(grateful)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable)
+library(RISEkbmRasch)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/Skola_itemlabels.xls")
+
+# import recoded data
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/SthlmsEnkat220405.csv", fileEncoding = "ISO-8859-1")
+# df$X<-NULL
+df.all <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-08-22 sthlmsenkat data.parquet")
+
+Negativa<-names(df.all[c(156:157,160,162,164,166,168)])
+Positiva<-names(df.all[c(152:155,158:159,161,163,165,167,169)])
+
+# filter relevant variables
+df <- df.all %>% 
+  select(itemlabels$itemnr,ar,Kön,ARSKURS,SkolSDO)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- df %>% 
+  filter(ar == 2014) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2014
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.SkolSDO <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(!Kön,!ARSKURS,!SkolSDO)
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+responsesF55<-read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/responsesF55.csv")
+
+```
+
+## Skola
+
+Item/frågor har etiketter f54a-f54r i datafilen, och motsvaras av fråga 55 i PDF-filen med frågor.
+
+"Hur väl stämmer följande påståenden in på dig din skolsituation?" följs av de ingående frågorna, alla med samma svarskategorier:
+
+-   'Stämmer mycket dåligt'
+-   'Stämmer ganska dåligt'
+-   'Stämmer ganska bra'
+-   'Stämmer mycket bra'
+
+## Lista på items
+
+```{r}
+#| label: showitems
+## tbl-cap: "Samtliga skolfrågor"
+## tbl-cap-location: top
+
+RIcolorlistitems(c(1:4,7,8,10,12,14,16,18), RISEprimGreenMid)
+```
+
+Frågorna som ingår i Skola framgår ovan. Grönmarkerade frågor är positivt formulerade (fokuserar på positiva upplevelser), medan de frågor som saknar färgmarkering är negativt formulerade. Svarskategorierna har omkodats så att höga poäng innebär hög risk.
+
+F56 och F59 ingår inte i något befintligt index, men i egenskap av att vara skolrelaterade tar vi med dem i analysen.
+
+Tre frågor angår hur ofta något hänt under senaste läsåret, med svarskategorier enligt nedan. Svarskategorierna har ersatts med värden 0-5, där 0 = Nej, för att bibehålla att hög poäng = hög risk.
+
+```{r}
+#| label: F55responses
+## tbl-cap: ""
+
+responsesF55 %>% 
+  kbl(booktabs = T, escape = F, table.attr = "style='width:20%;'") %>%
+  # options for HTML output
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                position = "center",
+                full_width = T,
+                font_size = 12,
+                fixed_thead = T) %>% 
+  column_spec(1, bold = T) %>% 
+  kable_classic(html_font = "Lato") %>% 
+  # latex_options are for PDF output
+  kable_styling(latex_options = c("striped"))
+```
+
+Items F65a b c gäller senaste betyg (Streck eller A-F) för svenska, engelska och matematik. Vi antar att frågorna om betyg inte lämpar sig att utgöra index tillsammans med andra frågor, eftersom de är av skild karaktär, så de utelämnas i denna analys.
+
+
+## Deskriptiva data
+
+### Demografi
+
+```{r}
+#| label: descriptives1
+RIdemographics(dif.gender, Kön)
+RIdemographics(dif.arskurs, Årskurs)
+```
+### Item-data
+
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+
+df.omit.na <- df.omit.na %>% # ta bort betygsitems
+  select(!starts_with("F65"))
+
+RItileplot(df.omit.na)
+```
+#### Stacked bars (endast f54*)
+```{r}
+#| label: stack1
+
+df.omit.na %>% 
+  select(starts_with("f54")) %>% 
+  RIbarstack()
+```
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+```
+:::
+
+## Rasch-analys
+
+Eftersom detta är en explorativ analys läggs alla övriga items in i analysen.
+
+Första steget är att undersöka residualer från Raschmodellen med en principalkomponentanalys (PCA).
+
+```{r}
+#| label: dim1
+## tbl-cap: "PCA of Rasch model residuals"
+
+RIpcmPCA(df.omit.na)
+
+```
+
+Eftersom det största värdet är över 2.0 finns problem med multidimensionalitet som behöver åtgärdas.
+
+Vi tittar på flera indexvärden och parametrar för att bättre förstå data och kunna ta beslut om åtgärder.
+
+::: panel-tabset
+### Svarskategorier
+```{r}
+#| label: respcat1
+#| include: false
+mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: respcatfig1
+plot(mirt.rasch, type="trace")
+```
+### Residualkorrelationer {.smaller}
+```{r}
+#| label: locdeps1
+RIresidcorr(df.omit.na, 0.2)
+```
+
+### Item fit
+```{r}
+#| label: locdeps1.2
+RIitemfitPCM(df.omit.na, 300, 5)
+```
+### Targeting
+```{r}
+#| label: locdeps1.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps1.4
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps1.5
+#| cache: true
+RIlistitems(df.omit.na)
+```
+:::
+
+### Omkodning av svarskategorier
+
+F55, 56, 59 har hög MSQ, men också problem med svarskategorierna. Även flera av f54-items har problem med svarskategorier. Detta behöver åtgärdas innan vi tittar närmare på residualkorrelationerna.
+
+- f54a och b - vi slår ihop de två högsta svarskategorierna
+- f54o - vi slår ihop de två mittersta svarskategorierna
+- F55 - slå ihop kategori 0+1 och 4+5
+- F56 - slå ihop 0+1, 2+3 och 4+5
+- F59 - slå ihop kategori 0+1 samt 2+3+4
+
+```{r}
+#| label: recode1
+#| layout-ncol: 2
+
+
+df.omit.na$f54a<-recode(df.omit.na$f54a,"3=2",as.factor=FALSE)
+df.omit.na$f54b<-recode(df.omit.na$f54b,"3=2",as.factor=FALSE)
+df.omit.na$f54o<-recode(df.omit.na$f54o,"2=1;3=2",as.factor=FALSE)
+
+df.omit.na$F55<-recode(df.omit.na$F55,"1=0;2=1;3=2;4=3;5=3",as.factor=FALSE)
+df.omit.na$F56<-recode(df.omit.na$F56,"1=0;2=1;3=1;4=2;5=2",as.factor=FALSE)
+df.omit.na$F59<-recode(df.omit.na$F59,"1=0;2=1;3=1;4=1;5=2",as.factor=FALSE)
+
+recoded.items <- c("f54a","f54b","f54o","F55","F56","F59")
+
+df.skola2 <- df.omit.na
+
+# subset positive and negative items in separate dataframes for later analysis
+df.skolpos <- df.skola2 %>% 
+  select(any_of(Positiva))
+
+df.skolneg <- - df.skola2 %>% 
+  select(any_of(Negativa))
+
+df.erm <- PCM(df.omit.na)
+plotICC(df.erm, item.subset = recoded.items)
+
+```
+
+Alla items svarskategorier fungerar adekvat.
+
+## Rasch-parametrar 2
+
+::: panel-tabset
+### Residualkorrelationer {.smaller}
+
+```{r}
+#| label: locdeps2
+#| cache: true
+
+RIresidcorr(df.omit.na, 0.2)
+```
+### Item fit
+```{r}
+#| label: locdeps2.2
+#| cache: true
+RIitemfitPCM(df.omit.na, 300, 5)
+```
+### Targeting
+```{r}
+#| label: locdeps2.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps2.4
+#| cache: true
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps2.5
+#| cache: true
+RIlistitems(df.omit.na)
+```
+### PCA
+```{r}
+#| label: dim4
+#| tbl-cap: "PCA of Rasch model residuals"
+#| cache: true
+RIpcmPCA(df.omit.na)
+```
+:::
+
+## Item-eliminering 1 {.smaller}
+
+- F55 har hög MSQ och residualkorrelation med F56 (frånvaro/skolk), så F55 tas bort.
+
+Övriga item-par som är för starkt korrelerade:
+
+- f54a och h (vet vilka regler som gäller/lärarna förklarar vad som gäller)
+- f54c och g (eleverna är med och planerar/bestämmer)
+- f54e och i (hög ljudnivå/tar tid innan lektionerna kan börja)
+- f54n och p (ser fram emot lektionerna/intressant undervisning)
+
+Vi tar bort:
+
+- f54c (g är bredare, medbestämmande även utanför undervisningen, och det är inte helt uppenbart att elever ska vara med och bestämma över undervisningen)
+- f54i har hög MSQ
+- f54p har något sämre MSQ och targeting än n
+
+::: panel-tabset
+### Residualkorrelationer
+```{r}
+#| label: locdeps3
+df.omit.na$F55 <- NULL
+df.omit.na$f54c <- NULL
+df.omit.na$f54i <- NULL
+df.omit.na$f54p <- NULL
+
+removed.items <- c("F55","f54c","f54i","f54p")
+
+RIresidcorr(df.omit.na, 0.2)
+```
+### Item fit
+```{r}
+#| label: locdeps3.2
+RIitemfitPCM(df.omit.na, 300, 5)
+```
+### Targeting
+```{r}
+#| label: locdeps3.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps3.4
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps3.5
+RIlistitems(df.omit.na)
+```
+### PCA
+```{r}
+#| label: dim3
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+:::
+
+Vi har två item-par (a och h, f och q) som är över gränsvärdet för residualkorrelation, men såpass nära att vi lämnar dem så länge.
+
+Item fit och PCA av residualer ser bra ut.
+
+## DIF/invarians-analys av kön
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difgender
+#dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
+RIdifTable(df.omit.na, dif.gender)
+```
+### Figur
+```{r}
+#| label: difgender2
+RIdifFigure(df.omit.na, dif.gender)
+```
+:::
+
+Inget item har problem med DIF för kön. Högst värde har f54a och q.
+
+## Reliabilitet
+
+::: panel-tabset
+### Test information
+```{r}
+#| label: rel1
+RItif(df.omit.na)
+```
+### Targeting
+```{r}
+#| label: rel1.2
+RItargeting(df.omit.na)
+```
+### Items
+```{r}
+#| label: rel1.3
+RIlistitems(df.omit.na)
+```
+:::
+
+Vi har mycket hög reliabilitet, och det finns därmed stort utrymme för att reducera antalet items.
+
+Förslagsvis tas f54q bort, som uppvisade residualkorrelation (med f54f), något hög DIF, och frågeställningen är lite märklig ("Skolarbetet gör mig förvirrad").
+
+Om vi tittar på targeting finns ett överskott av trösklar mellan -1 och 0 logits. Av items i detta intervall provar vi att eliminera: 
+
+- f54o som hade problem med svarskategorier
+- F56 hade stora problem med svarskategorier och har båda trösklarna mycket nära varandra
+- F59 samma
+
+## Reliabilitet 2
+
+::: panel-tabset
+### Test information
+```{r}
+#| label: rel2
+
+df.omit.na$f54q <- NULL
+df.omit.na$F56 <- NULL
+df.omit.na$F59 <- NULL
+df.omit.na$f54o <- NULL
+
+removed.items <- c(removed.items,"F56","F59","f54o","f54q")
+
+RItif(df.omit.na)
+```
+### Targeting
+```{r}
+#| label: rel2.2
+RItargeting(df.omit.na)
+```
+### Items
+```{r}
+#| label: rel2.3
+RIlistitems(df.omit.na)
+final.items <- names(df.omit.na)
+```
+:::
+
+Vi har 12 items kvar, som ger god reliabilitet. Det finns utrymme att eliminera fler items.
+
+## Invarians/DIF för årtal
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difyear1
+
+final.items <- names(df.omit.na)
+write.csv(final.items, file = "SKOLAfinalitems.csv")
+df.dif.years <- df.dif.years %>% 
+  select(any_of(final.items))
+
+df.dif.years$f54a<-recode(df.dif.years$f54a,"1=0;2=1;3=2",as.factor=FALSE)
+df.dif.years$f54b<-recode(df.dif.years$f54b,"1=0;2=1;3=2",as.factor=FALSE)
+
+RIdifTable(df.dif.years, dif.year)
+```
+### Figur
+```{r}
+#| label: difyear1.2
+
+RIdifFigure(df.dif.years, dif.year)
+```
+:::
+
+Inget item har DIF som överstiger 0.5 logits mellan två årtal. Det är f54e som kommer närmast, samt f54f. Båda dessa har en linjär progression över åren, där item location blir högre senare år.
+
+## Item-reduktion
+
+Vi tar bort f54f och m.
+
+## Reliabilitet 3
+
+::: panel-tabset
+### Test information
+```{r}
+#| label: rel3
+
+df.omit.na$f54f <- NULL
+df.omit.na$f54m <- NULL
+
+removed.items <- c(removed.items,"f54f","f54m")
+
+RItif(df.omit.na)
+```
+### Targeting
+```{r}
+#| label: rel3.2
+RItargeting(df.omit.na)
+```
+### Items
+```{r}
+#| label: rel3.3
+RIlistitems(df.omit.na)
+final.items <- names(df.omit.na)
+write.csv(final.items, file = "2022-08-23 SKOLAfinalitems.csv")
+
+```
+:::
+
+## Item-parametrar
+
+```{r}
+#| label: itemparams
+
+RIlistitems(df.omit.na)
+df.dif.years <- df.dif.years %>% 
+  select(any_of(final.items)) %>% 
+  na.omit()
+
+df.omit.na$f54a<-recode(df.omit.na$f54a,"3=2",as.factor=FALSE)
+df.omit.na$f54b<-recode(df.omit.na$f54b,"3=2",as.factor=FALSE)
+
+RIitemparams(df.dif.years)
+```
+
+## Sammanfattning för ett enda skolindex
+
+### Svarskategorier som åtgärdats:
+
+- f54a och b - vi slår ihop de två högsta kategorierna (2 och 3)
+- f54o - vi slår ihop mittenkategorierna (1 och 2)
+- F55 - slå ihop kategori 0+1 och 4+5
+- F56 - slå ihop 0+1, 2+3 och 4+5
+- F59 - slå ihop kategori 0+1+2 samt 3+4
+
+### Residualkorrelation & item-eliminering {.smaller}
+
+- F55 har hög MSQ och residualkorrelation med F56 (frånvaro/skolk), så F55 tas bort.
+
+Eliminering utifrån item-par som är för starkt korrelerade:
+
+- f54c (g är bredare, medbestämmande även utanför undervisningen, och det är inte helt uppenbart att elever ska vara med och bestämma över undervisningen)
+- f54i har hög MSQ
+- f54p har något sämre MSQ och targeting än n
+- f54h har något sämre MSQ och känns som en sämre fråga än a
+
+### Item-reduktion {.smaller}
+
+f54q tas bort, den uppvisade residualkorrelation (med f54f), något hög DIF, och frågeställningen är lite märklig ("Skolarbetet gör mig förvirrad").
+
+Om vi tittar på targeting finns ett överskott av trösklar mellan -1 och 0 logits. Av items i detta intervall provar vi att eliminera: 
+
+- f54o som hade problem med svarskategorier
+- f54l har två trösklar mycket nära varandra
+- F56 hade stora problem med svarskategorier och har båda trösklarna mycket nära varandra
+- F59 samma
+
+## Person location och infit ZSTD 
+
+```{r}
+#| label: personfit1
+
+RIpfit(df.omit.na)
+
+```
+
+Mätmodellen passar bra för de flesta respondenter.
+
+## Analys av enbart positiva skolfrågor
+
+Inför dessa analyser bibehålls de sammanslagningar som tidigare gjorts av svarskategorier (se Omkodning av svarskategorier), eftersom de uppvisar samma problematik när de analyserats separat som när de analyserades tillsammans med negativa frågor:
+
+- f54a och b - vi slår ihop de två högsta svarskategorierna
+- f54o - vi slår ihop de två mittersta svarskategorierna
+
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+#| label: skolpos1.fit
+
+RIitemfitPCM(df.skolpos, 300, 5)
+```
+### PCA
+```{r}
+#| label: skolpos1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.skolpos)
+```
+### Residual correlations {.smaller}
+```{r}
+#| label: skolpos1.rcorr
+RIresidcorr(df.skolpos, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: skolpos1.targ
+RItargeting(df.skolpos)
+```
+### Targeting sorterad
+```{r}
+#| label: skolpos1.targs
+df.erm<-PCM(df.skolpos)
+plotPImap(df.erm, sorted = T)
+```
+### Svarskategorier
+```{r}
+#| label: skolpos1.rcat
+#| include: false
+mirt.rasch <- mirt(df.skolpos, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: skolpos1.rfig
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+#| label: skolpos1.items
+RIlistitems(df.skolpos)
+```
+:::
+
+Det mesta ser bra ut, utom två item-par (samma som med hela uppsättningen items):
+
+- f54c och g (eleverna är med och planerar/bestämmer)
+- f54n och p (ser fram emot lektionerna/intressant undervisning)
+
+Vi tar bort:
+
+- f54c (g är bredare, medbestämmande även utanför undervisningen, och det är inte helt uppenbart att elever ska vara med och bestämma över undervisningen)
+- f54p har något sämre MSQ och targeting än n
+
+## Positiva items 2
+
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+#| label: skolpos2.fit
+
+removed.items.pos <- c("f54c","f54p")
+
+df.skolpos <- df.skolpos %>% 
+  select(!any_of(removed.items.pos))
+
+RIitemfitPCM(df.skolpos, 300, 5)
+```
+### PCA
+```{r}
+#| label: skolpos2.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.skolpos)
+```
+### Residual correlations {.smaller}
+```{r}
+#| label: skolpos2.rcorr
+RIresidcorr(df.skolpos, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: skolpos2.targ
+RItargeting(df.skolpos)
+```
+### Targeting sorterad
+```{r}
+#| label: skolpos2.targs
+df.erm<-PCM(df.skolpos)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: skolpos2.rel
+RItif(df.skolpos)
+```
+### Items
+```{r}
+#| label: skolpos2.items
+RIlistitems(df.skolpos)
+```
+:::
+
+Reliabiliteten ser acceptabel ut. Kan bilda index "Positiv skolanknytning".
+
+### Item-parametrar positiva items
+
+```{r}
+#| label: itemparamspos
+
+# write items to file for separate summary
+itemlabels %>% 
+  filter(itemnr %in% names(df.skolpos)) %>% 
+  write.csv(file = "SkolaPositiva.csv")
+
+# create vector with final items
+skolpos.final <- itemlabels %>% 
+  filter(itemnr %in% names(df.skolpos)) %>% 
+  select(itemnr) %>% 
+  pull()
+
+# create df with all data for final item set, to enable maximum precision in item parameters
+df.final <- df.dif.years %>% 
+  select(any_of(skolpos.final)) %>% 
+  na.omit()
+
+df.final$f54a<-recode(df.final$f54a,"3=2",as.factor=FALSE)
+df.final$f54b<-recode(df.final$f54b,"3=2",as.factor=FALSE)
+
+# export item parameters to file
+df.erm <- PCM(df.final)
+item.estimates <- eRm::thresholds(df.erm)
+item_difficulty <- item.estimates[["threshtable"]][["1"]]
+item_difficulty<-as.data.frame(item_difficulty)
+item_difficulty$Location <- NULL
+items <- item_difficulty %>% 
+    mutate_if(is.character, as.numeric) %>% 
+    as.matrix()
+write.csv(items, file = "skolpos_itemparams.csv", row.names = T)
+
+RIitemparams(df.final)
+RIlistitems(df.skolpos)
+```
+
+
+
+## Analys av enbart negativa items
+
+Inför dessa analyser bibehålls de sammanslagningar som tidigare gjorts av svarskategorier (se Omkodning av svarskategorier), eftersom de uppvisar samma problematik när de analyserats separat som när de analyserades tillsammans med negativa frågor:
+
+- f54a och b - vi slår ihop de två högsta svarskategorierna
+- f54o - vi slår ihop de två mittersta svarskategorierna
+
+Eftersom F55, 56 och 59 uppvisar problem med residualkorrelationer sinsemellan, samt hade omfattande problem med svarskategorierna, tar vi inte med dem i denna analys.
+
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+#| label: skolneg1.fit
+
+RIitemfitPCM2(df.skolneg, 300, 6)
+```
+### PCA
+```{r}
+#| label: skolneg1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.skolneg)
+```
+### Residual correlations {.smaller}
+```{r}
+#| label: skolneg1.rcorr
+RIresidcorr(df.skolneg, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: skolneg1.targ
+RItargeting(df.skolneg)
+```
+### Targeting sorterad
+```{r}
+#| label: skolneg1.targs
+df.erm<-PCM(df.skolneg)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: skolneg1.rel
+RItif(df.skolneg)
+```
+### Items
+```{r}
+#| label: skolneg1.items
+RIlistitems(df.skolneg)
+```
+:::
+
+Ser bra ut. Kan bilda index "Vantrivsel i skolan".
+
+## Negativa items + mobbning (F61)
+
+Bland Stockholmsenkätens items för att mäta förekomsten av mobbning finns en fråga (F61 i datafilen) om hur ofta man blivit utsatt för mobbning i skolan, som rimligtvis skulle kunna passa in i "Vantrivsel i skolan". Item F61 uppvisar i analysen med övriga mobbnings-items väldigt låg MSQ, vilket beror på att det är en övergripande fråga om mobbning, och därför tillför den i det sammanhanget för lite information för att inkluderas i ett mobbnings-index.
+
+Eftersom F61 hade problem med svarskategorierna (vilket även testats med skolfrågorna) har de kodats om, så nu har vi
+
+- Jag har inte blivit mobbad = 0
+- Det har hänt någon enstaka gång = 1 
+- 2 eller 3 gånger i månaden = 2
+- Ungefär en gång i veckan = 2
+- Flera gånger i veckan = 2
+
+```{r}
+#| label: setuptest
+
+# import recoded data
+df.test <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-18 sthlmsenkat recoded responses.parquet")
+
+df.test$F61 <- recode(df.test$F61,"3=2;4=2",as.factor=F)
+
+df.mob <- df.test %>% 
+  select(names(df.skolneg),F61) %>% 
+  na.omit()
+
+itemlabels <- itemlabels %>% 
+  add_row(itemnr = 'F61', item = 'Hur ofta har du blivit mobbad eller trakasserad i skolan det här läsåret?')
+
+```
+
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+#| label: skolneg2.fit
+
+RIitemfitPCM2(df.mob, 300, 6)
+```
+### PCA
+```{r}
+#| label: skolneg2.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.mob)
+```
+### Residual correlations {.smaller}
+```{r}
+#| label: skolneg2.rcorr
+RIresidcorr(df.mob, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: skolneg2.targ
+RItargeting(df.mob)
+```
+### Targeting sorterad
+```{r}
+#| label: skolneg2.targs
+df.erm<-PCM(df.mob)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: skolneg2.rel
+RItif(df.mob)
+```
+### Items
+```{r}
+#| label: skolneg2.items
+RIlistitems(df.mob)
+```
+:::
+
+
+
+
+
+
+### Item-parametrar negativa items
+
+```{r}
+#| label: itemparamspos
+
+# write items to file for separate summary
+itemlabels %>% 
+  filter(itemnr %in% names(df.mob)) %>% 
+  write.csv(file = "SkolaNegativaF61.csv")
+
+# create vector with final items
+skolneg.final <- itemlabels %>% 
+  filter(itemnr %in% names(df.skolneg)) %>% 
+  select(itemnr) %>% 
+  pull()
+
+# create df with all data for final item set, to enable maximum precision in item parameters
+df.final <- df.dif.years %>% 
+  select(any_of(skolneg.final)) %>% 
+  na.omit()
+
+# export item parameters to file
+df.erm <- PCM(df.final)
+item.estimates <- eRm::thresholds(df.erm)
+item_difficulty <- item.estimates[["threshtable"]][["1"]]
+item_difficulty<-as.data.frame(item_difficulty)
+item_difficulty$Location <- NULL
+items <- item_difficulty %>% 
+    mutate_if(is.character, as.numeric) %>% 
+    as.matrix()
+write.csv(items, file = "skolneg_itemparams.csv", row.names = T)
+
+RIitemparams(df.final)
+RIlistitems(df.skolpos)
+```
+
+
+## Relation till lärare
+
+Vi provar att plocka ut lärar-relaterade frågor från skolfrågorna.
+
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+#| label: skolpos1.fit
+
+skola.items.teacher <- c("f54d","f54h","f54j","f54r","f54m","f54l")
+
+df.skolteach <- df.skola2 %>% 
+  select(any_of(skola.items.teacher))
+
+RIitemfitPCM(df.skolteach, 300, 5)
+```
+### PCA
+```{r}
+#| label: skolteach1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.skolteach)
+```
+### Residual correlations {.smaller}
+```{r}
+#| label: skolteach1.rcorr
+RIresidcorr(df.skolteach, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: skolteach1.targ
+RItargeting(df.skolteach)
+```
+### Targeting sorterad
+```{r}
+#| label: skolteach1.targs
+df.erm<-PCM(df.skolteach)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: skolteach1.rel
+RItif(df.skolteach)
+```
+### Items
+```{r}
+#| label: skolteach1.items
+RIlistitems(df.skolteach)
+```
+:::
+
+Även om frågorna fungerar acceptabelt tillsammans har de bristfällig reliabilitet, och användning kan inte rekommenderas.
+
+
+## Software used
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+
+```
+
+
+## References
+
+
+
+
+

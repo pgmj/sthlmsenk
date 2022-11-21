@@ -1,0 +1,636 @@
+---
+title: "Stockholmsenkäten"
+subtitle: "Kamrater, fritid och prosocialt index"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-09-16'
+format: 
+  html:
+    toc: true
+    self-contained: true
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 300
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+#    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+---
+
+
+```{r}
+#| label: recoderawdata
+#| include: false
+
+# # import data
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/SthlmsEnkat220405.csv")
+# df$X<-NULL
+# #
+# 
+# #Prosocialt index	F70, f86a c f
+# #Kamrater	f86b d e ghij
+# # fritidsfrågor
+# 
+# ### Från syntax-filen från Sthlm Stad
+# # ** Prosocialt index. Baseras på:
+# # Fråga 70) deltagande i någon ledarledd fritisaktivitet eller träning,
+# # Fråga 86a) Motionerar och tränar dina kamrater regelbundet?
+# # 86c) Är kamraterna med i någon förening?
+# # 86f) Är kamraterna duktiga i skolan?
+# # Ett högt indexvärde indikerar att man har "goda sociala förutsättningar".
+# kamrater.items <- names(df[c(1,8,10,11,215,278:287)])
+# 
+# # 70 i PDF, F69 i data, ingår inte enl spec, men relevant?
+# # "Brukar du vara på fritidsgård eller ”träffpunkt”?"
+# # OBS oklart hur detta item ska kodas
+# #df$F70<-recode(df$F70,"'Ofta'=0;'Ibland'=1;'Sällan'=2;'Aldrig'=3",as.factor=FALSE)
+# 
+# # lärarledd fritidsaktivitet, 71 i PDF, F70 i data
+# # "Brukar du delta i någon ledarledd fritidsaktivitet eller träning?"
+# df$F70<-recode(df$F70,"'Ofta'=0;'Ibland'=1;'Sällan'=2;'Aldrig'=3",as.factor=FALSE)
+# 
+# 
+# # Item 88 in PDF file, "Hur många av dina kamrater (inom och utom skolan)"
+# # f86a-j in datafile
+# 
+# df$f86a<-recode(df$f86a,"'Ingen'=3;
+#                'Någon enstaka'=2;
+#                'Ungefär hälften'=1;
+#                'De flesta'=0;
+#                'Vet inte'=NA;
+#                '<NA>'=NA",
+#                as.factor=FALSE)
+# 
+# df$f86b<-recode(df$f86b,"'Ingen'=0;
+#                'Någon enstaka'=1;
+#                'Ungefär hälften'=2;
+#                'De flesta'=3;
+#                'Vet inte'=NA;
+#                '<NA>'=NA",
+#                as.factor=FALSE)
+# 
+# df$f86c<-recode(df$f86c,"'Ingen'=3;'Någon enstaka'=2;'Ungefär hälften'=1;'De flesta'=0;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# df$f86d<-recode(df$f86d,"'Ingen'=0;'Någon enstaka'=1;'Ungefär hälften'=2;'De flesta'=3;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# df$f86e<-recode(df$f86e,"'Ingen'=0;'Någon enstaka'=1;'Ungefär hälften'=2;'De flesta'=3;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# df$f86f<-recode(df$f86f,"'Ingen'=3;'Någon enstaka'=2;'Ungefär hälften'=1;'De flesta'=0;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# df$f86g<-recode(df$f86g,"'Ingen'=0;'Någon enstaka'=1;'Ungefär hälften'=2;'De flesta'=3;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# df$f86h<-recode(df$f86h,"'Ingen'=0;'Någon enstaka'=1;'Ungefär hälften'=2;'De flesta'=3;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# df$f86i<-recode(df$f86i,"'Ingen'=0;'Någon enstaka'=1;'Ungefär hälften'=2;'De flesta'=3;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# df$f86j<-recode(df$f86j,"'Ingen'=0;'Någon enstaka'=1;'Ungefär hälften'=2;'De flesta'=3;'Vet inte'=NA;'<NA>'=NA",as.factor=FALSE)
+# 
+# positiva.items <- c("f88a","f86c","f86f")
+# 
+# df.kamrater <- df %>%
+#   select(all_of(kamrater.items))
+# 
+# # write recoded data to file to save time later on
+# write.csv(df.kamrater, file = "KAMRATERalldata.csv", row.names = F)
+
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
+
+library(arrow)
+library(ggrepel)
+library(car)
+library(grateful)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable)
+library(RISEkbmRasch)
+library(HH)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/KAMRATERitems.xls")
+
+# read recoded dataset
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/KAMRATERalldata.csv", fileEncoding = "ISO-8859-1")
+df.all <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-08-22 sthlmsenkat data.parquet")
+
+# filter relevant variables
+df <- df.all %>% 
+  select(itemlabels$itemnr,ar,Kön,ARSKURS,SkolSDO) %>% 
+  select(!F87)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- df %>% 
+  filter(ar == 2014) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2014
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.SkolSDO <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(!Kön,!ARSKURS,!SkolSDO)
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+```
+
+## Frågor om kamrater och fritid
+
+Item/frågor har etiketter F70 samt f86a-j i datafilen, och motsvaras av fråga 71 respektive 88 i PDF-filen med frågor.
+
+Samtliga f86-frågor har fyra svarskategorier: *"Ingen, Någon enstaka, Ungefär hälften, De flesta"*. Sektionen i enkäten inleds med meningen: *"Hur många av dina kamrater (inom och utom skolan):"*.
+
+F70 har fyra svarsalternativ: *"Ofta, Ibland, Sällan, Aldrig"*.
+
+Svarsdata har kodats så att högre poäng innebär mera problem/högre "risk". Svarsalternativet *"Vet inte"* har kodats som saknat svar.
+
+### Lista med enkätfrågorna
+
+```{r}
+#| label: showitems
+#| tbl-cap-location: top
+
+RIlistitems(df.omit.na)
+  
+```
+
+### Demografi
+
+Vi har `r nrow(df.omit.na)` deltagare i samplet från 2014, och deras könsfördelning återges i tabellen nedan. Deltagare som saknar data på samtliga frågor är borttagna ur analysen.
+
+```{r}
+#| label: genderdistr
+#| layout-ncol: 2
+
+
+# Make table object to show gender counts and percentages
+dif.gender %>%
+#  recode("1='Male';2='Female'") %>% 
+  table() %>% 
+  as_tibble() %>% 
+  mutate('Percent' = (round((100 * n / sum(n)),1))) %>% 
+  dplyr::rename('Kön' = '.') %>% 
+  kbl(booktabs = T, escape = F, table.attr = "style='width:20%;'") %>%
+  # options for HTML output
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                position = "center",
+                full_width = T,
+                font_size = r.fontsize,
+                fixed_thead = T) %>% 
+  column_spec(1, bold = T) %>% 
+  kable_classic(html_font = "Lato") %>% 
+  # latex_options are for PDF output
+  kable_styling(latex_options = c("striped","scale_down"))
+
+dif.arskurs %>%
+#  recode("1='Male';2='Female'") %>% 
+  table() %>% 
+  as_tibble() %>% 
+  mutate('Percent' = (round((100 * n / sum(n)),1))) %>% 
+  dplyr::rename('Årskurs' = '.') %>% 
+  kbl(booktabs = T, escape = F, table.attr = "style='width:20%;'") %>%
+  # options for HTML output
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                position = "center",
+                full_width = T,
+                font_size = r.fontsize,
+                fixed_thead = T) %>% 
+  column_spec(1, bold = T) %>% 
+  kable_classic(html_font = "Lato") %>% 
+  # latex_options are for PDF output
+  kable_styling(latex_options = c("striped","scale_down"))
+
+```
+
+### Descriptives of raw data
+
+### Item-data
+
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+#### Stacked bars
+```{r}
+#| label: stack1
+RIbarstack(df.omit.na)
+```
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+```
+:::
+
+
+## Rasch-analys {.smaller}
+
+The eRm package, which uses Conditional Maximum Likelihood (CML)
+estimation, will be used primarily. For this analysis, the Partial
+Credit Model will be used.
+
+First, we look at the eigenvalues from PCA analysis of Rasch residuals.
+These should be below 2.0 to support unidimensionality. If the first
+eigenvalue is above 2.0, the subsequent analysis will include a
+clustering analysis, using Mokken Scaling.
+
+```{r}
+#| label: dim1
+#| tbl-cap: "PCA of Rasch model residuals"
+
+RIpcmPCA(df.omit.na)
+
+```
+
+Det största egenvärdet är över 2.0. Vi tittar på flera indexvärden och parametrar för att bättre förstå data och kunna ta beslut om åtgärder.
+
+::: panel-tabset
+### Svarskategorier
+```{r}
+#| label: respcat1
+#| include: false
+mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: respcatfig1
+plot(mirt.rasch, type="trace")
+```
+### Residualkorrelationer {.smaller}
+```{r}
+#| label: locdeps1
+RIresidcorr(df.omit.na, 0.2)
+```
+### Item fit
+```{r}
+#| label: locdeps1.2
+RIitemfitPCM(df.omit.na, 300, 5)
+```
+### Targeting
+```{r}
+#| label: locdeps1.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps1.4
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Loadings 1st contrast
+```{r}
+#| label: nsamall1.load
+RIloadLoc(df.omit.na)
+```
+### Items
+```{r}
+#| label: locdeps1.5
+RIlistitems(df.omit.na)
+```
+:::
+
+PCA av residualer indikerar problem med multidimensionalitet. Utifrån "Loadings 1st contrast" framgår att items verkar vara indelade i positiva och negativa aspekter, och vi testar att separera dessa för att få en bild av hur de fungerar separat.
+
+## Risk-fokuserade items
+
+Vi tar bort f86a c f och F70.
+
+### Svarskategorier
+```{r}
+#| label: respcat12
+#| include: false
+
+items.removed <- c("f86a","f86c","f86f","F70")
+
+df.test <- df.omit.na %>% 
+  select(!any_of(items.removed))
+
+mirt.rasch <- mirt(df.test, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: respcatfig12
+plot(mirt.rasch, type="trace")
+```
+Items 86b e och j har oordnade svarströsklar. Vi åtgärdar det genom att slå samman de två mittersta kategorierna. Resterande items har mycket små avstånd mellan trösklarna, vilket inte är optimalt, men vi låter dem vara.
+
+F70, f86b, e, g, h, i, j har alla problem med svarskategorierna. Items f86a, c, och f ("prosocial" items) ser bättre ut, men har väldigt små avstånd mellan de högsta trösklarna.
+
+Vi slår samman de mittersta svarskategorierna för alla items och dikotomiserar F70 (slår samman de två lägsta och de två högsta).
+
+## Omkodning av svarskategorier
+
+```{r}
+#| label: recodingrcats
+#| include: false
+
+rcat1 <- c("f86b","f86e","f86j")
+
+for (i in rcat1) {
+  df.test[[i]]<-recode(df.test[[i]],"2=1;3=2",as.factor=FALSE)
+}
+
+mirt.rasch <- mirt(df.test, model=1, itemtype='Rasch') # unidimensional Rasch model
+
+```
+
+```{r}
+#| label: respcatfig2
+plot(mirt.rasch, type="trace")
+
+```
+Svarskategorierna fungerar acceptabelt för samtliga items.
+
+::: panel-tabset
+### Residualkorrelationer {.smaller}
+```{r}
+#| label: locdeps2
+RIresidcorr(df.test, 0.2)
+```
+
+### Item fit
+```{r}
+#| label: locdeps2.2
+RIitemfitPCM(df.test, 300, 5)
+```
+### PCA
+```{r}
+#| label: locdeps2.6
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.test)
+```
+### Targeting
+```{r}
+#| label: locdeps2.3
+RItargeting(df.test)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps2.4
+df.erm<-PCM(df.test)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps2.5
+RIlistitems(df.test)
+```
+:::
+
+Residualkorrelationerna visar att f86e skapar problem med två andra items, så den tas bort.
+
+::: panel-tabset
+### Residualkorrelationer {.smaller}
+```{r}
+#| label: locdeps22
+
+items.removed <- c("f86e")
+
+df.test <- df.test %>% 
+  select(!f86e)
+
+RIresidcorr(df.test, 0.2)
+```
+
+### Item fit
+```{r}
+#| label: locdeps22.2
+RIitemfitPCM(df.test, 300, 5)
+```
+### PCA
+```{r}
+#| label: locdeps22.6
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.test)
+```
+### Targeting
+```{r}
+#| label: locdeps22.3
+RItargeting(df.test)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps22.4
+df.erm<-PCM(df.test)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: negitems1.tif
+RItif(df.test)
+```
+
+### Items
+```{r}
+#| label: locdeps22.5
+RIlistitems(df.test)
+```
+:::
+
+Två residualkorrelationer ligger nu strax ovanför gränsvärdet, vilket kan tolereras.
+
+Reliabiliteten blir dock för låg.
+
+
+## Positiva items
+
+::: panel-tabset
+### Svarskategorier
+```{r}
+#| label: positems1.rcat
+#| layout-ncol: 2
+
+# subset items
+df.positiva <- df.omit.na %>% 
+  select(F70,f86a,f86c,f86f)
+
+df.erm <- PCM(df.positiva)
+plotICC(df.erm)
+
+```
+Vi dikotomiserar F70, svarskategorierna 0+1 och 2+3 slås samman.
+
+### Residualkorrelationer {.smaller}
+```{r}
+#| label: positems1
+
+df.positiva$F70 <- recode(df.positiva$F70,"1=0;2=1;3=1")
+
+RIresidcorr(df.positiva, 0.2)
+```
+
+### Item fit
+```{r}
+#| label: positems1.2
+RIitemfitPCM(df.positiva, 300, 5)
+```
+### PCA
+```{r}
+#| label: positems1.6
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.positiva)
+```
+### Targeting
+```{r}
+#| label: positems1.3
+RItargeting(df.positiva)
+```
+### Targeting sorterad
+```{r}
+#| label: positems1.4
+df.erm<-PCM(df.positiva)
+plotPImap(df.erm, sorted = T)
+```
+
+### Reliabilitet
+```{r}
+#| label: positems1.7
+RItif(df.positiva)
+```
+### Items
+```{r}
+#| label: positems1.5
+RIlistitems(df.positiva)
+```
+:::
+
+Dimensionaliteten fungerar bra, men reliabiliteten blir alldeles för låg.
+
+## DIF/invarians-analys av kön, risk-fokuserade items
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difgender
+#dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
+RIdifTable(df.test, dif.gender)
+```
+### Figur
+```{r}
+#| label: difgender2
+RIdifFigure(df.test, dif.gender)
+```
+### Items
+```{r}
+#| label: dif1.3
+RIlistitems(df.test)
+```
+:::
+
+Vi har två items som har mer än 0.5 logits DIF mellan kön. Och ytterligare 4 som är över 0.3 (varav en har 0.485).
+
+## Preliminära slutsatser
+
+Det går att skapa ett "positivt" index av fyra items efter att ha åtgärdat svarskategorierna för item F70, men det har för låg reliabilitet.
+
+Det går även att skapa ett risk-fokuserat index av sex items (där tre av dem behövde åtgärder för svarskategorier), men även där är reliabiliteten låg. Dessutom framkommer påtagliga nivåer av problem med invarians mellan könen som behöver tas hänsyn till.
+
+Området kamrater och fritid fungerar inte som det ser ut just nu. Det kommer att krävas utvecklingsarbete för att göra något användbart av existerande data som tar hänsyn till DIF-problematiken.
+
+
+## Programvara som använts för analyserna
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+```
+
+## Referenser
+
+
+

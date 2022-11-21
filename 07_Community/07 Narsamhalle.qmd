@@ -1,0 +1,933 @@
+---
+title: "Stockholmsenkäten"
+subtitle: "Närsamhälle"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-09-16'
+format: 
+  html:
+    toc: true
+    self-contained: true
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 300
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+#    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+```{r}
+#| label: recoderawdata
+#| include: false
+
+# import data
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/SthlmsEnkat220405.csv", fileEncoding = "ISO-8859-1")
+# df$X<-NULL
+# itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/NärsamhälleItemlabels.xls")
+# 
+##### Närsamhälle omkodning
+#Frågorna heter f101a till f101l i datafilen och 103 i PDF-filen.
+# samt F100 i datafilen som är 102 i PDF-filen.
+
+# hög poäng = hög risk
+# # definiera svarskategorierna för att förenkla recode-koden
+# smd<-'Stämmer mycket dåligt'
+# sgd<-'Stämmer ganska dåligt'
+# sgb<-'Stämmer ganska bra'
+# smb<-'Stämmer mycket bra'
+# vetej<-'Vet inte' # kodas som missing/NA
+# mtrygg<-'Mycket trygg'
+# gtrygg<-'Ganska trygg'
+# gotrygg<-'Ganska otrygg'
+# motrygg<-'Mycket otrygg'
+# garej1<-'Går ej ut på kvällen av oro för att utsättas för brott' # kodas som missing/NA pga ej användbart i ordinala data. Skulle ev. kunna ses som likvärdigt som Mycket Otrygg, eller som ännu "värre", ordinalt ett steg över.
+# garej2<-'Går ej ut på kvällen av andra orsaker' # kodas som missing/NA pga ej användbart i ordinala data
+#
+# #narsamhalle<-df %>% select(F100,starts_with("f101")) %>% names()
+# #write.csv(narsamhalle, file = "ns.csv")
+#
+# df$F100<-car::recode(df$F100,"mtrygg=0;gtrygg=1;gotrygg=2;motrygg=3;garej1=NA;garej2=NA",as.factor=FALSE)
+#
+# #nsamh<-df %>% select(starts_with("f101")) %>% names()
+# positiva.items <- c("f101b","f101c","f101g","f101h","f101i","f101j","f101k","f101l")
+# negativa.items <- c("f101a","f101d","f101e","f101f")
+#
+# for (i in positiva.items) {
+#    df[[i]]<-car::recode(df[[i]],"smb=0;sgb=1;sgd=2;smd=3;vetej=NA",as.factor=FALSE)
+# }
+#
+# for (i in negativa.items) {
+#    df[[i]]<-car::recode(df[[i]],"smb=3;sgb=2;sgd=1;smd=0;vetej=NA",as.factor=FALSE)
+# }
+# # 
+# # df <- df %>% 
+# #    dplyr::select(itemlabels$itemnr,ar,Kön,ARSKURS,SkolSDO)
+# # 
+# # write.csv(df, file = "NARSAMHALLEalldata.csv", row.names = F)
+
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
+
+library(arrow)
+library(ggrepel)
+library(car)
+library(grateful)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable)
+library(RISEkbmRasch)
+library(HH)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/NärsamhälleItemlabels.xls")
+
+# read recoded dataset
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/NARSAMHALLEalldata.csv")
+
+df.all <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-08-22 sthlmsenkat data.parquet")
+
+df <- df.all %>% 
+  select(itemlabels$itemnr,Kön,ARSKURS,ar,SkolSDO)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- df %>% 
+  filter(ar == 2014) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2014
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.stadsdel <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(!Kön,!ARSKURS,!SkolSDO) %>%
+  na.omit()
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+positiva.items <- c("f101b","f101c","f101g","f101h","f101i","f101j","f101k","f101l")
+negativa.items <- c("f101a","f101d","f101e","f101f")
+
+```
+
+## Frågor om närsamhälle
+
+Frågorna heter F100 och f101a till f101l i datafilen, och överensstämmer med 102 och 103 i PDF-filen.
+
+F100 ställer frågan **"Om du går ut ensam sent en kväll i området där du bor, känner du dig då..."** med svarsalternativen:
+
+- Mycket trygg
+- Ganska trygg
+- Ganska otrygg
+- Mycket otrygg
+- Går ej ut på kvällen av oro för att utsättas för brott <--- **kodas som missing/NA pga ej användbart i ordinala data. Skulle ev. kunna ses som likvärdigt som Mycket Otrygg, eller som ännu "värre", ordinalt ett steg över, men det är diskutabelt.**
+- Går ej ut på kvällen av andra orsaker <--- **kodas som missing/NA pga ej användbart i ordinala data. Det är alltför oklart vad "andra orsaker" är.**
+
+Ovanstående frågor kodas om till siffror 0-3, där hög siffra är Mycket otrygg.
+
+f101-frågorna föregås av frågan **"Hur väl stämmer följande påståenden in på ditt bostadsområde?"**. Samtliga frågor har samma fyra svarskategorier:
+
+- 'Stämmer mycket dåligt'
+- 'Stämmer ganska dåligt'
+- 'Stämmer ganska bra'
+- 'Stämmer mycket bra'
+
+Frågorna är blandat negativt och positivt formulerade, och vid omkodning från ovanstående svarskategorier till siffror 0-3 har positiva frågor vänts så att höga värden alltid innebär högre risk.
+
+Nedan återges samtliga item, med grön markering på positiva item.
+
+```{r}
+#| label: showitems
+#| tbl-cap-location: top
+RIcolorlistitems(c(3,4,8:13), RISEprimGreenMid)
+```
+
+Två index har bildats utifrån f101-frågorna, och vi kommer att titta på dessa separat.
+
+**Grad av ordningsproblem i bostadsområdet**
+
+- 101a Vandalism är vanligt i bostadsområdet
+- 101d Det finns personer som säljer narkotika i bostadsområdet
+- 101e På vardagskvällarna finns det många berusade utomhus
+- 101g Det är ovanligt med våldsbrott i det här bostadsområdet
+
+**Grad av informell social kontroll i bostadsområdet**
+
+- F101 b Om en vuxen såg mig göra något olagligt i mitt bostadsområde skulle nog mina föräldrar få reda på det
+- F101 c Vuxna skulle ingripa om någon helt öppet försökte sälja narkotika till ungdomar
+- F101 h Vuxna skulle ingripa om det blev ett slagsmål framför mitt hus
+- F101 i Om jag blev rånad på en allmän plats skulle vuxna ingripa
+
+## Deskriptiva data
+
+### Demografi
+```{r}
+#| label: descriptives1
+#| layout-ncol: 3
+RIdemographics(dif.gender, "Kön")
+RIdemographics(dif.arskurs, "Årskurs")
+RIdemographics(dif.stadsdel, "Stadsdel")
+```
+### Item-data
+
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+#### Stacked bars
+```{r}
+#| label: stack1
+RIbarstack(df.omit.na)
+```
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+```
+:::
+
+```{r}
+#| label: setup2
+
+items.ordning <- c("f101a","f101d","f101e","f101g")
+items.kontroll <- c("f101b","f101c","f101h","f101i")
+
+df.ordning <- df.omit.na %>% 
+  select(any_of(items.ordning))
+
+df.kontroll <- df.omit.na %>% 
+  select(any_of(items.kontroll))
+
+```
+
+## Ordningsproblem
+
+### Svarskategorier
+
+```{r}
+#| label: ordning.cat
+#| layout-ncol: 2
+
+df.erm <- PCM(df.ordning)
+plotICC(df.erm)
+```
+
+Items a och e fungerar acceptabelt, medan d och g behöver åtgärdas genom att mittenkategorierna slås samman.
+
+### Omkodning av svarskategorier
+
+```{r}
+#| label: ordning2.cat
+#| layout-ncol: 2
+recoded.ordning <- c("f101d","f101g")
+
+for (i in recoded.ordning) {
+  df.ordning[[i]]<-car::recode(df.ordning[[i]],"2=1;3=2",as.factor=FALSE)
+}
+df.erm <- PCM(df.ordning)
+plotICC(df.erm)
+```
+
+### Rasch-parametrar 
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: ordning1.fit
+
+RIitemfitPCM(df.ordning, 300, 20)
+```
+### PCA
+```{r}
+#| label: ordning1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.ordning)
+```
+### Residualkorrelationer
+```{r}
+#| label: ordning1.rcorr
+RIresidcorr(df.ordning, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: ordning1.targ
+RItargeting(df.ordning)
+```
+### Targeting sorterad
+```{r}
+#| label: ordning1.targs
+df.erm<-PCM(df.ordning)
+plotPImap(df.erm, sorted = T)
+```
+### Loadings 1st contrast
+```{r}
+#| label: ordning1.load
+RIloadLoc(df.ordning)
+```
+### Reliabilitet
+```{r}
+#| label: ordning1.tif
+RItif(df.ordning)
+```
+### Items
+```{r}
+#| label: ordning1.items
+RIlistitems(df.ordning)
+```
+:::
+
+Item f101g passar inte in i dimensionen, vilket framgår av hög MSQ och figuren med faktorladdning på första kontrasten av PCA av residualer.
+
+Item f101d är korrelerad med både a och e, vilket skapar ytterligare problem.
+
+Även om alla items skulle passa tillsammans skulle det medföra låg reliabilitet.
+
+## Grad av social kontroll
+
+### Svarskategorier
+
+```{r}
+#| label: kontroll.cat
+#| layout-ncol: 2
+
+df.erm <- PCM(df.kontroll)
+plotICC(df.erm)
+```
+
+Svarskategorierna fungerar acceptabelt.
+
+### Rasch-parametrar 
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: kontroll1.fit
+
+RIitemfitPCM(df.kontroll, 300, 20)
+```
+### PCA
+```{r}
+#| label: kontroll1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.kontroll)
+```
+### Residualkorrelationer
+```{r}
+#| label: kontroll1.rcorr
+RIresidcorr(df.kontroll, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: kontroll1.targ
+RItargeting(df.kontroll)
+```
+### Targeting sorterad
+```{r}
+#| label: kontroll1.targs
+df.erm<-PCM(df.kontroll)
+plotPImap(df.erm, sorted = T)
+```
+### Loadings 1st contrast
+```{r}
+#| label: kontroll1.load
+RIloadLoc(df.kontroll)
+```
+### Reliabilitet
+```{r}
+#| label: kontroll1.tif
+RItif(df.kontroll)
+```
+### Items
+```{r}
+#| label: kontroll1.items
+RIlistitems(df.kontroll)
+```
+:::
+
+Items f101h och i korrelerar för starkt med varandra. Oavsett detta visar reliabilitetskurvan att frågorna inte uppnår acceptabla nivåer av reliabilitet vid någon punkt, även när båda dessa items är inkluderade.
+
+
+## Samtliga frågor tillsammans
+
+Eftersom det sannolikt finns multidimensionalitet tittar vi först på detta. Vi har redan konstaterat problem med svarskategorier för några items (och korrigerar dessa inför denna mera omfattande analys), men det kan finnas små variationer beroende på vilka items som läggs i samma modell.
+
+### Rasch-parametrar 
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: nsamall1.fit
+recoded.ordning <- c("f101d","f101g")
+
+for (i in recoded.ordning) {
+  df.omit.na[[i]]<-car::recode(df.omit.na[[i]],"2=1;3=2",as.factor=FALSE)
+}
+
+RIitemfitPCM(df.omit.na, 300, 20)
+```
+### PCA
+```{r}
+#| label: nsamall1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+#| label: nsamall1.rcorr
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Loadings 1st contrast
+```{r}
+#| label: nsamall1.load
+RIloadLoc(df.omit.na)
+```
+### Items
+```{r}
+#| label: nsamall1.items
+RIlistitems(df.omit.na)
+```
+:::
+
+Vi kan se två kluster i data, utifrån "Loadings 1st contrast" (till vänster och höger om den vertikala röda linjen), som vi kan pröva tillsammans.
+
+Ena klustret är snarlikt "grad av ordning", fast med 101f i stället för 101g, och tillägg av F100.
+
+```{r}
+#| label: setup3
+
+items.ordning2 <- c("f101a","f101d","f101e","f101f","F100")
+
+df.ordning2 <- df.omit.na %>% 
+  select(any_of(items.ordning2))
+
+df.other <- df.omit.na %>% 
+  select(!any_of(items.ordning2))
+```
+
+
+## Ordning variant 1
+
+### Svarskategorier
+
+```{r}
+#| label: ordning02.cat
+#| layout-ncol: 2
+
+df.erm <- PCM(df.ordning2)
+plotICC(df.erm)
+```
+
+Svarskategorierna har i flera fall mycket små skillnader (främst 101f), men är inte i oordning, så vi låter dem vara.
+
+### Rasch-parametrar 
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: ordning02.fit
+
+RIitemfitPCM(df.ordning2, 300, 20)
+```
+### PCA
+```{r}
+#| label: ordning02.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.ordning2)
+```
+### Residualkorrelationer
+```{r}
+#| label: ordning02.rcorr
+RIresidcorr(df.ordning2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: ordning02.targ
+RItargeting(df.ordning2)
+```
+### Targeting sorterad
+```{r}
+#| label: ordning02.targs
+df.erm<-PCM(df.ordning2)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: ordning02.tif
+RItif(df.ordning2)
+```
+### Items
+```{r}
+#| label: ordning02.items
+RIlistitems(df.ordning2)
+```
+:::
+
+Precis som innan korrelerar 101d starkt med med a och e, så den behöver tas bort. Targeting indikerar att 101f har oordnade svarskategorier, så dessa behöver slås samman.
+
+### Rasch-parametrar 
+
+::: panel-tabset
+#### Item fit
+```{r}
+#| label: ordning03.fit
+
+df.ordning2$f101f <- recode(df.ordning2$f101f,"3=2;2=1",as.factor=F)
+
+df.ordning2$f101d <- NULL
+
+RIitemfitPCM(df.ordning2, 300, 20)
+```
+#### PCA
+```{r}
+#| label: ordning03.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.ordning2)
+```
+#### Residualkorrelationer
+```{r}
+#| label: ordning03.rcorr
+RIresidcorr(df.ordning2, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| label: ordning03.targ
+RItargeting(df.ordning2)
+```
+#### Targeting sorterad
+```{r}
+#| label: ordning03.targs
+df.erm<-PCM(df.ordning2)
+plotPImap(df.erm, sorted = T)
+```
+#### Reliabilitet
+```{r}
+#| label: ordning03.tif
+RItif(df.ordning2)
+```
+#### Items
+```{r}
+#| label: ordning03.items
+RIlistitems(df.ordning2)
+```
+:::
+
+Korrelationen mellan 101a och e överstiger 0.3 över gränsvärdet. 101a verkar bäst att behålla, men reliabiliteten är redan låg.
+
+
+## Övriga frågor
+
+### Svarskategorier
+
+```{r}
+#| label: other.cat
+#| layout-ncol: 2
+
+df.erm <- PCM(df.other)
+plotICC(df.erm)
+```
+
+Svarskategorierna fungerar acceptabelt, förutom 101k och j, som får mittenkategorierna hopslagna.
+
+### Rasch-parametrar 
+
+::: panel-tabset
+#### Item fit
+```{r}
+#| label: other1.fit
+
+recoded.other <- c("f101k","f101j")
+
+for (i in recoded.other) {
+  df.other[[i]]<-car::recode(df.other[[i]],"2=1;3=2",as.factor=FALSE)
+}
+
+RIitemfitPCM(df.other, 300, 20)
+```
+#### PCA
+```{r}
+#| label: other1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.other)
+```
+#### Residualkorrelationer
+```{r}
+#| label: other1.rcorr
+RIresidcorr(df.other, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| label: other1.targ
+RItargeting(df.other)
+```
+#### Targeting sorterad
+```{r}
+#| label: other1.targs
+df.erm<-PCM(df.other)
+plotPImap(df.erm, sorted = T)
+```
+#### Loadings 1st contrast
+```{r}
+#| label: other1.load
+RIloadLoc(df.other)
+```
+#### Reliabilitet
+```{r}
+#| label: other1.tif
+RItif(df.other)
+```
+#### Items
+```{r}
+#| label: other1.items
+RIlistitems(df.other)
+```
+:::
+
+Item-par med problematiska korrelationsnivåer:
+
+- k och l
+- k och j
+- h och i
+
+Vi tar bort k (korrelerar med två item, plus dålig targeting) och h (sämre targeting och separation av svarströsklar).
+
+### Rasch-parametrar 2
+
+::: panel-tabset
+#### Item fit
+```{r}
+#| label: other2.fit
+
+df.other$f101k <- NULL
+df.other$f101h <- NULL
+
+RIitemfitPCM(df.other, 300, 20)
+```
+#### PCA
+```{r}
+#| label: other2.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.other)
+```
+#### Residualkorrelationer
+```{r}
+#| label: other2.rcorr
+RIresidcorr(df.other, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| label: other2.targ
+RItargeting(df.other)
+```
+#### Targeting sorterad
+```{r}
+#| label: other2.targs
+df.erm<-PCM(df.other)
+plotPImap(df.erm, sorted = T)
+```
+#### Loadings 1st contrast
+```{r}
+#| label: other2.load
+RIloadLoc(df.other)
+```
+#### Reliabilitet
+```{r}
+#| label: other2.tif
+RItif(df.other)
+```
+#### Items
+```{r}
+#| label: other2.items
+RIlistitems(df.other)
+```
+:::
+
+Detta ser bättre ut. Residualkorrelationen som är rödmarkerad är så nära gränsvärdet att vi kan låta den vara. Det enda anmärkningsvärda är 101i med något låg fit, men det får vara acceptabelt.
+
+Reliabiliteten är över 0.7, men bara för de ca 50% med högre risk.
+
+Vi kan testa att lägga till F100 (trygghetsfrågan) eftersom den låg mellan klustren i den första analysen, och se om det hjälper upp reliabiliteten något.
+
+
+```{r}
+#| label: setup4
+
+items.test <- c(names(df.other),"F100")
+
+df.other2 <- df.omit.na %>% 
+  select(any_of(items.test))
+
+```
+
+### Rasch-parametrar 3
+
+::: panel-tabset
+#### Item fit
+```{r}
+#| label: other21.fit
+
+RIitemfitPCM(df.other2, 300, 20)
+```
+#### PCA
+```{r}
+#| label: other21.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.other2)
+```
+#### Residualkorrelationer
+```{r}
+#| label: other21.rcorr
+RIresidcorr(df.other2, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| label: other21.targ
+RItargeting(df.other2)
+```
+#### Targeting sorterad
+```{r}
+#| label: other21.targs
+df.erm<-PCM(df.other2)
+plotPImap(df.erm, sorted = T)
+```
+#### Loadings 1st contrast
+```{r}
+#| label: other21.load
+RIloadLoc(df.other2)
+```
+#### Reliabilitet
+```{r}
+#| label: other21.tif
+RItif(df.other2)
+```
+#### Items
+```{r}
+#| label: other21.items
+RIlistitems(df.other2)
+```
+:::
+
+F100 sticker dock ut, både gällande MSQ och loadings, och skapar även problem bland andra items. Så vi återgår till den sista modellen utan F100.
+
+## Invarians/DIF kön
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difgender1
+
+final.items <- names(df.other)
+RIdifTable(df.other, dif.gender)
+```
+### Figur
+```{r}
+#| label: difgender2
+RIdifFigure(df.other, dif.gender)
+```
+:::
+
+Inga problem med invarians/DIF för kön.
+
+## Invarians/DIF årskurs
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: dif.table2
+RIdifTable(df.other, dif.arskurs)
+```
+### Figur
+```{r}
+#| label: dif.figure2
+RIdifFigure(df.other, dif.arskurs)
+```
+:::
+
+Ingen DIF för årskurs.
+
+## Invarians/DIF stadsdel
+
+Här har vi dock små grupper (under 100) i några stadsdelar, så resultatet kan behöva tolkas försiktigt.
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: dif.table3
+RIdifTable(df.other, dif.arskurs)
+```
+### Figur
+```{r}
+#| label: dif.figure3
+RIdifFigure(df.other, dif.arskurs)
+```
+:::
+
+Ingen DIF mellan stadsdelar.
+
+
+## Invarians/DIF för årtal
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difyear1
+
+write.csv(final.items, file = "2022-09-16 NSAMFinalitems.csv")
+df.dif.years <- df.dif.years %>% 
+  select(any_of(final.items))
+
+recoded.ordning <- c("f101g","f101j")
+
+for (i in recoded.ordning) {
+  df.dif.years[[i]]<-car::recode(df.dif.years[[i]],"2=1;3=2",as.factor=FALSE)
+}
+
+RIdifTable(df.dif.years, dif.year)
+```
+### Figur
+```{r}
+#| label: difyear1.2
+
+RIdifFigure(df.dif.years, dif.year)
+```
+:::
+
+Ingen DIF är såpass stor att den skapar problem (gränsvärde 0.5).
+
+
+## Reliabilitet
+
+```{r}
+#| label: rel1
+RItif(df.other)
+```
+
+
+## Item-parametrar
+
+```{r}
+#| label: itemparams
+RIitemparams(df.dif.years)
+RIlistitems(df.other)
+```
+## Person location och infit ZSTD {.smaller}
+
+```{r}
+#| label: personfit1
+
+RIpfit(df.other)
+
+```
+
+## Programvara som använts
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+```
+
+## Referenser
+

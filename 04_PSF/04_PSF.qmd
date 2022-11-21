@@ -1,0 +1,1361 @@
+---
+title: "Stockholmsenkäten"
+subtitle: "Psykiska och psykosomatiska besvär"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-09-22'
+format: 
+  html:
+    toc: true
+    standalone: true
+    embed-resources: true
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 300
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    standalone: true
+    embed-resources: true
+#    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+
+
+```{r}
+#| label: recoderawdata
+#| include: false
+
+# import data
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/SthlmsEnkat220405.csv")
+# df$X<-NULL
+# 
+# # koda om svaren för items som ingår i psykiska/psykosomatiska besvär, F88-F99 i data, fråga 90-101 i PDF
+# # variabler df[289:300] i datafil.
+# # låg poäng = låg risk
+# df$F88<-recode(df$F88,"'Aldrig'=1;'Ungefär 1 gång/termin'=2;'Ungefär 1 gång/månad'=3;'Ungefär 1 gång/vecka'=4;'Flera gånger i veckan'=5",as.factor=FALSE)
+# df$F89<-recode(df$F89,"'Väldigt ofta'=5;'Ganska ofta'=4;'Ibland'=3;'Någon enstaka gång'=2;'Sällan'=1",as.factor=FALSE)
+# df$F90<-recode(df$F90,"'Sällan'=1;'Någon enstaka gång'=2;'Ibland'=3;'Ganska ofta'=4;'Väldigt ofta'=5",as.factor=FALSE)
+# df$F91<-recode(df$F91,"'Aldrig'=1;'Ungefär 1 gång/termin'=2;'Ungefär 1 gång/månad'=3;'Ungefär 1 gång/vecka'=4;'Flera gånger i veckan'=5",as.factor=FALSE)
+# df$F92<-recode(df$F92,"'Inte alls'=1;'Ganska lite'=2;'En del'=3;'Ganska mycket'=4;'Väldigt mycket'=5",as.factor=FALSE)
+# df$F93<-recode(df$F93,"'Aldrig'=1;'Ungefär 1 gång/termin'=2;'Ungefär 1 gång/månad'=3;'Ungefär 1 gång/vecka'=4;'Flera gånger i veckan'=5",as.factor=FALSE)
+# df$F94<-recode(df$F94,"'Väldigt ofta'=5;'Ganska ofta'=4;'Ibland'=3;'Någon enstaka gång'=2;'Nästan aldrig'=1",as.factor=FALSE)
+# df$F95<-recode(df$F95,"'Aldrig'=1;'Ungefär 1 kväll/termin'=2;'Ungefär 1 kväll/månad'=3;'Ungefär 1 kväll/vecka'=4;'Flera gånger i veckan'=5",as.factor=FALSE)
+# df$F96<-recode(df$F96,"'Nästan aldrig'=5;'Någon enstaka gång'=4;'Ibland'=3;'Ganska ofta'=2;'Oftast'=1",as.factor=FALSE)
+# df$F97<-recode(df$F97,"'Sällan'=1;'Någon enstaka gång'=2;'Ibland'=3;'Ganska ofta'=4;'Väldigt ofta'=5",as.factor=FALSE)
+# df$F98<-recode(df$F98,"'Aldrig'=1;'Ungefär 1 natt/termin'=2;'Ungefär 1 natt/månad'=3;'Ungefär 1 natt/vecka'=4;'Flera nätter i veckan'=5",as.factor=FALSE)
+# df$F99<-recode(df$F99,"'Sällan'=5;'Någon enstaka gång'=4;'Ibland'=3;'Ganska ofta'=2;'Väldigt ofta'=1",as.factor=FALSE)
+# 
+# # flytta ankare från 1 till 0 för lägsta kategori, behövs för vissa Rasch-program
+# for (i in 289:300) {
+#   df[,i]<-recode(df[,i],"1=0;2=1;3=2;4=3;5=4",as.factor=FALSE)
+# }
+# 
+# 
+# psf.items <- names(df[289:300])
+# 
+# df.psf <- df %>%
+#   select(all_of(psf.items),ar,Kön,ARSKURS)
+# 
+# write.csv(df.psf, file = "PSFalldata.csv", row.names = F)
+
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
+
+library(ggrepel)
+library(arrow)
+library(car)
+library(grateful)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable)
+library(RISEkbmRasch)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/PSFitems.xls")
+
+# read recoded dataset
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/PSFalldata.csv", fileEncoding = "ISO-8859-1")
+
+df.all <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-08-22 sthlmsenkat data.parquet")
+
+df <- df.all %>% 
+  select(itemlabels$itemnr,Kön,ARSKURS,ar)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- subset(df, ar == "2014")
+df.all.years<-df
+df.omit.na <- na.omit(df.2014)
+df.omit.na$ar <- NULL
+
+# create DIF variables
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(starts_with("F"),ar)
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+```
+
+## Psykiska/psykosomatiska besvär
+
+Item/frågor har etiketter F88-F99 i datafilen, och motsvaras av fråga 90-101 i PDF-filen med frågor.
+
+Samtliga frågor har fem svarskategorier, vilka varierar mellan frågorna. Fem frågor har svarskategorier från "Aldrig" till "Flera gånger i veckan". Sex frågor har från "Sällan" till "Väldigt ofta", och en från "Inte alls" till "Väldigt mycket".
+
+Svarsdata har kodats så att högre poäng innebär mera besvär/högre risk.
+
+Sektionen i enkäten inleds med meningen: "NÅGRA FRÅGOR OM HUR DU MÅR".
+
+### Lista med enkätfrågorna
+
+```{r}
+#| label: showitems
+#| tbl-cap-location: top
+
+RIlistitems(df.omit.na)
+```
+
+### Demografi
+
+Vi har `r nrow(df.omit.na)` deltagare i samplet från 2014, och deras könsfördelning återges i tabellen nedan. Deltagare som saknar data på samtliga frågor är borttagna ur analysen.
+
+```{r}
+#| label: genderdistr
+#| layout-ncol: 2
+
+# Make table object to show gender counts and percentages
+dif.gender %>%
+#  recode("1='Male';2='Female'") %>% 
+  table() %>% 
+  as_tibble() %>% 
+  mutate('Percent' = (round((100 * n / sum(n)),1))) %>% 
+  dplyr::rename('Kön' = '.') %>% 
+  kbl(booktabs = T, escape = F, table.attr = "style='width:20%;'") %>%
+  # options for HTML output
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                position = "center",
+                full_width = T,
+                font_size = r.fontsize,
+                fixed_thead = T) %>% 
+  column_spec(1, bold = T) %>% 
+  kable_classic(html_font = "Lato") %>% 
+  # latex_options are for PDF output
+  kable_styling(latex_options = c("striped","scale_down"))
+
+dif.arskurs %>%
+#  recode("1='Male';2='Female'") %>% 
+  table() %>% 
+  as_tibble() %>% 
+  mutate('Percent' = (round((100 * n / sum(n)),1))) %>% 
+  dplyr::rename('Årskurs' = '.') %>% 
+  kbl(booktabs = T, escape = F, table.attr = "style='width:20%;'") %>%
+  # options for HTML output
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                position = "center",
+                full_width = T,
+                font_size = r.fontsize,
+                fixed_thead = T) %>% 
+  column_spec(1, bold = T) %>% 
+  kable_classic(html_font = "Lato") %>% 
+  # latex_options are for PDF output
+  kable_styling(latex_options = c("striped","scale_down"))
+
+```
+
+
+### Item-data
+
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+#### Stacked bars
+```{r}
+#| label: stack1
+RIbarstack(df.omit.na)
+```
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+```
+:::
+
+## Rasch-analys 1
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: rasch1.fit
+RIitemfitPCM2(df.omit.na)
+```
+### PCA
+```{r}
+#| label: rasch1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Loadings 1st contrast
+```{r}
+#| label: rasch1.load
+RIloadLoc(df.omit.na)
+```
+### Residual correlations
+```{r}
+#| label: rasch1.rcorr
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: rasch1.targ
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: rasch1.targs
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: rasch1.items
+RIlistitems(df.omit.na)
+```
+:::
+
+PCA på residualer från Rasch-modellen indikerar möjlig multidimensionalitet. Utifrån faktorladdningarna på första residualkontrasten ser vi två potentiella kluster i data. Det ena betecknas av de psykosomatiska frågorna, det andra av psykiska besvär.
+
+## Psykosomatiska besvär
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: rasch2.fit
+
+items.psm <- c("F88","F91","F93","F95","F98")
+
+df.psm <- df.omit.na %>% 
+  select(any_of(items.psm))
+
+RIitemfitPCM2(df.psm)
+```
+### PCA
+```{r}
+#| label: rasch2.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.psm)
+```
+### Residual correlations
+```{r}
+#| label: rasch2.rcorr
+RIresidcorr(df.psm, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: rasch2.targ
+RItargeting(df.psm)
+```
+### Targeting sorterad
+```{r}
+#| label: rasch2.targs
+df.erm<-PCM(df.psm)
+plotPImap(df.erm, sorted = T)
+```
+### Svarskategorier
+```{r}
+#| label: rasch2.rcat1
+#| include: false
+mirt.rasch <- mirt(df.psm, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: rasch2.rcat2
+plot(mirt.rasch, type="trace")
+```
+### Barplots {.scrollable}
+```{r}
+#| label: rasch2.raw
+#| layout-ncol: 2
+for (i in 1:ncol(df.psm)) {
+    barplot(table(df.psm[, i]), col = "#8dc8c7", main = names(df.psm[i]), 
+      ylab = "Number of responses", xlab = (itemlabels %>% 
+                                              filter(itemnr %in% names(df.psm)) 
+                                            %>% .[i,2]))
+  }
+```
+### Items
+```{r}
+#| label: rasch2.items
+RIlistitems(df.psm)
+```
+:::
+
+Bortsett från svarskategorierna fungerar detta acceptabelt så långt. 
+
+## Omkodning av svarskategorier
+
+Vi behöver åtgärda flera items:
+
+- F91: 1+2 och 3+4
+- F93 och F98: 3+4
+
+```{r}
+#| label: psm.recode
+#| layout-ncol: 2
+
+df.psm$F91<-recode(df.psm$F91,"2=1;3=2;4=2",as.factor=FALSE)
+df.psm$F93<-recode(df.psm$F93,"4=3",as.factor=FALSE)
+df.psm$F98<-recode(df.psm$F98,"4=3",as.factor=FALSE)
+
+df.erm<- PCM(df.psm)
+plotICC(df.erm, item.subset = c("F91","F93","F98"))
+```
+
+### Rasch-analys 2
+
+Efter att ha åtgärdat svarskategorierna.
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: rasch3.fit
+RIitemfitPCM2(df.psm)
+```
+### PCA
+```{r}
+#| label: rasch3.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.psm)
+```
+### Loadings 1st contrast
+```{r}
+#| label: rasch3.load
+RIloadLoc(df.psm)
+```
+### Residual correlations
+```{r}
+#| label: rasch3.rcorr
+RIresidcorr(df.psm, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: rasch3.targ
+RItargeting(df.psm)
+```
+### Targeting sorterad
+```{r}
+#| label: rasch3.targs
+df.erm<-PCM(df.psm)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: rasch3.rel
+RItif(df.psm)
+```
+### Items
+```{r}
+#| label: rasch3.items
+RIlistitems(df.psm)
+```
+:::
+
+
+## Invarians-/DIF-analys av kön
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: dif1
+RIdifTable(df.psm, dif.gender)
+```
+### Figur
+```{r}
+#| label: dif1.2
+RIdifFigure(df.psm, dif.gender)
+```
+### Items
+```{r}
+#| label: dif1.3
+RIlistitems(df.psm)
+```
+:::
+
+Inga problem med DIF för något item gällande kön.
+
+## Invarians/DIF för årtal
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difyear1
+
+final.psm.items <- names(df.psm)
+write.csv(final.psm.items, file = "2022-09-18_PSMfinalitems.csv")
+df.dif.years <- df.dif.years %>% 
+  select(any_of(final.psm.items))
+
+df.dif.years$F91<-recode(df.dif.years$F91,"2=1;3=2;4=2",as.factor=FALSE)
+df.dif.years$F93<-recode(df.dif.years$F93,"4=3",as.factor=FALSE)
+df.dif.years$F98<-recode(df.dif.years$F98,"4=3",as.factor=FALSE)
+
+RIdifTable(df.dif.years, dif.year)
+```
+### Figur
+```{r}
+#| label: difyear1.2
+
+RIdifFigure(df.dif.years, dif.year)
+```
+:::
+
+Items är stabila och jämförbara över tid.
+
+
+## Psykiska besvär
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: raschpsy1.fit
+
+items.psm <- c("F88","F91","F93","F95","F98")
+
+df.psy <- df.omit.na %>% 
+  select(!any_of(items.psm))
+
+RIitemfitPCM2(df.psy)
+```
+### PCA
+```{r}
+#| label: raschpsy1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.psy)
+```
+### Residual correlations
+```{r}
+#| label: raschpsy1.rcorr
+RIresidcorr(df.psy, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: raschpsy1.targ
+RItargeting(df.psy)
+```
+### Targeting sorterad
+```{r}
+#| label: raschpsy1.targs
+df.erm<-PCM(df.psy)
+plotPImap(df.erm, sorted = T)
+```
+### Svarskategorier
+```{r}
+#| label: raschpsy1.rcat1
+#| include: false
+mirt.rasch <- mirt(df.psy, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: raschpsy1.rcat2
+plot(mirt.rasch, type="trace")
+```
+### Barplots {.scrollable}
+```{r}
+#| label: raschpsy1.raw
+#| layout-ncol: 2
+for (i in 1:ncol(df.psy)) {
+    barplot(table(df.psy[, i]), col = "#8dc8c7", main = names(df.psy[i]), 
+      ylab = "Number of responses", xlab = (itemlabels %>% 
+                                              filter(itemnr %in% names(df.psy)) 
+                                            %>% .[i,2]))
+  }
+```
+### Items
+```{r}
+#| label: raschpsy1.items
+RIlistitems(df.psy)
+```
+:::
+
+Items 92 och 96 har en för stor residualkorrelation. Många items har problem med oordnade svarskategorier.
+
+## Omkodning av svarskategorier
+
+Vi behöver åtgärda flera items:
+
+- F89, 90, 96, 97: 1+2 och 3+4
+- F92, 99: 3+4
+
+(flera varianter testades)
+
+```{r}
+#| label: psm.recode
+#| layout-ncol: 2
+
+df.psy$F89<-recode(df.psy$F89,"2=1;3=2;4=2",as.factor=FALSE)
+df.psy$F90<-recode(df.psy$F90,"2=1;3=2;4=2",as.factor=FALSE)
+
+df.psy$F92<-recode(df.psy$F92,"4=3",as.factor=FALSE)
+df.psy$F99<-recode(df.psy$F99,"4=3",as.factor=FALSE)
+
+df.psy$F96<-recode(df.psy$F96,"2=1;3=2;4=2",as.factor=FALSE)
+df.psy$F97<-recode(df.psy$F97,"2=1;3=2;4=2",as.factor=FALSE)
+
+df.erm<- PCM(df.psy)
+plotICC(df.erm)
+```
+
+### Rasch-analys 2
+
+Efter att ha åtgärdat svarskategorierna.
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: raschpsy2.fit
+RIitemfitPCM2(df.psy)
+```
+### PCA
+```{r}
+#| label: raschpsy2.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.psy)
+```
+### Residual correlations
+```{r}
+#| label: raschpsy2.rcorr
+RIresidcorr(df.psy, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: raschpsy2.targ
+RItargeting(df.psy)
+```
+### Targeting sorterad
+```{r}
+#| label: raschpsy2.targs
+df.erm<-PCM(df.psy)
+plotPImap(df.erm, sorted = T)
+```
+### Reliabilitet
+```{r}
+#| label: raschpsy2.rel
+RItif(df.psy)
+```
+### Items
+```{r}
+#| label: raschpsy2.items
+RIlistitems(df.psy)
+```
+:::
+
+Vi har två residualkorrelationer ca 0.25 över medelvärdet för samtliga residualkorrelationer.
+
+- F96 tas bort (F92 behålls pga bättre targeting)
+- F90 tas bort (F89 behålls pga bättre targeting)
+
+### Reliabilitet
+```{r}
+#| label: raschpsy2.rel2
+
+df.psy$F96 <- NULL
+df.psy$F90 <- NULL
+
+RItif(df.psy)
+```
+
+
+Eftersom många items uppvisade problem med svarskategorierna blir reliabiliteten låg.
+
+
+
+## Samtliga items i ett gemensamt index
+
+Vi återgår till grunddata och tittar på alla items tillsammans igen (utan att ha åtgärdat svarskategorierna).
+
+::: panel-tabset
+### Svarskategorier
+```{r}
+#| label: respcat1
+#| include: false
+mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: respcatfig1
+plot(mirt.rasch, type="trace")
+```
+### PCA av residualer
+```{r}
+#| label: dim1
+## tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+#| label: locdeps1
+RIresidcorr(df.omit.na, 0.2)
+```
+### Loadings 1st contrast
+```{r}
+#| label: rasch1.load
+RIloadLoc(df.omit.na)
+```
+### Item fit
+```{r}
+#| label: locdeps1.2
+RIitemfitPCM2(df.omit.na, 300, 6)
+```
+### Targeting
+```{r}
+#| label: locdeps1.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps1.4
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps1.5
+RIlistitems(df.omit.na)
+```
+:::
+
+Item fit ser bra ut. Det finns en del problem med residualkorrelationer och svarskategorier. Vi börjar med att åtgärda svarskategorierna, som de flesta items har problem med.
+
+## Omkodning av svarskategorier
+
+Vi slår ihop följande svarskategorier
+
+- För items 89, 90, 91, 94: 1 & 2 och 3 & 4
+- För items 95, 97: 0 & 1
+- För items 92, 93, 96, 98, 99: 3 & 4
+
+```{r}
+#| label: recodingrcats
+
+rcat1 <- c("F89","F90","F91","F94")
+rcat2 <- c("F95","F97")
+rcat3 <- c("F92","F93","F96","F98","F99")
+
+for (i in rcat1) {
+  df.omit.na[[i]]<-recode(df.omit.na[[i]],"2=1;3=2;4=2",as.factor=FALSE)
+}
+for (i in rcat2) {
+  df.omit.na[[i]]<-recode(df.omit.na[[i]],"1=0;2=1;3=2;4=3",as.factor=FALSE)
+}
+for (i in rcat3) {
+  df.omit.na[[i]]<-recode(df.omit.na[[i]],"4=3",as.factor=FALSE)
+}
+
+```
+
+## Rasch-parametrar 2
+
+::: panel-tabset
+### Svarskategorier
+```{r}
+#| label: respcat2
+#| include: false
+mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: respcatfig2
+plot(mirt.rasch, type="trace")
+```
+### Residualkorrelationer {.smaller}
+```{r}
+#| label: locdeps2
+#| cache: true
+
+RIresidcorr(df.omit.na, 0.2)
+```
+### Item fit
+```{r}
+#| label: locdeps2.2
+#| cache: true
+RIitemfitPCM(df.omit.na, 300, 5)
+```
+### Targeting
+```{r}
+#| label: locdeps2.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps2.4
+#| cache: true
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps2.5
+#| cache: true
+RIlistitems(df.omit.na)
+```
+### PCA
+```{r}
+#| label: dim4
+#| tbl-cap: "PCA of Rasch model residuals"
+#| cache: true
+RIpcmPCA(df.omit.na)
+```
+:::
+
+Även om det är mycket små avstånd mellan trösklarna för en del items så ser det acceptabelt ut. Efter att ha löst problemen med svarskategorierna har det största egenvärdet i PCA-analys av residualer gått från 2.02 till 1.96, d.v.s. under gränsvärdet 2.0.
+
+Det finns tre item-par med rödmarkerade värden, där den som ligger på 0.13 är knappt över gränsvärdet på 0.127.
+
+- F89 och F90 (ledsen och deppig/rädd **utan att veta varför**)
+- F92 och F96 (ändra på dig själv/nöjd med ditt utseende)
+- F95 och F98 (svårt att somna/sovit oroligt och vaknat under natten)
+
+Det är tydligt att dessa items är ganska lika till innehållet.
+
+## Item-eliminering
+
+- F90 har sämre targeting, och är en något märklig fråga.
+- F96 har sämre targeting
+
+Vi låter både 95 och 98 vara kvar tills vidare.
+
+::: panel-tabset
+### Residualkorrelationer
+```{r}
+#| label: locdeps3
+df.omit.na$F90 <- NULL
+df.omit.na$F96 <- NULL
+
+removed.items <- c("F90","F96")
+
+RIresidcorr(df.omit.na, 0.2)
+```
+### Item fit
+```{r}
+#| label: locdeps3.2
+RIitemfitPCM(df.omit.na, 300, 5)
+```
+### Targeting
+```{r}
+#| label: locdeps3.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps3.4
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps3.5
+RIlistitems(df.omit.na)
+```
+### PCA
+```{r}
+#| label: dim3
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+:::
+
+F94 korrelerar med två andra items och tas bort.
+
+## Item-eliminering 2
+
+::: panel-tabset
+### Residualkorrelationer
+```{r}
+#| label: locdeps4
+df.omit.na$F94 <- NULL
+
+removed.items <- c("F90","F96","F94")
+
+RIresidcorr(df.omit.na, 0.2)
+```
+### Item fit
+```{r}
+#| label: locdeps4.2
+RIitemfitPCM(df.omit.na, 300, 5)
+```
+### Targeting
+```{r}
+#| label: locdeps4.3
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: locdeps4.4
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Items
+```{r}
+#| label: locdeps4.5
+RIlistitems(df.omit.na)
+```
+### PCA
+```{r}
+#| label: locdeps4.6
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+:::
+
+## DIF/invarians-analys av kön
+
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difgender
+
+RIdifTable(df.omit.na, dif.gender)
+```
+### Figur
+```{r}
+#| label: difgender2
+RIdifFigure(df.omit.na, dif.gender)
+```
+### Items
+```{r}
+#| label: dif1.3
+RIlistitems(df.omit.na)
+```
+:::
+
+F89 ligger ovanför gränsvärdet på 0.5 logits. F99 ligger något högt men inte över gränsvärdet.
+
+
+## Reliabilitet
+::: panel-tabset
+### Test information
+```{r}
+#| label: rel1
+RItif(df.omit.na)
+```
+### Targeting
+```{r}
+#| label: rel1.2
+RItargeting(df.omit.na)
+```
+:::
+
+Eftersom vi har god reliabilitet är det rimligt att ta bort F89, snarare än att göra någon annan typ av åtgärd (item-split t.ex.).
+
+## Reliabilitet utan F89
+::: panel-tabset
+### Test information
+```{r}
+#| label: rel2
+
+df.omit.na$F89 <- NULL
+removed.items <- c(removed.items,"F89")
+RItif(df.omit.na)
+```
+### Targeting
+```{r}
+#| label: rel2.2
+RItargeting(df.omit.na)
+```
+:::
+
+Fortfarande god reliabilitet där de flesta individer befinner sig. Det är möjligt att ta bort ytterligare items. Förslagsvis någon av de items som finns där det är gott om trösklar, och som har låg spridning på sina trösklar.
+
+## Invarians/DIF för årtal
+::: panel-tabset
+### Tabell
+```{r}
+#| label: difyear1
+
+final.items <- names(df.omit.na)
+write.csv(final.items, file = "2022-09-22_PSFfinalitems.csv")
+df.dif.years <- df.dif.years %>% 
+  select(any_of(final.items))
+
+rcat1 <- c("F91")
+rcat2 <- c("F95","F97")
+rcat3 <- c("F92","F93","F98","F99")
+
+for (i in rcat1) {
+  df.dif.years[[i]]<-recode(df.dif.years[[i]],"2=1;3=2;4=2",as.factor=FALSE)
+}
+for (i in rcat2) {
+  df.dif.years[[i]]<-recode(df.dif.years[[i]],"1=0;2=1;3=2;4=3",as.factor=FALSE)
+}
+for (i in rcat3) {
+  df.dif.years[[i]]<-recode(df.dif.years[[i]],"4=3",as.factor=FALSE)
+}
+
+RIdifTable(df.dif.years, dif.year)
+```
+### Figur
+```{r}
+#| label: difyear1.2
+
+RIdifFigure(df.dif.years, dif.year)
+```
+:::
+
+Ingen fråga uppvisar DIF över tid.
+
+## Item-reduktion
+
+- F91 har bara två trösklar, vars location är där det finns gott om andra trösklar
+- F98
+
+## Reliabilitet utan F91 & F98
+::: panel-tabset
+### Test information
+```{r}
+#| label: rel3
+
+df.omit.na$F91 <- NULL
+df.omit.na$F98 <- NULL
+
+removed.items <- c(removed.items,"F91","F98")
+RItif(df.omit.na)
+```
+### Targeting
+```{r}
+#| label: rel3.2
+RItargeting(df.omit.na)
+```
+:::
+
+Det ser fortfarande acceptabelt ut med reliabiliteten.
+
+
+## Item parameters
+
+```{r}
+#| label: itemparams
+final.items <- names(df.omit.na)
+write.csv(final.items, file = "2022-08-23 PSFfinalitems.csv")
+
+RIlistitems(df.omit.na)
+df.final <- df %>% 
+  select(any_of(final.items)) %>% 
+  na.omit()
+
+#df.ermo <- PCM(df.final)
+
+rcat2 <- c("F95","F97")
+rcat3 <- c("F92","F93","F99")
+
+for (i in rcat2) {
+  df.final[[i]]<-recode(df.final[[i]],"1=0;2=1;3=2;4=3",as.factor=FALSE)
+}
+for (i in rcat3) {
+  df.final[[i]]<-recode(df.final[[i]],"4=3",as.factor=FALSE)
+}
+
+RIitemparams(df.final)
+```
+
+
+## Person location och infit ZSTD 
+
+```{r}
+#| label: personfit1
+
+RIpfit(df.omit.na)
+
+```
+
+## Exempel med single-item vs index
+
+Data från enbart 2020.
+
+OBS! Viktigt att komma ihåg att höga värden = hög risk, vilket även gäller svar på enskilda frågor. En positiv fråga som F99 har alltså omvända svarskategorier (3 och 4 sammanslagna):
+
+- 3-4 - Sällan / Någon enstaka gång
+- 2 - Ibland
+- 1 - Ganska ofta
+- 0 - Väldigt ofta
+
+```{r}
+#| label: itemind1
+
+#---- create df with only 2020 respondents as example----
+df.if <- df %>% 
+  filter(ar == 2020) %>% 
+  select(any_of(final.items),Kön) %>% 
+  na.omit()
+
+F99o <- df.if$F99
+
+rcat2 <- c("F95","F97")
+rcat3 <- c("F92","F93","F99")
+
+for (i in rcat2) {
+  df.if[[i]]<-recode(df.if[[i]],"1=0;2=1;3=2;4=3",as.factor=FALSE)
+}
+for (i in rcat3) {
+  df.if[[i]]<-recode(df.if[[i]],"4=3",as.factor=FALSE)
+}
+df.if.gender <- df.if$Kön
+df.if$Kön <- NULL
+#---- estimate person locations----
+library(catR)
+
+# create matrix with item parameters
+df.erm <- PCM(df.final)
+item.estimates <- eRm::thresholds(df.erm)
+item_difficulty <- as.data.frame(item.estimates[["threshtable"]][["1"]])
+item_difficulty$Location <- NULL
+items <- item_difficulty %>% 
+  mutate_if(is.character, as.numeric) %>% 
+  as.matrix()
+
+# loop through all participants to calculate theta for each one
+thetaEstScores <- c()
+for (i in 1:nrow(df.if)){
+  p1 <- as.numeric(as.vector(df.if[i,]))
+  ptheta <- thetaEst(items, p1, model = "PCM", method = "ML") # several method options available for theta calculation
+  thetaEstScores <- c(thetaEstScores,ptheta)
+}
+
+# # loop through all participants theta scores to calculate SE for each one
+# thetaEstSE <- c()
+# for (i in 1:length(thetaEstScores)) {
+#   p1theta <- thetaEstScores[i]
+#   p1 <- as.numeric(as.vector(df.if[i,]))
+#   pthetaSE <- semTheta(thEst = p1theta, it = items, x = p1, model = "PCM", method = "ML") # several method options available for theta calculation
+#   thetaEstSE <- c(thetaEstSE,pthetaSE)
+# }
+
+df.if$SumScores <- thetaEstScores
+df.if$Kön <- df.if.gender
+df.if$F99o <- F99o
+#write_parquet(df.if, sink = "PSF2020.parquet")
+
+#---- barplot for single item----
+barplot(table(df.if$F99), col = "#8dc8c7", main = "Svarsfördelning för item F99")
+
+
+
+#---- visualize single item vs index score----
+# some code from https://dallasnova.rbind.io/post/efficient-data-visualization-with-faded-raincloud-plots-delete-boxplot/
+library(ggdist) # for shadeable density slabs
+library(gghalves) # for half-half geoms
+library(ggpp) # for position_dodge2nudge
+library(colorspace) # for lightening color palettes
+library(extrafont) # for Lato, RISE font
+library(stringr)
+# Setting colorblind-friendly palette
+cbPalette <-c("#999999","#E69F00", "#56B4E9","#009E73",
+              "#F0E442", "#0072B2", "#D55E00","#CC79A7")
+
+cbPalette <- lighten(cbPalette, amount = 0.6, space = "HLS")
+
+#---- plot for index value distributions divided by gender----
+
+ggplot(df.if, aes(x = Kön, y = SumScores)) +
+  stat_slab(side = "right", show.legend = F,
+            scale = 0.6, # defines the height that a slab can reach
+            position = position_dodge(width=.6), # distance between elements for dodging
+            aes(fill_ramp = stat(level), fill=Kön), 
+            .width = c(.50,.95,1)) +  # set shading
+  stat_summary(fun.data = "mean_cl_normal",show.legend = F, size = .4,
+               position = position_dodge2nudge(x=.05,width = .8)) +
+# styling
+  scale_fill_ramp_discrete(from='black', aesthetics = "fill_ramp")+ # set ramping color
+  guides( # change name and display of legend elements
+          color="none") + # suppresses color legend item) 
+  scale_colour_manual(values = cbPalette, aesthetics = c("colour","fill"))+
+  theme(plot.caption = element_text(face = "italic")) +
+  #xlab(str_wrap("Svarskategorier för item F99", width = 40)) +
+  ylab("Indexvärde") +
+  ggtitle("Svarsfördelning för psykisk och psykosomatisk hälsa") +
+  #labs(caption = "Punkterna visar medelvärden för indexvärde, fälten motsvarar 50% och 95% av distributionen.",
+  #     subtitle = "Item F99 - Hur ofta tycker du att det är riktigt härligt att leva?") +
+  coord_flip()
+
+#---- plots for index value vs single item response ----
+ggplot(df.if, aes(x = as.factor(F99), y = SumScores)) +
+  #geom_violin()
+  # density distribution slab
+  #geom_boxplot(size = 0.2) +
+  stat_slab(side = "right", show.legend = F,
+            scale = 0.6, # defines the height that a slab can reach
+            position = position_dodge(width=.6), # distance between elements for dodging
+            aes(fill_ramp = stat(level), fill=as.factor(F99)), 
+            .width = c(.50,.95,1)) +  # set shading
+  stat_summary(fun.data = "mean_cl_normal", show.legend = F, size = .4,
+               position = position_dodge2nudge(x=.05,width = .8)) +
+# styling
+  scale_fill_ramp_discrete(from='black', aesthetics = "fill_ramp")+ # set ramping color
+  guides( # change name and display of legend elements
+          color="none") + # suppresses color legend item) 
+  scale_colour_manual(values = cbPalette, aesthetics = c("colour","fill"))+
+  theme(plot.caption = element_text(face = "italic")) +
+  xlab(str_wrap("Svarskategorier för item F99", width = 40)) +
+  ylab("Indexvärde") +
+  ggtitle("Jämförelse av ett item och indexvärde") +
+  labs(caption = "Punkterna visar medelvärden för indexvärde, fälten motsvarar 50% och 95% av distributionen.",
+       subtitle = "Item F99 - Hur ofta tycker du att det är riktigt härligt att leva?") +
+  coord_flip()
+
+ggplot(df.if, aes(x = as.factor(F99), y = SumScores)) +
+  #geom_violin()
+  # density distribution slab
+  #geom_boxplot(size = 0.2) +
+  stat_slab(side = "right", show.legend = T,
+            scale = 0.6, # defines the height that a slab can reach
+            position = position_dodge(width=.6), # distance between elements for dodging
+            aes(fill_ramp = stat(level), fill=Kön), 
+            .width = c(.50,.95,1)) +  # set shading
+  stat_summary(fun.data = "mean_cl_normal",show.legend = F, size = .4,
+               position = position_dodge2nudge(x=.05,width = .8)) +
+# styling
+  scale_fill_ramp_discrete(from='black', aesthetics = "fill_ramp")+ # set ramping color
+  guides( # change name and display of legend elements
+          color="none") + # suppresses color legend item) 
+  scale_colour_manual(values = cbPalette, aesthetics = c("colour","fill"))+
+  theme(plot.caption = element_text(face = "italic")) +
+  xlab(str_wrap("Svarskategorier för item F99", width = 40)) +
+  ylab("Indexvärde") +
+  ggtitle("Jämförelse av ett item och indexvärde") +
+  labs(caption = "Punkterna visar medelvärden för indexvärde, fälten motsvarar 50% och 95% av distributionen.",
+       subtitle = "Item F99 - Hur ofta tycker du att det är riktigt härligt att leva?") +
+  coord_flip()
+
+
+# stat_dotsinterval(scale = 0.5, quantiles = 100, position = "dodge") +
+
+```
+### Distribution med ej omkodade svarskategorier
+
+```{r}
+#| label: testing
+
+barplot(table(df.if$F99o), col = "#8dc8c7", main = "Svarsfördelning för item F99 innan recode")
+
+plotICC(df.ermo, item.subset = "F99")
+
+ggplot(df.if, aes(x = as.factor(F99o), y = SumScores)) +
+  #geom_violin()
+  # density distribution slab
+  #geom_boxplot(size = 0.2) +
+  stat_slab(side = "right", show.legend = F,
+            scale = 0.6, # defines the height that a slab can reach
+            position = position_dodge(width=.6), # distance between elements for dodging
+            aes(fill_ramp = stat(level), fill=as.factor(F99o)), 
+            .width = c(.50,.95,1)) +  # set shading
+  stat_summary(fun.data = "mean_cl_normal", show.legend = F, size = .4,
+               position = position_dodge2nudge(x=.05,width = .8)) +
+# styling
+  scale_fill_ramp_discrete(from='black', aesthetics = "fill_ramp")+ # set ramping color
+  guides( # change name and display of legend elements
+          color="none") + # suppresses color legend item) 
+  scale_colour_manual(values = cbPalette, aesthetics = c("colour","fill"))+
+  theme(plot.caption = element_text(face = "italic")) +
+  xlab(str_wrap("Svarskategorier för item F99", width = 40)) +
+  ylab("Indexvärde") +
+  ggtitle("Jämförelse av ett item och indexvärde") +
+  labs(caption = "Punkterna visar medelvärden för indexvärde, fälten motsvarar 50% och 95% av distributionen.",
+       subtitle = "Item F99o - Hur ofta tycker du att det är riktigt härligt att leva?") +
+  coord_flip()
+```
+
+
+```{r}
+#| label: test splitviolin
+# 
+# GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin,
+#                            draw_group = function(self, data, ..., draw_quantiles = NULL) {
+#                              # Original function by Jan Gleixner (@jan-glx)
+#                              # Adjustments by Wouter van der Bijl (@Axeman)
+#                              data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
+#                              grp <- data[1, "group"]
+#                              newdata <- plyr::arrange(transform(data, 
+#                                                                 x = if (grp %% 2 == 1) xminv
+#                                                                 else xmaxv), 
+#                                                       if (grp %% 2 == 1) y else -y)
+#                              newdata <- rbind(newdata[1, ], newdata, 
+#                                               newdata[nrow(newdata), ], newdata[1, ])
+#                              newdata[c(1, nrow(newdata) - 1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
+#                              if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+#                                stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 1))
+#                                quantiles <- create_quantile_segment_frame(data, draw_quantiles, split = TRUE, grp = grp)
+#                                aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+#                                aesthetics$alpha <- rep(1, nrow(quantiles))
+#                                both <- cbind(quantiles, aesthetics)
+#                                quantile_grob <- GeomPath$draw_panel(both, ...)
+#                                ggplot2:::ggname("geom_split_violin", grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+#                              }
+#                              else {
+#                                ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+#                              }
+#                            }
+# )
+# 
+# create_quantile_segment_frame <- function(data, draw_quantiles, split = FALSE, grp = NULL) {
+#   dens <- cumsum(data$density) / sum(data$density)
+#   ecdf <- stats::approxfun(dens, data$y)
+#   ys <- ecdf(draw_quantiles)
+#   violin.xminvs <- (stats::approxfun(data$y, data$xminv))(ys)
+#   violin.xmaxvs <- (stats::approxfun(data$y, data$xmaxv))(ys)
+#   violin.xs <- (stats::approxfun(data$y, data$x))(ys)
+#   if (grp %% 2 == 0) {
+#     data.frame(
+#       x = ggplot2:::interleave(violin.xs, violin.xmaxvs),
+#       y = rep(ys, each = 2), group = rep(ys, each = 2)
+#     )
+#   } else {
+#     data.frame(
+#       x = ggplot2:::interleave(violin.xminvs, violin.xs),
+#       y = rep(ys, each = 2), group = rep(ys, each = 2)
+#     )
+#   }
+# }
+# 
+# geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity", 
+#                               position = "identity", ..., draw_quantiles = NULL, 
+#                               trim = TRUE, scale = "area", na.rm = FALSE, 
+#                               show.legend = NA, inherit.aes = TRUE) {
+#   layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, 
+#         position = position, show.legend = show.legend, inherit.aes = inherit.aes, 
+#         params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, 
+#                       na.rm = na.rm, ...))
+# }
+# 
+# ggplot(data = df.if, aes(y = SumScores, x = factor(F99))) +
+# # Draw interquatile lines, AND draw a bunch of quantile lines around .5 to make a slightly thicker median strip - Dallas's ULTRA hacky and not great-looking solution  
+#   geom_split_violin(aes(fill=Kön, y = satisfaction, x = factor(F99), color = "grey")) +
+#         stat_summary(fun.data = "mean_cl_normal",show.legend = FALSE,size = .2,
+#                position = position_dodge2nudge(width = .7))+
+#   # styling
+#     scale_fill_ramp_discrete(from='white', aesthetics = "fill_ramp")+ # set ramping color
+#     guides( # change name and display of legend elements
+#            color="none") + # suppresses color legend item) 
+#   scale_colour_manual(values = cbPalette, aesthetics = c("colour","fill"))+
+#   theme_half_open() +   guides(fill_ramp = "none") +
+#   labs(subtitle = "Split violin")+
+#   theme(legend.position = "none")
+
+```
+
+
+## Software used
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+```
+
+## Referenser
+
+
+
+
+
+
+
+
+
+
+
+
+

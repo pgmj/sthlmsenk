@@ -1,0 +1,297 @@
+---
+title: "Stockholmsenkäten"
+subtitle: "Mobbning"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-09-21'
+format: 
+  html:
+    toc: true
+    embed-resources: true
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 300
+  pdf:
+    papersize: a4
+    documentclass: report #article, report or book
+    classoption: [onecolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: true
+    embed-resources: false
+    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(arrow)
+library(ggrepel)
+library(car)
+library(ggrepel)
+library(grateful)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable)
+library(RISEkbmRasch)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels <- read.csv("/Users/magnuspjo/Library/CloudStorage/OneDrive-RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/MOBBNINGitemlabels.csv", fileEncoding = "UTF-8")
+
+# import recoded data
+df.all <- read_parquet("/Users/magnuspjo/Library/CloudStorage/OneDrive-RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-18 sthlmsenkat recoded responses.parquet")
+
+# filter relevant variables
+df <- df.all %>% 
+  select(starts_with("f60"),F61,F63,ar,Kön,ARSKURS,SkolSDO) %>% 
+  select(!f60a)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- df %>% 
+  filter(ar == 2014) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2014
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.SkolSDO <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(!Kön,!ARSKURS,!SkolSDO)
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+```
+
+Items i f60 inleds med texten:
+*Har du känt dig mobbad eller trakasserad i skolan det här läsåret? (Markera med ett eller flera kryss)*
+
+Item f60a har enbart kryssruta för "Nej" och har därför tagits bort. Övriga items i f60 har också kryssrutor, vilket innebär att de antingen är förkryssade eller inte. Dessa har blivit kodade som 1 när ett svar är förkryssat, och 0 när kryss saknas.
+
+Item F61 efterfrågar frekvens på mobbning/trakassering i skolan under läsåret, och har därför fler svarskategorier.
+
+### Deskriptiva data
+
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+for (i in 1:ncol(df.omit.na)) {
+    barplot(table(df.omit.na[, i]), col = "#8dc8c7", main = names(df.omit.na[i]), 
+      ylab = "Number of responses", xlab = (itemlabels %>% 
+                                              filter(itemnr %in% names(df.omit.na)) 
+                                            %>% .[i,2]))
+  }
+```
+:::
+
+## Rasch-parametrar 1
+
+Eftersom vi har en blandning av dikotoma och polytoma (fler än 2 svarskategorier) använder vi Partial Credit Model.
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: rasch1.fit
+
+RIitemfitPCM2(df.omit.na)
+```
+### PCA
+```{r}
+#| label: rasch1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+#| label: rasch1.rcorr
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: rasch1.targ
+RItargeting(df.omit.na)
+```
+### Targeting sorterad
+```{r}
+#| label: rasch1.targs
+df.erm<-PCM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Loadings 1st contrast
+```{r}
+#| label: rasch1.load
+RIloadLoc(df.omit.na)
+```
+### Analysis of response categories
+
+```{r}
+#| label: rasch1.cat
+#| include: false
+mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+#| label: rasch1.catfig
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+#| label: rasch1.items
+RIlistitems(df.omit.na)
+```
+:::
+
+F61 har för låg MSQ, och svarskategorierna fungerar dåligt.
+
+- Jag har inte blivit mobbad = 0
+- Det har hänt någon enstaka gång = 1 
+- 2 eller 3 gånger i månaden = 2
+- Ungefär en gång i veckan = 3
+- Flera gånger i veckan = 4
+
+Vi tar bort F61 pga låg MSQ, men provar att använda den bland skolfrågor och "Vantrivsel i skolan".
+
+Item f60h, som frågar specifikt om lärare medan alla andra item är ospecifika kring vem som mobbar, har något hög Outfit MSQ och avvikande loading.
+
+## Rasch-parametrar 2 (utan F61)
+
+Eftersom vi inte längre har en blandning av dikotoma och polytoma items, utan bara dikotoma använder vi den vanliga Rasch-modellen.
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: rasch1.fit
+
+df.omit.na$F61 <- NULL
+
+RIitemfitRM(df.omit.na, 300, 6)
+```
+### PCA
+```{r}
+#| label: rasch1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIrmPCA(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+#| label: rasch1.rcorr
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: rasch1.targ
+RItargeting(df.omit.na, dich = T)
+```
+### Targeting sorterad
+```{r}
+#| label: rasch1.targs
+df.erm<-RM(df.omit.na)
+plotPImap(df.erm, sorted = T)
+```
+### Loadings 1st contrast
+```{r}
+#| label: rasch1.load
+RIloadLoc(df.omit.na)
+```
+### Items
+```{r}
+#| label: rasch1.items
+RIlistitems(df.omit.na)
+```
+:::
+
+

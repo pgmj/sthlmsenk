@@ -1,0 +1,33 @@
+project:
+  type: book
+  output-dir: _book
+# https://quarto.org/docs/reference/projects/books.html
+# https://quarto.org/docs/reference/projects/books.html#navbar
+# https://quarto.org/docs/reference/projects/books.html#sidebar
+book:
+  title: "Stockholmsenkäten"
+  subtitle: "Psykometrisk analys med Rasch-metodik"
+  repo-url: https://github.com/pgmj/
+  
+  sidebar:
+    style: floating
+  
+  author: 
+    name: 'Magnus Johansson'
+    affiliation: 'RISE Research Institutes of Sweden'
+    affiliation-url: 'https://ri.se/shic'
+    orcid: '0000-0003-1669-592X'
+    
+  date: '2022-11-21'
+  
+  chapters:
+  - index.qmd
+  - 02_IF/02_Individfaktorer.qmd
+  
+format:
+  html:
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    linestretch: 1.7
+    theme: materia

@@ -1,0 +1,1359 @@
+---
+title: "Individfaktorer"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-11-21'
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 250
+    layout-align: left
+    linestretch: 1.7
+    theme: materia
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+#    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+```{r}
+#| label: recoderawdata
+#| include: false
+
+# ###### Individfaktorer
+# # koda om svaren för items som ingår i individfaktorer, F66a-F66u i data, fråga 67 i PDF
+# # variabler df[191:211]
+# # hög poäng = hög risk
+# # definiera svarskategorierna för att förenkla recode-koden
+# smd<-'Stämmer mycket dåligt'
+# sgd<-'Stämmer ganska dåligt'
+# sgb<-'Stämmer ganska bra'
+# smb<-'Stämmer mycket bra'
+# 
+# ### New recode code below, using variable names instead of numbering
+# 
+# positiva.items <- c("f66h", "f66m", "f66p", "f66u") # create vector with reverse scored items
+# itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/IF_itemlabels.xls")
+# df.if <- df %>%
+#   select(any_of(itemlabels$itemnr))
+# negativa.items <- df.if %>% # vector with items that are not reversed
+#   select(!any_of(positiva.items)) %>%
+#   names()
+# 
+# for (i in positiva.items) {
+#   df[[i]]<-car::recode(df[[i]],"smb=0;sgb=1;sgd=2;smd=3",as.factor=FALSE)
+# }
+# 
+# for (i in negativa.items) {
+#   df[[i]]<-car::recode(df[[i]],"smb=3;sgb=2;sgd=1;smd=0",as.factor=FALSE)
+# }
+# 
+# df.if <- df %>%
+#   select(itemlabels$itemnr,ar,Kön,ARSKURS,SkolSDO)
+
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
+
+# two packages below require that you use devtools to install them manually:
+# first install devtools by
+# install.packages('devtools')
+
+library(arrow)
+library(ggrepel)
+library(car)
+library(grateful) # devtools::install_github("Pakillo/grateful")
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable) 
+library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
+library(HH)
+library(glue)
+library(foreach)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels<-read_excel("../../data/IF_itemlabels.xls")
+
+# read recoded dataset
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/IFalldata_2022-08-11.csv")
+
+df.all <- read_parquet("../../data/2022-08-22 sthlmsenkat data.parquet")
+
+df <- df.all %>% 
+  select(itemlabels$itemnr,Kön,ARSKURS,ar,SkolSDO)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- df %>% 
+  filter(ar == 2014) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2014
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.SkolSDO <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(!Kön,!ARSKURS,!SkolSDO) %>% 
+  na.omit()
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+```
+
+## Frågor i enkäten
+
+Item/frågor har etiketter f66a-f66u i datafilen, och motsvaras av fråga 67 i PDF-filen med frågor.
+
+"Hur väl stämmer följande påståenden in på dig som person?" följs av de ingående frågorna, alla med samma fyra svarskategorier:
+
+* 'Stämmer mycket dåligt'
+* 'Stämmer ganska dåligt'
+* 'Stämmer ganska bra'
+* 'Stämmer mycket bra'
+
+Svarskategorierna ersätts med siffror från 0 till 3, och för f66h, m, p och u är siffrorna omvända/reverserade, d.v.s. att "Stämmer mycket bra" kodas som "0" i stället för "3" till analysen. Det innebär att höga poäng genomgående innebär hög risk.
+
+```{r}
+#| label: showitems
+#| tbl-cap-location: top
+RIcolorlistitems(c(8,13,16,21), RISEprimGreenMid)
+```
+
+## Deskriptiva data
+
+### Demografi
+
+```{r}
+#| label: descriptives1
+RIdemographics(dif.gender, "Kön")
+RIdemographics(dif.arskurs, "Årskurs")
+```
+### Item-data
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+#### Stacked bars
+```{r}
+#| label: stack1
+RIbarstack(df.omit.na)
+```
+#### Barplots
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+```
+:::
+::::
+
+## Rasch-analys samtliga items
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.omit.na)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+RIlistitems(df.omit.na)
+```
+:::
+::::
+
+Vi ser att PCA av residualer indikerar multidimensionalitet eftersom största eigenvalue är över 2.0. Figuren med "Loadings 1st contrast" visar att våra reverserade items, h m p och u, håller ihop i ett kluster, och även items s och l ligger nära dem.
+
+Som ett första steg provar vi att plocka bort ovan nämnda sex items och köra analysen igen.
+
+## Rasch-analys 1 negativa items
+
+Utan items f66h m p u samt l och s.
+
+```{r}
+#| label: rasch2.fit
+
+items.pos <- c("f66h","f66l","f66m","f66p","f66s","f66u")
+
+df.neg <- df.omit.na %>% 
+  select(!any_of(items.pos))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.neg)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.neg, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.neg)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.neg)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.neg, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.neg)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.neg)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+RIlistitems(df.neg)
+```
+:::
+::::
+
+Vi ser nu att f66e, som även tidigare hade hög MSQ, också sticker ut i loading-figuren. Det är också det enda item som har problem med svarskategorierna. Vi provar att slå samman svarskategorierna i mitten och tittar sedan på item fit igen.
+
+### Omkodning av svarskategorier för f66e
+
+```{r}
+#recoded.items <- c("f66e","f66p","f66q","f66t")
+df.neg$f66e<-car::recode(df.neg$f66e,"2=1;3=2",as.factor=FALSE)
+
+df.erm <- PCM(df.neg)
+plotICC(df.erm, item.subset = "f66e")
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.neg)
+```
+
+## Rasch-analys 2 negativa items
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.neg, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.neg)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.neg)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.neg, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.neg)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.neg)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+RIlistitems(df.neg)
+```
+:::
+::::
+
+Items f66b och n, samt c och t, har störst residualkorrelationer och behöver åtgärdas genom att en i varje par tas bort.
+
+- b har två korrelationer, samt lägre fit
+- t har sämst targeting
+
+## Rasch-analys 3 negativa items 
+
+Utan items f66b och t.
+
+```{r}
+#| label: rasch4.recode
+
+removed.items <- c("f66b","f66t")
+
+df.neg <- df.neg %>% 
+  select(!any_of(removed.items))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.neg)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.neg, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.neg)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.neg)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.neg, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.neg)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.neg)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+RIlistitems(df.neg)
+```
+:::
+::::
+
+Vi har några residualkorrelationer som är strax över gränsvärden, men i stort fungerar denna uppsättning items acceptabelt.
+
+### Reliabilitet
+
+```{r}
+
+RItif(df.neg)
+```
+Reliabiliteten är god och det finns utrymme att minska på antalet items för att åtgärda de smärre brister som kvarstår.
+
+## Rasch-analys 4 negativa items
+
+Två par av items har residualkorrelationer som överstiger gränsvärdet:
+
+- f66a med o (provocerar)
+- f66c med e (våldsutövning vid affekt)
+
+Tittar man på innehållet i frågorna är det inte förvånande att se dessa korrelationer eftersom de är såpass likartade. Det gör också att det är rimligt att eliminera frågor utan att tappa innehållsvaliditet.
+
+Vi tar bort:
+
+- f66a (o har marginellt bättre targeting)
+- f66e (hade problem med svarskategorier)
+
+```{r}
+#| label: rasch5.recode
+removed.items <- c("f66b","f66t","f66a","f66e")
+
+df.neg <- df.neg %>% 
+  select(!any_of(removed.items))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.neg)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.neg, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.neg)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.neg)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.neg, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 6
+RItargeting(df.neg)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 6
+RIitemHierarchy(df.neg)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Reliabilitet
+```{r}
+RItif(df.neg)
+```
+### Items
+```{r}
+RIlistitems(df.neg)
+```
+:::
+::::
+
+Detta är sannolikt den optimala uppsättningen items, även om f66g och n uppvisar något låg item fit ZSTD.
+
+Vi kan gå vidare och undersöka ytterligare item-reduktion, men först tittar vi på DIF.
+
+## Invarians/DIF - negativa items
+
+### Kön
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.neg)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| label: difgender
+#dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
+RIdifTable(df.neg, dif.gender)
+```
+#### Figur
+```{r}
+#| label: difgender2
+RIdifFigure(df.neg, dif.gender)
+```
+:::
+::::
+
+Inga större problem. Två item går över 0.3 - f66r och f66i, men ingen över 0.5.
+
+
+### Årtal
+:::: column-page-inset-left
+```{r}
+#| cache: true
+
+final.items.neg <- names(df.neg)
+#write.csv(final.items, file = "2022-09-16 IFoptimalItems.csv")
+df.dif.years.neg <- df.dif.years %>% 
+  select(any_of(final.items.neg))
+
+# recoded.items <- c("f66e","f66p","f66q","f66t")
+# 
+# for (i in recoded.items) {
+#   df.omit.na[[i]]<-car::recode(df.omit.na[[i]],"2=1;3=2",as.factor=FALSE)
+# }
+
+RIdifTable(df.dif.years.neg, dif.year)
+```
+::::
+
+Inget item är problematiskt.
+
+## Person fit negativa items
+
+```{r}
+RIpfit(df.neg)
+```
+
+## Item-parametrar negativa items
+
+```{r}
+RIitemparams(df.dif.years.neg)
+```
+
+
+## Rasch-analys 1 positiva items
+
+```{r}
+#| label: setup2
+
+items.pos <- c("f66h","f66l","f66m","f66p","f66s","f66u")
+
+df.pos <- df.omit.na %>% 
+  select(any_of(items.pos))
+
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.pos, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.pos, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.pos)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.pos)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.pos, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 5
+RItargeting(df.pos)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df.pos)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.pos, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+RIlistitems(df.pos)
+```
+:::
+::::
+
+Item f66s behöver tas bort p.g.a. residualkorrelation med f66l och klart sämre item fit än l.
+
+### Omkodning av svarskategorier för f66p
+
+Eftersom svarskategorierna är oordnade slår vi samman de två mittersta. Test visade att de två översta inte kunde slås samman.
+
+```{r}
+#| label: posrecode
+
+df.pos$f66p<-recode(df.pos$f66p,"2=1;3=2", as.factor = F)
+
+df.erm <- PCM(df.pos)
+plotICC(df.erm, item.subset = "f66p")
+
+```
+
+
+## Rasch-analys 2 positiva items 
+(f66s borttagen, f66p omkodad)
+
+Item f66s behöver tas bort p.g.a. residualkorrelation med f66l och klart sämre item fit än l.
+
+```{r}
+#| column: margin
+
+df.pos$f66s <- NULL
+RIlistItemsMargin(df.pos, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.pos, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.pos)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.pos)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.pos, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.pos)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.pos)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.pos, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+RIlistitems(df.pos)
+```
+:::
+::::
+
+
+## Invarians/DIF - positiva items
+
+### Kön
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.pos)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
+RIdifTable(df.pos, dif.gender)
+```
+#### Figur
+```{r}
+RIdifFigure(df.pos, dif.gender)
+```
+:::
+::::
+
+Items f66l och p har något hög DIF, men ej över gränsvärde 0.5.
+
+### Årtal
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+
+final.items.pos <- names(df.pos)
+#write.csv(final.items, file = "2022-09-16 IFoptimalItems.csv")
+df.dif.years.pos <- df.dif.years %>% 
+  select(any_of(final.items.pos))
+
+df.dif.years.pos$f66p<-recode(df.dif.years.pos$f66p,"2=1;3=2", as.factor = F)
+
+RIdifTable(df.dif.years.pos, dif.year)
+```
+#### Figur
+```{r}
+RIdifFigure(df.pos, dif.gender)
+```
+:::
+::::
+
+Inget item uppvisar problematisk nivå av DIF.
+
+
+## Person fit positiva items
+
+```{r}
+RIpfit(df.pos)
+```
+
+## Reliabilitet positiva items
+```{r}
+RItif(df.pos)
+```
+
+## Item-parametrar positiva items
+```{r}
+RIitemparams(df.pos)
+```
+
+## Analys av delskalor
+
+De 21 frågor som ingår under rubriken "Individfaktorer" har delats in i sju delskalor med tre items vardera.
+
+- Trotsighet (f66a,f66g,f66o)
+- Spänningssökande - (f66b,f66j,f66n)
+- Aggressivitet - (f66c,f66e,f66t)
+- Antisocialt beteende - (f66d,f66f,f66k)
+- Problemlösning - (f66h,f66l,f66s)
+- Impulsivitet - (f66i,f66m,f66r)
+- Moral - (f66p,f66q,f66u)
+
+```{r}
+# create vectors with items for each subscale
+Trotsighet <- as.character(expression(f66a,f66g,f66o))
+Spänningssökande <- as.character(expression(f66b,f66j,f66n))
+Aggressivitet <- as.character(expression(f66c,f66e,f66t))
+Antisocialt <- as.character(expression(f66d,f66f,f66k))
+Problemlösning <- as.character(expression(f66h,f66l,f66s))
+Impulsivitet <- as.character(expression(f66i,f66m,f66r))
+Moral <- as.character(expression(f66p,f66q,f66u))
+```
+
+### Trotsighet
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Trotsighet))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 300, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Spänningssökande
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Spänningssökande))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 300, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Aggressivitet
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Aggressivitet))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 320, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Antisocialt beteende
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Antisocialt))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 300, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Problemlösning
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Problemlösning))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 300, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Impulsivitet
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Impulsivitet))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 300, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Moral
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Moral))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 300, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+## Delskalor - sammanfattande kommentar
+
+Alla delskalor har flera items som uppvisar låg item fit, vilket innebär att svaren är för förutsägbara tillsammans med övriga frågor. Det vill säga att de tillför relativt lite information.
+
+All delskalor uppvisar också låg reliabilitet.
+
+## Programvara som använts
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+```
+
+## Referenser

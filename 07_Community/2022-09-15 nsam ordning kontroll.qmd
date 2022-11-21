@@ -1,0 +1,448 @@
+---
+title: "Stockholmsenkäten"
+subtitle: "Närsamhälle"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-08-23'
+format: 
+  html:
+    toc: true
+    self-contained: true
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 300
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+#    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+```{r}
+#| label: recoderawdata
+#| include: false
+
+# import data
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/SthlmsEnkat220405.csv", fileEncoding = "ISO-8859-1")
+# df$X<-NULL
+# itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/NärsamhälleItemlabels.xls")
+# 
+##### Närsamhälle omkodning
+#Frågorna heter f101a till f101l i datafilen och 103 i PDF-filen.
+# samt F100 i datafilen som är 102 i PDF-filen.
+
+# hög poäng = hög risk
+# # definiera svarskategorierna för att förenkla recode-koden
+# smd<-'Stämmer mycket dåligt'
+# sgd<-'Stämmer ganska dåligt'
+# sgb<-'Stämmer ganska bra'
+# smb<-'Stämmer mycket bra'
+# vetej<-'Vet inte' # kodas som missing/NA
+# mtrygg<-'Mycket trygg'
+# gtrygg<-'Ganska trygg'
+# gotrygg<-'Ganska otrygg'
+# motrygg<-'Mycket otrygg'
+# garej1<-'Går ej ut på kvällen av oro för att utsättas för brott' # kodas som missing/NA pga ej användbart i ordinala data. Skulle ev. kunna ses som likvärdigt som Mycket Otrygg, eller som ännu "värre", ordinalt ett steg över.
+# garej2<-'Går ej ut på kvällen av andra orsaker' # kodas som missing/NA pga ej användbart i ordinala data
+#
+# #narsamhalle<-df %>% select(F100,starts_with("f101")) %>% names()
+# #write.csv(narsamhalle, file = "ns.csv")
+#
+# df$F100<-car::recode(df$F100,"mtrygg=0;gtrygg=1;gotrygg=2;motrygg=3;garej1=NA;garej2=NA",as.factor=FALSE)
+#
+# #nsamh<-df %>% select(starts_with("f101")) %>% names()
+# positiva.items <- c("f101b","f101c","f101g","f101h","f101i","f101j","f101k","f101l")
+# negativa.items <- c("f101a","f101d","f101e","f101f")
+#
+# for (i in positiva.items) {
+#    df[[i]]<-car::recode(df[[i]],"smb=0;sgb=1;sgd=2;smd=3;vetej=NA",as.factor=FALSE)
+# }
+#
+# for (i in negativa.items) {
+#    df[[i]]<-car::recode(df[[i]],"smb=3;sgb=2;sgd=1;smd=0;vetej=NA",as.factor=FALSE)
+# }
+# # 
+# # df <- df %>% 
+# #    dplyr::select(itemlabels$itemnr,ar,Kön,ARSKURS,SkolSDO)
+# # 
+# # write.csv(df, file = "NARSAMHALLEalldata.csv", row.names = F)
+
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
+
+library(car)
+library(grateful)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mokken)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable)
+library(RISEkbmRasch)
+library(HH)
+library(arrow)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/NärsamhälleItemlabels.xls")
+
+# read recoded dataset
+# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/NARSAMHALLEalldata.csv")
+
+df.all <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-08-22 sthlmsenkat data.parquet")
+
+df <- df.all %>% 
+  select(itemlabels$itemnr,Kön,ARSKURS,ar,SkolSDO)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- df %>% 
+  filter(ar == 2014) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2014
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.skolsdo <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(!Kön,!ARSKURS,!SkolSDO)
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+positiva.items <- c("f101b","f101c","f101g","f101h","f101i","f101j","f101k","f101l")
+negativa.items <- c("f101a","f101d","f101e","f101f")
+
+```
+
+## Frågor om närsamhälle
+
+Frågorna heter F100 och f101a till f101l i datafilen, och överensstämmer med 102 och 103 i PDF-filen.
+
+F100 ställer frågan **"Om du går ut ensam sent en kväll i området där du bor, känner du dig då..."** med svarsalternativen:
+
+- Mycket trygg
+- Ganska trygg
+- Ganska otrygg
+- Mycket otrygg
+- Går ej ut på kvällen av oro för att utsättas för brott <--- **kodas som missing/NA pga ej användbart i ordinala data. Skulle ev. kunna ses som likvärdigt som Mycket Otrygg, eller som ännu "värre", ordinalt ett steg över, men det är diskutabelt.**
+- Går ej ut på kvällen av andra orsaker <--- **kodas som missing/NA pga ej användbart i ordinala data. Det är alltför oklart vad "andra orsaker" är.**
+
+Ovanstående frågor kodas om till siffror 0-3, där hög siffra är Mycket otrygg.
+
+f101-frågorna föregås av frågan **"Hur väl stämmer följande påståenden in på ditt bostadsområde?"**. Samtliga frågor har samma fyra svarskategorier:
+
+- 'Stämmer mycket dåligt'
+- 'Stämmer ganska dåligt'
+- 'Stämmer ganska bra'
+- 'Stämmer mycket bra'
+
+Frågorna är blandat negativt och positivt formulerade, och vid omkodning från ovanstående svarskategorier till siffror 0-3 har positiva frågor vänts så att höga värden alltid innebär högre risk.
+
+Nedan återges samtliga item, med grön markering på positiva item.
+
+```{r}
+#| label: showitems
+#| tbl-cap-location: top
+RIcolorlistitems(c(3,4,8:13), RISEprimGreenMid)
+```
+
+Två index har bildats utifrån f101-frågorna, och vi kommer att titta på dessa separat.
+
+**Grad av ordningsproblem i bostadsområdet**
+
+- 101a Vandalism är vanligt i bostadsområdet
+- 101d Det finns personer som säljer narkotika i bostadsområdet
+- 101e På vardagskvällarna finns det många berusade utomhus
+- 101g Det är ovanligt med våldsbrott i det här bostadsområdet
+
+**Grad av informell social kontroll i bostadsområdet**
+
+- F101 b Om en vuxen såg mig göra något olagligt i mitt bostadsområde skulle nog mina föräldrar få reda på det
+- F101 c Vuxna skulle ingripa om någon helt öppet försökte sälja narkotika till ungdomar
+- F101 h Vuxna skulle ingripa om det blev ett slagsmål framför mitt hus
+- F101 i Om jag blev rånad på en allmän plats skulle vuxna ingripa
+
+## Deskriptiva data
+
+Vi har tagit ut samtliga svar från år 2014 för en första analys.
+
+### Demografi
+```{r}
+#| label: descriptives1
+#| layout-ncol: 3
+RIdemographics(dif.gender, "Kön")
+RIdemographics(dif.arskurs, "Årskurs")
+RIdemographics(dif.skolsdo, "Stadsdel")
+```
+### Item-data
+
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+#### Stacked bars
+```{r}
+#| label: stack1
+RIbarstack(df.omit.na)
+```
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+```
+:::
+
+```{r}
+#| label: setup2
+
+items.ordning <- c("f101a","f101d","f101e","f101g")
+items.kontroll <- c("f101b","f101c","f101h","f101i")
+
+df.ordning <- df.omit.na %>% 
+  select(any_of(items.ordning))
+
+df.kontroll <- df.omit.na %>% 
+  select(any_of(items.kontroll))
+
+```
+
+## Ordningsproblem
+
+### Svarskategorier
+
+```{r}
+#| label: ordn.cat
+#| layout-ncol: 2
+
+df.erm <- PCM(df.ordning)
+plotICC(df.erm)
+```
+
+Items a och e fungerar acceptabelt, medan d och g behöver åtgärdas genom att mittenkategorierna slås samman.
+
+### Omkodning av svarskategorier
+
+```{r}
+#| label: ordning2.cat
+#| layout-ncol: 2
+recoded.ordning <- c("f101d","f101g")
+
+for (i in recoded.ordning) {
+  df.ordning[[i]]<-car::recode(df.ordning[[i]],"2=1;3=2",as.factor=FALSE)
+}
+df.erm <- PCM(df.ordning)
+plotICC(df.erm)
+```
+
+
+### Rasch-parametrar 
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: ordning1.fit
+
+RIitemfitPCM(df.ordning, 300, 5)
+```
+### PCA
+```{r}
+#| label: ordning1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.ordning)
+```
+### Residualkorrelationer
+```{r}
+#| label: ordning1.rcorr
+RIresidcorr(df.ordning, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: ordning1.targ
+RItargeting(df.ordning)
+```
+### Targeting sorterad
+```{r}
+#| label: ordning1.targs
+df.erm<-PCM(df.ordning)
+plotPImap(df.erm, sorted = T)
+```
+### Loadings 1st contrast
+```{r}
+#| label: ordning1.load
+RIloadLoc(df.ordning)
+```
+### Reliabilitet
+```{r}
+#| label: ordning1.tif
+RItif(df.ordning)
+```
+### Items
+```{r}
+#| label: ordning1.items
+RIlistitems(df.ordning)
+```
+:::
+
+Item f101g passar inte in i dimensionen, vilket framgår av hög MSQ och figuren med faktorladdning på första kontrasten av PCA av residualer. Item f101a och d uppvisar båda alltför låg MSQ.
+
+Item f101d är korrelerad med både a och e, vilket skapar ytterligare problem.
+
+Även om alla items skulle passa tillsammans skulle det dock medföra låg reliabilitet, så vi går inte vidare med någon analys av förändringar av items.
+
+## Grad av social kontroll
+
+### Svarskategorier
+
+```{r}
+#| label: kontroll.cat
+#| layout-ncol: 2
+
+df.erm <- PCM(df.kontroll)
+plotICC(df.erm)
+```
+
+Svarskategorierna fungerar acceptabelt.
+
+### Rasch-parametrar 
+
+::: panel-tabset
+### Item fit
+```{r}
+#| label: kontroll1.fit
+
+RIitemfitPCM(df.kontroll, 300, 5)
+```
+### PCA
+```{r}
+#| label: kontroll1.pca
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.kontroll)
+```
+### Residualkorrelationer
+```{r}
+#| label: kontroll1.rcorr
+RIresidcorr(df.kontroll, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: kontroll1.targ
+RItargeting(df.kontroll)
+```
+### Targeting sorterad
+```{r}
+#| label: kontroll1.targs
+df.erm<-PCM(df.kontroll)
+plotPImap(df.erm, sorted = T)
+```
+### Loadings 1st contrast
+```{r}
+#| label: kontroll1.load
+RIloadLoc(df.kontroll)
+```
+### Reliabilitet
+```{r}
+#| label: kontroll1.tif
+RItif(df.kontroll)
+```
+### Items
+```{r}
+#| label: kontroll1.items
+RIlistitems(df.kontroll)
+```
+:::
+
+Items f101h och i korrelerar för starkt med varandra. Oavsett detta visar reliabilitetskurvan att frågorna inte uppnår acceptabla nivåer av reliabilitet vid någon punkt, även när båda dessa items är inkluderade.

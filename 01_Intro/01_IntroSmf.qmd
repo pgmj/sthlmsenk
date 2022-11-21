@@ -1,0 +1,890 @@
+---
+title: "Stockholmsenkäten"
+subtitle: "Introduktion och sammanfattning av psykometrisk analys"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-09-19'
+format: 
+  html:
+    toc: true
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 300
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: 
+- references.bib
+- grateful-refs.bib
+---
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
+
+library(car)
+library(grateful)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable)
+library(RISEkbmRasch)
+library(arrow)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/allitems.csv", fileEncoding = "UTF-8")
+itemlabels.final <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-18_FINALallitems.csv")
+indexitems <- read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/Index och items i Stockholmsenkätanalyser1.xls")
+
+# import data
+df.all <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-18 sthlmsenkat recoded responses.parquet")
+df<-df.all
+
+# code to create a vector to select only items from a specific domain/index
+items.if.all <- itemlabels %>% 
+  filter(Index == "Individfaktorer") %>% 
+  pull(itemnr)
+items.skola.all <- itemlabels %>% 
+  filter(Index == "Skola") %>% 
+  pull(itemnr)
+items.psf.all <- itemlabels %>% 
+  filter(Index == "Psykiska/psykosomatiska besvär") %>% 
+  pull(itemnr)
+items.parents.all <- itemlabels %>% 
+  filter(Index == "Föräldraskap") %>% 
+  pull(itemnr)
+items.nsam.all <- itemlabels %>% 
+  filter(Index == "Närsamhälle") %>% 
+  pull(itemnr)
+items.kamfr <- itemlabels %>%
+  filter(Index == "Kamrater och fritid") %>%
+  pull(itemnr) 
+
+# code to create a vector to select only final items from each domain/index
+items.normb.final <- itemlabels.final %>% 
+  filter(Index == "Normbrytande") %>% 
+  pull(itemnr)
+items.ifpos.final <- itemlabels.final %>% 
+  filter(Index == "Positiva individfaktorer") %>% 
+  pull(itemnr)
+items.skolneg.final <- itemlabels.final %>% 
+  filter(Index == "Vantrivsel i skolan") %>% 
+  pull(itemnr)
+items.skolpos.final <- itemlabels.final %>% 
+  filter(Index == "Positiv skolanknytning") %>% 
+  pull(itemnr)
+items.psf.final <- itemlabels.final %>% 
+  filter(Index == "Psykiska/psykosomatiska besvär") %>% 
+  pull(itemnr)
+items.parents.final <- itemlabels.final %>% 
+  filter(Index == "Föräldraskap") %>% 
+  pull(itemnr)
+items.nsam.final <- itemlabels.final %>% 
+  filter(Index == "Närsamhälle") %>% 
+  pull(itemnr)
+
+## sample code to subset an index
+# df %>% 
+#   select(any_of(items.if.final)) %>% 
+#   RIlistitems()
+
+
+```
+
+## Introduktion
+
+Målsättningen med de analyser som gjorts har varit att:
+
+1.  Genomföra en mätteknisk och psykometrisk analys av befintliga enkätdata i Stockholmsenkäten med fokus på utveckling av index i Stockholmsenkäten baserade på risk- och skyddsfaktorer. Dataunderlaget bygger primärt på insamlade data från 2006, 2010, 2014, 2016, 2018 och 2020, samt i möjlig mån kommande data från 2022 (*data från 2022 blev ej tillgängliga*).
+2.  Fastställa mätegenskaper för att bedöma vilka indikatorer som kan bilda ett index, hur god mätprecision indexet har för att urskilja skillnader över tid eller mellan grupper, och huruvida index är lämpliga för att göra jämförelser mellan olika grupper (t.ex. könsskillnader) och över tid.
+
+Utifrån kunskapssammanställningen om risk- och skyddsfaktorer för barn och unga [@johansson2021b] har vi strävat efter att identifiera centrala faktorer utifrån kontexterna **Individ, Familj, Skola, Kamrater och fritid, och Närsamhälle**. Syftet är att ta fram index som kan redovisas på en skala, för att möjliggöra mera finkorniga analyser och jämförelser än vad som är möjligt utifrån enstaka frågor eller index som endast består av 3-4 frågor. Det medför också att antalet index/faktorer som tas fram är lägre än vad som ofta redovisas utifrån Stockholmsenkäten.
+
+
+### Items som ingått i analysen
+
+```{r}
+#| label: initialaitems
+
+formattable(indexitems, 
+            align=c("c","l"),
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
+```
+
+### Psykometriska kriterier
+
+Texten nedan kommer från RISE rapport till MFoF om uppföljning av föräldraskapsstöd [@preuter2022]:
+
+> När enkäter konstrueras och utvärderas bedöms dess psykometriska egenskaper, ofta kopplade till begreppen reliabilitet och validitet. Förenklat kan man säga att reliabilitet beskriver hur väl något mäts (vilken precision mätverktyget har), medan validitet beskriver hur väl innehållet i frågorna och svarskategorierna fångar det man avser att mäta. Dock råder i allmänhet oklara definitioner av begreppen och kriterier för huruvida dessa mätegenskaper uppfylls eller inte. Det medför att även enkäter som i forskningsartiklar beskrivs som "validerade" eller att de har "god reliabilitet" inte nödvändigtvis uppfyller vad som kan anses vara grundläggande kriterier. En mera omfattande beskrivning av de grundläggande psykometriska kriterierna återfinns i Bilaga 3 (separat dokument). Nedan listas kriterierna. Var och en av dem kräver psykometrisk analys av insamlade data för att bedöma.
+>
+> Lista över grundläggande psykometriska kriterier:
+>
+> -   Svarskategorierna fungerar som avsett
+> -   Frågorna fungerar likadant för olika grupper (kön, ålder, etc)
+> -   Unidimensionalitet (utan för starkt korrelerade residualer)
+> -   Frågornas svårighetsgrad passar målgruppens egenskaper/förmågor
+> -   Reliabilitet/mätosäkerheter över skalans omfång är adekvat, sett till användningsområdet
+> -   Omvandlingstabell till intervallskala
+>
+> Kriterierna ovan är ställda för att säkerställa att det är lämpligt att använda summapoäng från en enkät/skala. Summapoängen bör i sin tur användas tillsammans med en omvandlingstabell till intervallskala innan några statistiska eller matematiska beräkningar görs. Tyvärr är det mycket vanligt att forskningsstudier enbart redovisar Cronbach's alpha som ett mått på reliabilitet och/eller kvalitet på en enkät. Det är dessvärre gravt otillräckligt för att bedöma mätegenskaper hos ett mätverktyg, eftersom Cronbach's alpha inte ger information om något av kriterierna ovan.
+>
+> Mer om psykometri och mätegenskaper finns att läsa i <a href="http://ri.diva-portal.org/smash/get/diva2:1686936/FULLTEXT02.pdf" target="_blank"> bilaga 3 (separat dokument)</a> och exempelvis i RISE publikation om mätning av mjuka värden [@johansson2021].
+
+### Noteringar om analysprocessen
+
+Inom varje område har samtliga frågor/items lagts in i analysen. Ambitionen har varit att först ta fram ett index med så goda mätegenskaper som möjligt, och att enbart eliminera items som varit tydligt problematiska utifrån de psykometriska kriterierna. Gällande Individfaktorer och Skola finns det ytterligare utrymme att minska antalet items och ändå ha acceptabel reliabilitet. I vissa fall har det gått att ur ett frågeområde ta fram mer än ett index med acceptabel reliabilitet.
+
+Samtliga index som redovisas i denna sammanfattning har uppfyllt alla kriterier beskrivna ovan. För att hålla en rimlig detaljnivå presenterar vi enbart figurer som visar reliabilitet och "targeting" (hur frågorna passar respondenterna), eftersom dessa hänger samman och även är relevanta för eventuella framtida reduktioner i items.
+
+Ett vanligt problem i analyserna är för stora residualkorrelationer. Det innebär att par av items är för lika varandra och inte enskilt medför tillräckligt mycket unik information till indexet. I stället finns risk för att indexvärden skulle bli oproportionerligt påverkade om båda items behålls i indexet.
+
+Ett index, "Kamrater och fritid", håller för dålig kvalitet för att kunna användas som indexvärde. Det kan vara möjligt att skapa enklare nyckeltal utifrån items, som enbart återger nivåerna hög risk/låg risk. Arbete pågår för att utröna detta.
+
+För att vara konsekvent i detta skede har samtliga frågor och index "vänts" så att en högre poäng medför högre risk, trots att vissa index representerar skyddsfaktorer. Genomgående är frågorna bättre på att mäta högre nivåer av risk än lägre nivåer av risk.
+
+Detta dokument sammanfattar resultatet av varje indexområdes analysprocess. Hela analysdokument för varje indexområde kommer att tillgängliggöras för granskning, inklusive källkoden som visar hur analyserna gjorts, vilket möjliggör oberoende granskning.
+
+Om frågor eller oklarheter uppstår längs läsningen rekommenderas i första hand nedladdning och läsning av introduktionen i Bilaga 3 till ovan nämnda MFoF-rapport (<a href="http://ri.diva-portal.org/smash/get/diva2:1686936/FULLTEXT02.pdf" target="_blank">direkt länk till PDF-fil</a>).
+
+## Individfaktorer (normbrytande)
+
+21 items/frågor med etiketter f66a-f66u i datafilen, och motsvaras av fråga 67 i PDF-filen med frågor.
+
+"Hur väl stämmer följande påståenden in på dig som person?" följs av de ingående frågorna, alla med samma fyra svarskategorier:
+
+-   'Stämmer mycket dåligt'
+-   'Stämmer ganska dåligt'
+-   'Stämmer ganska bra'
+-   'Stämmer mycket bra'
+
+Svarskategorierna ersätts med siffror från 0 till 3, och för f66h, m, p och u är siffrorna omvända/reverserade, d.v.s. att "Stämmer mycket bra" kodas som "0" i stället för "3" till analysen. Det innebär att höga poäng genomgående innebär hög risk.
+
+### Lista på samtliga items
+
+```{r}
+#| label: IFitemlist
+
+if.normb.nr<-itemlabels %>%
+  filter(itemnr %in% items.if.all) %>% 
+  rownames_to_column() %>% 
+  filter(itemnr %in% items.normb.final) %>% 
+  pull(rowname)
+
+if.pos.nr<-itemlabels %>%
+  filter(itemnr %in% items.if.all) %>% 
+  rownames_to_column() %>% 
+  filter(itemnr %in% items.ifpos.final) %>% 
+  pull(rowname)
+
+itemlabels %>%
+  filter(itemnr %in% items.if.all) %>%
+  select(!Index) %>% 
+  formattable(., align = c("r", "l"), list(
+    formattable::area(row = if.pos.nr) ~ color_tile(RISEprimGreenMid, "lightpink"),
+    formattable::area(row = if.normb.nr) ~ color_tile(RISEprimRedMid, "lightpink")),
+      table.attr = "style=\"font-size: 15px; font-family: Lato\"")
+
+```
+
+I listan ovan är kvarstående items markerade med färg.
+
+Rödmarkerade items utgör index "Normbrytande". Det är möjligt att göra ytterligare reduktion av frågor och ändå ha adekvat reliabilitet/mätprecision, men detta har ännu inte fastställts.
+
+Grönmarkerade items utgör en positiv individfaktor, som vi inte satt någon rubrik på ännu, eller bestämt hur/om den ska användas. Reliabiliteten är betydligt sämre än för Normbrytande (se längre ner).
+
+### Item som tagits bort
+
+#### Svarskategorier som åtgärdats
+
+f66p uppvisade proble med svarskategorierna, och de två mittersta kategorierna slogs samman.
+
+#### Item-eliminering
+
+Items som eliminerats, samtliga utifrån att de varit för lika en annan fråga, och kortfattad förklaring:
+
+-   f66a (sämre targeting)
+-   f66e (problem med svarskategorier)
+-   f66b (har två korrelationer, samt lägre fit)
+-   f66t (sämst targeting)
+
+### Reliabilitet
+
+De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre. Figurtexten ger viktig information om hur reliabiliteten förhåller sig till respondenterna.
+
+Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
+
+::: panel-tabset
+#### Normbrytande
+
+```{r}
+#| label: if.rel
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.normb.final)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+
+#### Positiv individfaktor
+
+```{r}
+#| label: if.rel2
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.ifpos.final)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+:::
+
+#### Kort kommentar
+
+När det gäller Normbrytande ser vi att över 90% av respondenterna har ett indexvärde som finns inom området där reliabiliteten överstiger 0.7, vilket är mycket bra.
+
+Siffran är dock bara 45% gällande "positiv individfaktor", och snedfördelat så att den mäter bättre bland de som har en högre nivå av risk (lägre värden på positiv individfaktor).
+
+### Targeting
+
+Denna figur visar hur väl items passar respondenterna (de som besvarat enkätfrågorna). Överst syns respondenternas indexvärden, där högre värden (till höger) motsvarar högre risk.
+
+Nederst finns frågornas tröskelvärden (gränsvärden mellan svarskategorierna), och i mitten finns antalet tröskelvärden sammanräknade i staplar. De två översta visar även genomsnittsvärde för respondenter och item-trösklar med en streckad vertikal linje. I idealfallet ligger medelvärden nära varandra, och de rosa och mörkgrå staplarna matchar varandra spegelvänt. Skulle de i stället ligga långt från varandra passar frågorna inte respondenterna.
+
+Targeting är även användbart när item-reduktion är önskvärt, eftersom det framgår tydligt var det finns överskott/underskott av item-trösklar.
+
+::: panel-tabset
+#### Normbrytande
+
+```{r}
+#| label: if.targ
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.normb.final)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+
+#### Positiv individfaktor
+
+```{r}
+#| label: if.targ2
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.ifpos.final)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+
+#### Items
+
+```{r}
+#| label: if.items
+
+itemlabels %>%
+  filter(itemnr %in% c(items.normb.final,items.ifpos.final)) %>%
+  select(!Index) %>% 
+  formattable(.,align=c("c","l"),
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
+
+```
+:::
+
+#### Kort kommentar
+
+Vi kan se att båda index har fler svarströsklar (mer information om respondenterna) en bit högre upp än de flesta respondenter befinner sig, vilket innebär att de har bättre mätprecision för högre risknivåer än för lägre risknivåer.
+
+## Skola
+
+Item/frågor har etiketter f54a-f54r i datafilen, och motsvaras av fråga 55 i PDF-filen med frågor.
+
+"Hur väl stämmer följande påståenden in på dig din skolsituation?" följs av de ingående frågorna, alla med samma svarskategorier:
+
+-   'Stämmer mycket dåligt'
+-   'Stämmer ganska dåligt'
+-   'Stämmer ganska bra'
+-   'Stämmer mycket bra'
+
+Items F65a b c gäller senaste betyg (Streck eller A-F) för svenska, engelska och matematik. Vi antar att frågorna om betyg inte lämpar sig att utgöra index tillsammans med andra frågor, eftersom de är av skild karaktär, så de utelämnas i denna analys.
+
+F55, 56 och 59 angår hur ofta något hänt under senaste läsåret, med svarskategorier enligt nedan. Svarskategorierna har ersatts med värden 0-5, där 0 = Nej, för att bibehålla att hög poäng = hög risk.
+
+Det visade sig att F55, 56 och 59 korrelerade alltför mycket med varandra, och uppvisade omfattande problem med svarskategorierna, så de har exkluderats ur analysen nedan.
+
+### Lista på samtliga items
+
+```{r}
+#| label: skola.itemlist
+
+skolpos.removed.nr<-itemlabels %>%
+  filter(itemnr %in% items.skola.all) %>% 
+  rownames_to_column() %>% 
+  filter(itemnr %in% items.skolpos.final) %>% 
+  pull(rowname)
+
+skolneg.removed.nr<-itemlabels %>%
+  filter(itemnr %in% items.skola.all) %>% 
+  rownames_to_column() %>% 
+  filter(itemnr %in% items.skolneg.final) %>% 
+  pull(rowname)
+
+itemlabels %>%
+  filter(itemnr %in% items.skola.all) %>%
+  select(!Index) %>% 
+  formattable(., align = c("r", "l"), list(
+    formattable::area(row = skolpos.removed.nr) ~ color_tile(RISEprimGreenMid, "lightpink"),
+    formattable::area(row = skolneg.removed.nr) ~ color_tile(RISEprimRedMid, "lightpink")),
+      table.attr = "style=\"font-size: 15px; font-family: Lato\"")
+```
+
+Skolfrågorna fungerar bäst som två olika index.
+
+Grönmarkerade items i tabellen ovan bildar "Positiv skolanknytning", medan de rödmarkerade bildar "Vantrivsel i skolan".
+
+### Item som tagits bort
+
+#### Svarskategorier som åtgärdats:
+
+- f54a och b - vi slår ihop de två högsta kategorierna (2 och 3)
+- f54o - vi slår ihop mittenkategorierna (1 och 2)
+
+#### Item-eliminering "positiv skolanknytning"
+
+Eliminering utifrån item-par som är för starkt korrelerade:
+
+-   f54c och g, "eleverna är med och planerar/bestämmer", (g är bredare, medbestämmande även utanför undervisningen, och det är inte helt uppenbart att elever ska vara med och bestämma över undervisningen)
+-   f54p och n, "ser fram emot lektionerna/intressant undervisning", (p har något sämre MSQ och targeting än n)
+
+#### Item-eliminering "vantrivsel i skolan"
+
+Alla items fungerar, ingen har tagits bort.
+
+### Reliabilitet
+
+De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre. Figurtexten ger viktig information om hur reliabiliteten förhåller sig till respondenterna.
+
+Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
+
+::: panel-tabset
+#### Positiv skolanknytning
+
+```{r}
+#| label: skola.rel
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.skolpos.final)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+
+#### Vantrivsel i skolan
+
+```{r}
+#| label: skola.rel2
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.skolneg.final)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+:::
+
+### Targeting
+
+Denna figur visar hur väl items passar respondenterna (de som besvarat enkätfrågorna). Överst syns respondenternas indexvärden, där högre värden (till höger) motsvarar högre risk.
+
+Nederst finns frågornas tröskelvärden (gränsvärden mellan svarskategorierna), och i mitten finns antalet tröskelvärden sammanräknade i staplar. De två översta visar även genomsnittsvärde för respondenter och item-trösklar med en streckad vertikal linje. I idealfallet ligger medelvärden nära varandra, och de rosa och mörkgrå staplarna matchar varandra spegelvänt. Skulle de i stället ligga långt från varandra passar frågorna inte respondenterna.
+
+Targeting är även användbart när item-reduktion är önskvärt, eftersom det framgår tydligt var det finns överskott/underskott av item-trösklar.
+
+::: panel-tabset
+#### Positiv skolanknytning
+
+```{r}
+#| label: skola.targ
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.skolpos.final)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+
+*Något ser ut att ha blivit fel gällande f54a och. Kommer åtgärdas i nästa version.*
+
+#### Vantrivsel i skolan
+
+```{r}
+#| label: skola.targ2
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.skolneg.final)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+
+#### Items
+
+```{r}
+#| label: skola.items
+itemlabels %>%
+  filter(itemnr %in% c(items.skolpos.final,items.skolneg.final)) %>%
+  select(!Index) %>% 
+  formattable(.,align=c("c","l"),
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
+
+```
+:::
+
+## Psykiska/psykosomatiska besvär
+
+Item/frågor har etiketter F88-F99 i datafilen, och motsvaras av fråga 90-101 i PDF-filen med frågor.
+
+Samtliga frågor har fem svarskategorier, vilka varierar mellan frågorna. Fem frågor har svarskategorier från "Aldrig" till "Flera gånger i veckan". Sex frågor har från "Sällan" till "Väldigt ofta", och en från "Inte alls" till "Väldigt mycket".
+
+Svarsdata har kodats så att högre poäng innebär mera besvär/högre risk.
+
+Sektionen i enkäten inleds med meningen: "NÅGRA FRÅGOR OM HUR DU MÅR".
+
+### Lista på samtliga items
+
+```{r}
+#| label: psf.itemlist
+
+psf.removed.nr<-itemlabels %>%
+  filter(itemnr %in% items.psf.all) %>% 
+  rownames_to_column() %>% 
+  filter(itemnr %in% items.psf.final) %>% 
+  pull(rowname)
+
+itemlabels %>%
+  filter(itemnr %in% items.psf.all) %>%
+  select(!Index) %>% 
+  formattable(., align = c("r", "l"), list(formattable::area(row = psf.removed.nr) ~ 
+      color_tile(RISEprimGreenMid, "lightpink")), table.attr = "style=\"font-size: 15px; font-family: Lato\"")
+```
+
+Det är möjligt att skapa ett index med enbart psykosomatiska items som har acceptabel reliabilitet, bestående av "F88","F91","F93","F95","F98". Vi behöver åtgärda svarskategorier för tre av dessa fem items:
+
+- F91: 1+2 och 3+4
+- F93 och F98: 3+4
+
+Vi behöver åtgärda flera items:
+
+- F89, 90, 96, 97: 1+2 och 3+4
+- F92, 99: 3+4
+
+### Item som tagits bort
+
+#### Svarskategorier som åtgärdats
+
+Vi slår ihop följande svarskategorier
+
+-   För items 89, 90, 91, 94: 1 & 2 och 3 & 4
+-   För items 95, 97: 0 & 1
+-   För items 92, 93, 96, 98, 99: 3 & 4
+
+#### Item-eliminering
+
+-   F90 har sämre targeting än F89 (och är en något märklig fråga)
+-   F96 har sämre targeting än F92
+-   F94 korrelerar med två andra items och tas bort.
+-   F89 ligger ovanför gränsvärdet för DIF för kön.
+
+#### Item-reduktion
+
+-   F91 har bara två trösklar, vars location är där det finns gott om andra trösklar
+-   F98
+
+### Reliabilitet
+
+De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre.
+
+Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
+
+```{r}
+#| label: psf.rel
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.psf.final)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+
+### Targeting
+
+Denna figur visar hur väl items passar respondenterna (de som besvarat enkätfrågorna). Överst syns respondenternas indexvärden, nederst finns frågornas tröskelvärden (gränsvärden mellan svarskategorierna), och i mitten finns antalet tröskelvärden sammanräknade i staplar (histogram). De två översta visar även genomsnittsvärde för respondenter och item-trösklar med en röd streckad vertikal linje. I idealfallet ligger medelvärden nära varandra, och de rosa och mörkgrå staplarna matchar varandra spegelvänt. Skulle de i stället ligga långt från varandra passar frågorna inte respondenterna.
+
+Targeting är även användbart när item-reduktion är önskvärt, eftersom det framgår tydligt var det finns överskott/underskott av item-trösklar.
+
+::: panel-tabset
+#### Figur
+
+```{r}
+#| label: psf.targ
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.psf.final)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+
+#### Items
+
+```{r}
+#| label: psf.items
+itemlabels %>%
+  filter(itemnr %in% items.psf.final) %>%
+  select(!Index) %>% 
+  formattable(.,align=c("c","l"),
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
+
+```
+:::
+
+## Föräldrafrågor
+
+Item/frågor har etiketter F79-F82 samt f83a-h i datafilen, och motsvaras av fråga 81-84 samt 85 i PDF-filen med frågor.
+
+Samtliga f83-frågor har fyra svarskategorier: *"Stämmer mycket bra, Stämmer ganska bra, Stämmer ganska dåligt, Stämmer mycket dåligt"*. Sektionen i enkäten inleds med meningen: *"Hur väl stämmer följande påståenden in på hur dina föräldrar/vårdnadshavare är mot dig?"*.
+
+F79-81 har fyra svarsalternativ, som varierar med frågan, och F82 har bara två svarsalternativ ("Ja" eller "Nej").
+
+Svarsdata har kodats så att högre poäng innebär mera problem/högre "risk". Svarsalternativet *"Vet inte"* har kodats som saknat svar.
+
+En enkätfråga som vanligtvis inte ingår bland föräldrafrågorna har lagts till:
+
+- F58 - "Hur skulle dina föräldrar reagera om du hade skolkat?"
+
+Frågan har svarskategorier från *De skulle reagera mycket kraftigt*, till *De skulle inte reagera alls*, och har visat sig vara en nyckelkomponent för att få adekvat reliabilitet bland föräldrafrågorna.
+
+### Lista på samtliga items
+
+```{r}
+#| label: parents.itemlist
+
+parents.removed.nr<-itemlabels %>%
+  filter(itemnr %in% items.parents.all) %>% 
+  rownames_to_column() %>% 
+  filter(itemnr %in% items.parents.final) %>% 
+  pull(rowname)
+
+itemlabels %>%
+  filter(itemnr %in% items.parents.all) %>%
+  select(!Index) %>% 
+  formattable(., align = c("r", "l"), list(formattable::area(row = parents.removed.nr) ~ 
+      color_tile(RISEprimGreenMid, "lightpink")), table.attr = "style=\"font-size: 15px; font-family: Lato\"")
+```
+
+### Item som tagits bort
+
+#### Svarskategorier som åtgärdats
+
+De två högsta svarskategorierna slås samman för items
+
+-   F79
+-   f83a, e, och g.
+
+#### Item-eliminering 1
+
+De största residualkorrelationerna är mellan:
+
+-   F79 och 80
+-   f83a, c och e
+
+F79 och 80 har båda att göra med föräldrarnas vetskap om barnens förehavanden.
+
+-   F79 hade problem med svarskategorier och tas bort.
+
+f83a c och e handlar alla om uppmuntran från föräldrarna. Största korrelationen är mellan a och c, där a har en mera specifik frågeställning. F83e har bättre targeting än de andra två, samt bättre fit, så den sparas.
+
+-   f83a och c tas bort
+-   f83h är korrelerad med tre andra item och tas bort.
+
+#### Item-eliminering 2
+
+Vi har tre item-par som fortfarande korrelerar över gränsvärdet 0.2:
+
+-   F80 och 81
+-   F82 och f83e
+-   f83e och g
+
+Vi tar bort:
+
+-   F81 är en mindre relevant fråga än F80.
+-   F82 har bara en svarskategori, sämre targeting och låg outfit MSQ. f83e behålls.
+-   f83g har sämre targeting.
+
+### Reliabilitet
+
+De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre. Figurtexten ger viktig information om hur reliabiliteten förhåller sig till respondenterna.
+
+Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
+
+```{r}
+#| label: parents.rel
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.parents.final)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+
+### Targeting
+
+Denna figur visar hur väl items passar respondenterna (de som besvarat enkätfrågorna). Överst syns respondenternas indexvärden, nederst finns frågornas tröskelvärden (gränsvärden mellan svarskategorierna), och i mitten finns antalet tröskelvärden sammanräknade i staplar (histogram). De två översta visar även genomsnittsvärde för respondenter och item-trösklar med en röd streckad vertikal linje. I idealfallet ligger medelvärden nära varandra, och de rosa och mörkgrå staplarna matchar varandra spegelvänt. Skulle de i stället ligga långt från varandra passar frågorna inte respondenterna.
+
+Targeting är även användbart när item-reduktion är önskvärt, eftersom det framgår tydligt var det finns överskott/underskott av item-trösklar.
+
+::: panel-tabset
+#### Figur
+
+```{r}
+#| label: parents.targ
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.parents.final)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+
+#### Items
+```{r}
+#| label: parents.items
+itemlabels %>%
+  filter(itemnr %in% items.parents.final) %>%
+  select(!Index) %>% 
+  formattable(.,align=c("c","l"),
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
+```
+:::
+
+## Kamrater och fritid
+
+Item/frågor har etiketter F70 samt f86a-j i datafilen, och motsvaras av fråga 71 respektive 88 i PDF-filen med frågor.
+
+Bland dessa frågor ingår även "prosocialt index", som består av fyra items: F70, F86a, c och f.
+
+Samtliga f86-frågor har fyra svarskategorier: *"Ingen, Någon enstaka, Ungefär hälften, De flesta"*. Sektionen i enkäten inleds med meningen: *"Hur många av dina kamrater (inom och utom skolan):"*.
+
+F70 har fyra svarsalternativ: *"Ofta, Ibland, Sällan, Aldrig"*.
+
+Svarsdata har kodats så att högre poäng innebär mera problem/högre "risk". Svarsalternativet *"Vet inte"* har kodats som saknat svar.
+
+### Lista på samtliga items
+
+```{r}
+#| label: kamfr.itemlist
+
+itemlabels %>%
+  filter(Index == "Kamrater och fritid") %>%
+  select(!Index) %>% 
+  formattable(., align = c("r", "l"), table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
+```
+
+### Kort om resultat
+
+Analysen visar att items kan delas upp i negativa och positiva, men ingen av dem klarar av att bilda ett fungerande index med adekvat reliabilitet.
+
+
+## Närsamhälle
+
+Frågorna heter F100 och f101a till f101l i datafilen, och överensstämmer med 102 och 103 i PDF-filen.
+
+F100 ställer frågan **"Om du går ut ensam sent en kväll i området där du bor, känner du dig då..."** med svarsalternativen:
+
+-   Mycket trygg
+-   Ganska trygg
+-   Ganska otrygg
+-   Mycket otrygg
+-   Går ej ut på kvällen av oro för att utsättas för brott \<--- **kodas som missing/NA pga ej användbart i ordinala data. Skulle ev. kunna ses som likvärdigt som Mycket Otrygg, eller som ännu "värre" (ordinalt ett steg över), men det är diskutabelt.**
+-   Går ej ut på kvällen av andra orsaker \<--- **kodas som missing/NA pga ej användbart i ordinala data. Det är alltför oklart vad "andra orsaker" är.**
+
+Ovanstående frågor kodas om till siffror 0-3, där hög siffra är Mycket otrygg.
+
+f101-frågorna föregås av frågan **"Hur väl stämmer följande påståenden in på ditt bostadsområde?"**. Samtliga frågor har samma fyra svarskategorier:
+
+-   'Stämmer mycket dåligt'
+-   'Stämmer ganska dåligt'
+-   'Stämmer ganska bra'
+-   'Stämmer mycket bra'
+
+Frågorna är blandat negativt och positivt formulerade, och vid omkodning från ovanstående svarskategorier till siffror 0-3 har positiva frågor vänts så att höga värden alltid innebär högre risk.
+
+### Lista på samtliga items
+
+```{r}
+#| label: nsam.itemlist
+
+nsam.removed.nr<-itemlabels %>%
+  filter(itemnr %in% items.nsam.all) %>% 
+  rownames_to_column() %>% 
+  filter(itemnr %in% items.nsam.final) %>% 
+  pull(rowname)
+
+itemlabels %>%
+  filter(itemnr %in% items.nsam.all) %>%
+  select(!Index) %>% 
+  formattable(., align = c("r", "l"), list(formattable::area(row = nsam.removed.nr) ~ 
+      color_tile(RISEprimGreenMid, "lightpink")), table.attr = "style=\"font-size: 15px; font-family: Lato\"")
+
+```
+
+### Item som tagits bort
+
+Vi har arbetat med två index utifrån frågorna om Närsamhälle, där det ena inte kunde uppnå adekvat reliabilitet, men det andra kunde det, även om reliabiliteten är låg och främst gäller de som har högre nivåer av risk.
+
+#### Svarskategorier som åtgärdats
+
+f101k och j har fått mittenkategorierna hopslagna.
+
+#### Item-eliminering
+
+Många items verkar beröra ungefär samma saker, vilket syns i residualkorrelationerna där det är många par av items som har höga värden.
+
+-   f101a med d och e (vandalism med narkotikaförsäljnin och många berusade utomhus på kvällarna)
+-   f101b och c (vuxen skulle ingripa vid olaglig handling/narkotikaförsäljning)
+-   f101c med h och i (vuxen skulle ingripa vid narkotikaförsäljning, och skulle ingripa vid slagsmål/rån)
+-   f101d med e (säljer narkotika/är berusade i området)
+-   f101h med i (vuxna skulle ingripa vid slagsmål/rån)
+-   f101j med k och l (trivsel), där k och l är starkast
+
+
+### Reliabilitet
+
+De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre.
+
+Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
+
+```{r}
+#| label: nsam.rel
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.nsam.final)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+
+### Targeting
+
+Denna figur visar hur väl items passar respondenterna (de som besvarat enkätfrågorna). Överst syns respondenternas indexvärden, nederst finns frågornas tröskelvärden (gränsvärden mellan svarskategorierna), och i mitten finns antalet tröskelvärden sammanräknade i staplar (histogram). De två översta visar även genomsnittsvärde för respondenter och item-trösklar med en röd streckad vertikal linje. I idealfallet ligger medelvärden nära varandra, och de rosa och mörkgrå staplarna matchar varandra spegelvänt. Skulle de i stället ligga långt från varandra passar frågorna inte respondenterna.
+
+Targeting är även användbart när item-reduktion är önskvärt, eftersom det framgår tydligt var det finns överskott/underskott av item-trösklar.
+
+::: panel-tabset
+#### Figur
+
+```{r}
+#| label: nsam.targ
+df %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(items.nsam.final)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+
+#### Items
+```{r}
+#| label: nsam.items
+itemlabels %>%
+  filter(itemnr %in% items.nsam.final) %>%
+  select(!Index) %>% 
+  formattable(.,align=c("c","l"),
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
+```
+:::
+
+## Programvara som använts för att genomföra analyser och skapa denna rapport
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+
+```
+
+## Referenser
