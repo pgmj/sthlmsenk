@@ -9,6 +9,7 @@ author:
 date: '2022-11-21'
 format: 
   html:
+    toc-title: "Innehållsförteckning"
     toc: true
     toc-depth: 3
     embed-resources: true
@@ -214,9 +215,20 @@ Item/frågor har etiketter f66a-f66u i datafilen, och motsvaras av fråga 67 i P
 Svarskategorierna ersätts med siffror från 0 till 3, och för f66h, m, p och u är siffrorna omvända/reverserade, d.v.s. att "Stämmer mycket bra" kodas som "0" i stället för "3" till analysen. Det innebär att höga poäng genomgående innebär hög risk.
 
 ```{r}
-#| label: showitems
-#| tbl-cap-location: top
-RIcolorlistitems(c(8,13,16,21), RISEprimGreenMid)
+#RIcolorlistitems(c(8,13,16,21), RISEprimGreenMid)
+reverserade <- c(8,13,16,21)
+itemlabels %>% 
+  kbl(booktabs = T, escape = F) %>%
+      # bootstrap options are for HTML output
+      kable_styling(bootstrap_options = c("striped", "hover"), 
+                    position = "left",
+                    full_width = F,
+                    font_size = 14,
+                    fixed_thead = T) %>% # when there is a long list in the table
+      #  column_spec(c(2:3), color = "red") %>% 
+      row_spec(reverserade, bold = F, color = "white", background = RISEprimGreen) %>% 
+      column_spec(1, bold = T) %>% 
+      kable_classic(html_font = "Lato")
 ```
 
 ## Deskriptiva data
@@ -225,6 +237,7 @@ RIcolorlistitems(c(8,13,16,21), RISEprimGreenMid)
 
 ```{r}
 #| label: descriptives1
+#| layout-ncol: 2
 RIdemographics(dif.gender, "Kön")
 RIdemographics(dif.arskurs, "Årskurs")
 ```
@@ -617,6 +630,8 @@ Inga större problem. Två item går över 0.3 - f66r och f66i, men ingen över 
 
 ### Årtal
 :::: column-page-inset-left
+::: panel-tabset
+#### Tabell
 ```{r}
 #| cache: true
 
@@ -633,6 +648,11 @@ df.dif.years.neg <- df.dif.years %>%
 
 RIdifTable(df.dif.years.neg, dif.year)
 ```
+#### Figur
+```{r}
+RIdifFigure(df.dif.years.neg, dif.year)
+```
+:::
 ::::
 
 Inget item är problematiskt.

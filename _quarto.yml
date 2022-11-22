@@ -7,7 +7,7 @@ project:
 book:
   title: "Stockholmsenkäten"
   subtitle: "Psykometrisk analys med Rasch-metodik"
-  repo-url: https://github.com/pgmj/
+  repo-url: https://github.com/pgmj/sthlmsenk
   
   sidebar:
     style: floating
@@ -22,7 +22,13 @@ book:
   
   chapters:
   - index.qmd
+  - 01_Intro/01_Intro.qmd
   - 02_IF/02_Individfaktorer.qmd
+  - 03_Skola/03_Skola.qmd
+  - 04_PSF/04_PSF.qmd
+  - 05_Parenting/05_Parenting.qmd
+  - 06_KamraterFritid/06_KamraterFritid.qmd
+  - 07_Community/07_Community.qmd
   
 format:
   html:

@@ -1,6 +1,5 @@
 ---
 title: "Föräldrafrågor"
-subtitle: "Psykometrisk analys av Stockholmsenkäten"
 title-block-banner: "#009ca6"
 author: 
   name: Magnus Johansson

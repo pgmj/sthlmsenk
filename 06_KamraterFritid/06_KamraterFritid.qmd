@@ -1,6 +1,5 @@
 ---
-title: "Stockholmsenkäten"
-subtitle: "Kamrater, fritid och prosocialt index"
+title: "Kamrater, fritid och prosocialt index"
 title-block-banner: "#009ca6"
 author: 
   name: Magnus Johansson

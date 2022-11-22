@@ -1,6 +1,5 @@
 ---
-title: "Stockholmsenkäten"
-subtitle: "Psykiska och psykosomatiska besvär"
+title: "Psykiska/psykosomatiska besvär"
 title-block-banner: "#009ca6"
 author: 
   name: Magnus Johansson
