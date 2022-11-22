@@ -503,7 +503,29 @@ RIdifFigure(df.skolpos, dif.gender)
 
 Item f54a är det enda som avviker och närmar sig gränsvärdet 0.5. Inget annat item överstiger 0.3. Det verkar som att pojkar har svårare att ha koll på vilka regler som gäller på skolan än vad flickor har. 
 
+### Årskurs
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.skolpos)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+RIdifTable(df.skolpos, dif.arskurs)
+```
+#### Figur
+```{r}
+RIdifFigure(df.skolpos, dif.arskurs)
+```
+:::
+::::
+
 ### Årtal
+
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
@@ -679,6 +701,27 @@ RIdifFigure(df.skolneg, dif.gender)
 ::::
 
 Inga problematiska items. Endast f54q överstiger 0.3 logits.
+
+### Årskurs
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.skolneg)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+RIdifTable(df.skolneg, dif.arskurs)
+```
+#### Figur
+```{r}
+RIdifFigure(df.skolneg, dif.arskurs)
+```
+:::
+::::
 
 ### Årtal
 :::: column-page-inset-left
@@ -890,7 +933,7 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 300, 32, 8)
+RIitemfitPCM2(df.subskala, 400, 32, 8)
 ```
 #### PCA
 ```{r}
@@ -1022,7 +1065,7 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 300, 32, 8)
+RIitemfitPCM2(df.subskala, 400, 32, 8)
 ```
 #### PCA
 ```{r}
@@ -1075,7 +1118,7 @@ RIpfit(df.subskala)
 
 Alla delskalor har flera items som uppvisar låg item fit, vilket innebär att svaren är för förutsägbara tillsammans med övriga frågor. Det vill säga att de tillför relativt lite information.
 
-All delskalor uppvisar också låg reliabilitet.
+All delskalor uppvisar också låg reliabilitet. "Trivsel i skolan" har både stora problem med svarskategorier och item fit, så att reliabilitetskurvan går över 0.7 vid ett smalt område är inte relevant eftersom delskalan inte uppfyller andra kriterier. Anledningen till att reliabiliteten ser ut att vara högre är att item F56 har väldigt många svarskategorier som överlappar varandra inom ett smalt område. Men eftersom svarskategorierna är oordnade medför de inte meningsfull information om respondenterna.
 
 ## Programvara som använts
 

@@ -628,6 +628,29 @@ RIdifFigure(df.neg, dif.gender)
 Inga större problem. Två item går över 0.3 - f66r och f66i, men ingen över 0.5.
 
 
+### Årskurs
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.neg)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+RIdifTable(df.neg, dif.arskurs)
+```
+#### Figur
+```{r}
+RIdifFigure(df.neg, dif.arskurs)
+```
+:::
+::::
+
+Inga problem. Item f66f är den som har högst nivå.
+
 ### Årtal
 :::: column-page-inset-left
 ::: panel-tabset
@@ -830,6 +853,29 @@ RIdifFigure(df.pos, dif.gender)
 ::::
 
 Items f66l och p har något hög DIF, men ej över gränsvärde 0.5.
+
+### Årskurs
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.pos)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+RIdifTable(df.pos, dif.arskurs)
+```
+#### Figur
+```{r}
+RIdifFigure(df.pos, dif.arskurs)
+```
+:::
+::::
+
+Inga problem.
 
 ### Årtal
 
@@ -1046,7 +1092,7 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 320, 32, 8)
+RIitemfitPCM2(df.subskala, 400, 32, 8)
 ```
 #### PCA
 ```{r}

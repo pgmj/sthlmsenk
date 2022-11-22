@@ -6,11 +6,15 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-08-26'
+date: '2022-11-22'
 format: 
   html:
     toc: true
-    self-contained: true
+    toc-depth: 3
+    toc-title: "Innehållsförteckning"
+    embed-resources: true
+    standalone: true
+    page-layout: full
     logo: rise_logo_quarto.png
     mainfont: 'Lato'
     monofont: 'Roboto Mono'
@@ -18,8 +22,10 @@ format:
     code-tools: true
     code-fold: true
     number-sections: true
-    fig-dpi: 300
+    fig-dpi: 250
     layout-align: left
+    linestretch: 1.6
+    theme: materia
   pdf:
     papersize: a4
     documentclass: article #article, report or book
@@ -49,20 +55,6 @@ bibliography: grateful-refs.bib
 #| label: recoderawdata
 #| include: false
 
-# # import data
-# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/SthlmsEnkat220405.csv")
-# df$X<-NULL
-# #
-#  
-# # 1. Anknytning - anknytningindex=mean(pf83g,pf83h,pf82)
-# # 2. Uppmärksamhet - uppmarksamindex=mean(pf83a,pf83c,pf83e)
-# # 3. Inkonsekvens – inkonsekvensindex=mean(pf83b,pf83d,pf83f)
-# # 4. Föräldrakontroll - forkontrollindex=mean(pf79,pf80,pf81)
-# # f82 också intressant: "Om du har ett personligt problem, kan du be någon av dina föräldrar/vårdnadshavare om hjälp?" (ja, nej, vet inte)
-# Fråga i PDF som borde vara med? 72. Vem bestämmer när du ska vara hemma på kvällen?
-# 
-# # 81-84, and 85 (multiple questions) in PDF file
-# 
 # df$F79<-recode(df$F79,"'Alltid'=0;
 #                'Ibland'=1;
 #                'Sällan'=2;
@@ -117,9 +109,6 @@ bibliography: grateful-refs.bib
 # 
 # df.parent <- df %>% 
 #   select(F79,F80,F81,F82,starts_with("f83"),ar,Kön,ARSKURS)
-# 
-# # write recoded data to file to save time later on
-# write.csv(df.parent, file = "PARENTalldata.csv", row.names = F)
 
 ```
 
@@ -128,10 +117,14 @@ bibliography: grateful-refs.bib
 #| code-fold: false
 #| include: false
 
-library(ggrepel)
+# two packages below require that you use devtools to install them manually:
+# first install devtools by
+# install.packages('devtools')
+
 library(arrow)
+library(ggrepel)
 library(car)
-library(grateful)
+library(grateful) # devtools::install_github("Pakillo/grateful")
 library(kableExtra)
 library(readxl)
 library(tidyverse)
@@ -144,9 +137,11 @@ library(matrixStats)
 library(reshape)
 library(knitr)
 library(cowplot)
-library(formattable)
-library(RISEkbmRasch)
+library(formattable) 
+library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
 library(HH)
+library(glue)
+library(foreach)
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
