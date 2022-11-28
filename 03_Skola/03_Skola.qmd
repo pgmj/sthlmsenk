@@ -1114,7 +1114,7 @@ RIpfit(df.subskala)
 ::::
 
 
-## Delskalor - sammanfattande kommentar
+### Delskalor - sammanfattande kommentar
 
 Alla delskalor har flera items som uppvisar låg item fit, vilket innebär att svaren är för förutsägbara tillsammans med övriga frågor. Det vill säga att de tillför relativt lite information.
 

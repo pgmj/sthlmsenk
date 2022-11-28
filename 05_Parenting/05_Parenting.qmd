@@ -6,7 +6,7 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-11-22'
+date: '2022-11-24'
 format: 
   html:
     toc: true
@@ -188,11 +188,11 @@ jz = 300 # number to include in dataset
 yz = 10 # number of random samples
 
 # import item information
-itemlabels<-read_excel("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/PARENTSitems.xls")
+itemlabels<-read_excel("../../data/PARENTSitems.xls")
 
 # read recoded dataset
 # df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/PARENTSalldata.csv", fileEncoding = "ISO-8859-1")
-df.all <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-08-22 sthlmsenkat data.parquet")
+df.all <- read_parquet("../../data/2022-08-22 sthlmsenkat data.parquet")
 
 df <- df.all %>% 
   select(itemlabels$itemnr,Kön,ARSKURS,ar)
@@ -207,9 +207,15 @@ df$F58<-recode(df$F58,"'De skulle reagera mycket kraftigt'=0;
 
 # create dataframe with 2014 data with all variables (post recode)
 df.2014 <- df %>% 
-  filter(ar == 2014)
-df.all.years<-df
-df.omit.na <- na.omit(df.2014)
+  filter(ar == 2014) |> 
+  na.omit() 
+
+df.all.years <- df
+
+df.omit.na <- df.2014 |> 
+  select(!F58) # we will add this item later
+
+
 df.omit.na$ar <- NULL
 
 # create DIF variables for gender and grade
@@ -218,9 +224,12 @@ df.omit.na$Kön <- NULL
 dif.arskurs <- df.omit.na$ARSKURS
 df.omit.na$ARSKURS <- NULL
 
+df.backup <- df.omit.na
+
 # prepare for dif between years
 df.dif.years <- df.all.years %>% 
-  select(!Kön,!ARSKURS)
+  select(!Kön,!ARSKURS) |> 
+  na.omit()
 
 dif.year <- df.dif.years$ar
 df.dif.years$ar <- NULL
@@ -238,6 +247,10 @@ F79-81 har fyra svarsalternativ, som varierar med frågan, och F82 har bara två
 
 Svarsdata har kodats så att högre poäng innebär mera problem/högre "risk". Svarsalternativet *"Vet inte"* har kodats som saknat svar.
 
+I Stockholmsenkäten finns items i olika delar som angår föräldrar på olika vis, som inte lagts samman med föräldrafrågorna tidigare. Vi kommer senare i analysen att lägga till frågan
+
+- F58 "Hur skulle dina föräldrar reagera om du hade skolkat?"
+
 ### Lista med enkätfrågorna
 
 ```{r}
@@ -248,53 +261,22 @@ RIlistitems(df.omit.na)
 
 ### Demografi
 
-Vi har `r nrow(df.omit.na)` deltagare i samplet från 2014, och deras könsfördelning återges i tabellen nedan. Deltagare som har missing data är borttagna ur analysen för att maximera reliabiliteten i de psykometriska analyserna.
+Vi har `r nrow(df.omit.na)` deltagare i samplet från 2014, och deras könsfördelning återges i tabellen nedan. Deltagare som saknar data på samtliga frågor är borttagna ur analysen.
+
+## Deskriptiva data
+
+### Demografi
 
 ```{r}
-#| label: genderdistr
+#| label: descriptives1
 #| layout-ncol: 2
-
-# Make table object to show gender counts and percentages
-dif.gender %>%
-#  recode("1='Male';2='Female'") %>% 
-  table() %>% 
-  as_tibble() %>% 
-  mutate('Percent' = (round((100 * n / sum(n)),1))) %>% 
-  dplyr::rename('Kön' = '.') %>% 
-  kbl(booktabs = T, escape = F, table.attr = "style='width:20%;'") %>%
-  # options for HTML output
-  kable_styling(bootstrap_options = c("striped", "hover"), 
-                position = "center",
-                full_width = T,
-                font_size = r.fontsize,
-                fixed_thead = T) %>% 
-  column_spec(1, bold = T) %>% 
-  kable_classic(html_font = "Lato") %>% 
-  # latex_options are for PDF output
-  kable_styling(latex_options = c("striped","scale_down"))
-
-dif.arskurs %>%
-#  recode("1='Male';2='Female'") %>% 
-  table() %>% 
-  as_tibble() %>% 
-  mutate('Percent' = (round((100 * n / sum(n)),1))) %>% 
-  dplyr::rename('Årskurs' = '.') %>% 
-  kbl(booktabs = T, escape = F, table.attr = "style='width:20%;'") %>%
-  # options for HTML output
-  kable_styling(bootstrap_options = c("striped", "hover"), 
-                position = "center",
-                full_width = T,
-                font_size = r.fontsize,
-                fixed_thead = T) %>% 
-  column_spec(1, bold = T) %>% 
-  kable_classic(html_font = "Lato") %>% 
-  # latex_options are for PDF output
-  kable_styling(latex_options = c("striped","scale_down"))
-
+RIdemographics(dif.gender, "Kön")
+RIdemographics(dif.arskurs, "Årskurs")
 ```
 
-### Deskriptiva item-data
+### Item-data
 
+:::: column-page-inset-left
 ::: panel-tabset
 #### Tile plot
 ```{r}
@@ -313,28 +295,444 @@ RIbarstack(df.omit.na)
 RIbarplot(df.omit.na)
 ```
 :::
+::::
 
-## Svarskategorier {.smaller}
+## Rasch-analys 1 samtliga items
 
 ```{r}
-#| label: respcat1
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.omit.na)
+```
+### Svarskategorier
+```{r}
 #| include: false
 mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
-
 ```{r}
-#| label: respcatfig1
 plot(mirt.rasch, type="trace")
 ```
+:::
+::::
 
-F79, f83a e g har problem med oordnade svarskategorier. Items f83c d och h har mycket små avstånd mellan svarskategoriernas trösklar.
+Många items har problem med svarskategorier och residualkorrelationer. Både PCA av residualer och figuren med faktorladdning på första residualkontrasten tyder också på multidimensionalitet bland items.
+
+Det framgår tydligt att items 
+
+Vi provar att gå vidare genom att eliminera avvikande kluster av items, och se vad vi kan landa i. Sedan återvänder vi till att från samtliga items ta fram en så välfungerande uppsättning som möjligt.
+
+## Dimensionalitet 1
+
+Vi tar bort de tre items som handlar om hot och otrygghet, utan att åtgärda några svarskategorier.
+
+```{r}
+straff <- c("f83b","f83d","f83f")
+
+df.2 <- df.omit.na |> 
+  select(!any_of(straff))
+
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.2, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.2, 350, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.2)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.2, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+::::
+
+Största egenvärdet från PCA av residualer är fortfarande över 2.0 och utifrån denna uppsättning av items verkar F79, 80 och 81 bilda ett eget kluster ("föräldrakontroll"). Vi tar bort dem.
+
+## Dimensionalitet 2
+
+```{r}
+fkontroll <- c("F79","F80","F81")
+
+df.2 <- df.2 |> 
+  select(!any_of(fkontroll))
+
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.2, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.2, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.2)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.2, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+::::
+
+Egenvärdet från PCA är nu under 2.0, och figuren med faktorladdningar visar möjligen att f83g och h drar åt ett eget håll.
+
+Vi har en del problem med residualkorrelationer.
+
+Item f83c har låg fit och korrelerar med f83a, och tas därför bort.
+
+```{r}
+
+df.2$f83c <- NULL
+
+```
+
+## Dimensionalitet 3
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.2, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.2, 350, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.2)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.2, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+::::
+
+Nu framkommer en starkare residualkorrelation mellan f83 a och e. I den tidigare analysen där samtliga föräldraitems var med hade dessa två, samt den nyss borttagna f83c, mycket starka residualkorrelationer. Alla tre items handlar om positiv uppmärksamhet från föräldrarna, och det är tydligt att dessa items är för lika varandra. Eftersom f83e har bättre separation och spridning av svarströsklar tar vi bort f83a.
+
+```{r}
+df.2$f83a <- NULL
+```
+
+## Dimensionalitet 4
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.2, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.2, 350, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.2)
+```
+### Reliabilitet
+```{r}
+RItif(df.2)
+```
+:::
+::::
+
+Inga problematiska residualkorrelationer kvarstår. Dock har f83h för låg item fit. Om vi skulle eliminera den kvarstår bara tre items, vilket är för lite för att uppnå acceptabel reliabilitet, så vi avbryter denna test av dimensionalitet som renderade i enbart items med positivt innehåll.
+
+## Dimensionalitet 5 - negativa items
+
+Vi har tidigare tagit bort items som handlar om hot och otrygghet samt föräldrakontroll, och vänder oss nu till att titta på dessa separat.
+
+```{r}
+df.2 <- df.omit.na |> 
+  select(any_of(c(fkontroll,straff)))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.2, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.2, 350, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.2)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.2, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+::::
+
+Även om PCA ser bra ut har vi residualkorrelationer mellan F79, 80 och 81. Item F79 har dessutom problem med oordnade svarskategorier, så vi börjar med att ta bort den.
+
+```{r}
+df.2$F79 <- NULL
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.2, fontsize = 12)
+```
+
+## Dimensionalitet 6 - negativa items
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.2, 350, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.2)
+```
+:::
+::::
+
+Residualkorrelationen mellan F80 och F81 är stor. Vi tar bort F81, eftersom den förmodligen är mindre viktig innehållsmässigt.
+
+```{r}
+df.2$F81 <- NULL
+```
+
+## Dimensionalitet 7 - negativa items
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.2, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.2, 400, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.2)
+```
+### Reliabilitet
+```{r}
+RItif(df.2)
+```
+:::
+::::
+
+Låg item fit för flera items, och låg reliabilitet.
+
+## Åter till analys av samtliga items
+
+F79, f83a e g uppvisade problem med oordnade svarskategorier. Items f83c d och h har mycket små avstånd mellan svarskategoriernas trösklar.
 
 ### Omkodning av svarskategorier
 
 De två högsta svarskategorierna slås samman för items F79, f83a, e, och g.
 
 ```{r}
-#| label: recodingrcats
 #| include: false
 
 rcat1 <- c("F79", "f83a", "f83e", "f83g")
@@ -345,58 +743,53 @@ for (i in rcat1) {
 
 #df.omit.na$F79<-recode(df.omit.na$F79,"2=1;3=2",as.factor=FALSE)
 mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
-
 ```
-
+:::: column-page-inset-left
 ```{r}
-#| label: respcatfig3
 plot(mirt.rasch, type="trace")
-
 ```
+::::
 
 Nu ser svarskategorierna bättre ut, även om det är mycket små avstånd mellan vissa av dem.
 
-## Rasch-parametrar
+## Rasch-analys 2 samtliga items
 
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 12)
+```
+
+:::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
 ```{r}
-#| label: rasch1.fit
-RIitemfitPCM(df.omit.na, 300, 20)
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
 ```
 ### PCA
 ```{r}
-#| label: rasch1.pca
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.omit.na)
 ```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
 ### Residualkorrelationer
 ```{r}
-#| label: rasch1.rcorr
 RIresidcorr(df.omit.na, cutoff = 0.2)
 ```
 ### Targeting
 ```{r}
-#| label: rasch1.targ
+#| fig-height: 7
 RItargeting(df.omit.na)
 ```
-### Targeting sorterad
+### Itemhierarki
 ```{r}
-#| label: rasch1.targs
-df.erm<-PCM(df.omit.na)
-plotPImap(df.erm, sorted = T)
-```
-### Loadings 1st contrast
-```{r}
-#| label: rasch1.load
-RIloadLoc(df.omit.na)
-```
-### Items
-```{r}
-#| label: rasch1.items
-RIlistitems(df.omit.na)
+#| fig-height: 7
+RIitemHierarchy(df.omit.na)
 ```
 :::
+::::
 
 Item fit är avvikande för 4 items (rödmarkerade). PCA av residualer är över 2.0 så vi har problem med multidimensionalitet som behöver lösas.
 
@@ -405,385 +798,590 @@ De största residualkorrelationerna är mellan:
 - F79 och 80
 - f83a, c och e
 
-F79 och 80 har båda att göra med föräldrarnas vetskap om barnens förehavanden. F79 hade problem med svarskategorier och tas bort.
+F79 och 80 har båda att göra med föräldrarnas vetskap om barnens förehavanden. Det är förmodligen mera intressant med vetskap om barnets umgänge (F80) än vilken plats man vistas på. F79 hade dessutom problem med svarskategorier och tas bort.
 
 f83a c och e handlar alla om uppmuntran från föräldrarna. Största korrelationen är mellan a och c, där a har en mera specifik frågeställning. F83e har bättre targeting än de andra två, samt bättre fit, så den sparas.
 
 f83h är korrelerad med tre andra item och tas bort.
 
-## Rasch-parametrar 2
+Vi tar alltså bort:
 
-::: panel-tabset
+- F79
+- f83a
+- f83e
+- f83h
+
+
 ### Residualkorrelationer {.smaller}
 ```{r}
-#| label: locdeps2
-
 removed.items <- c("F79","f83a","f83c","f83h")
-df.omit.na$F79 <- NULL
-df.omit.na$f83c <- NULL
-df.omit.na$f83a <- NULL
-df.omit.na$f83h <- NULL
 
-RIresidcorr(df.omit.na, 0.2)
+df.omit.na <- df.omit.na |> 
+  select(!any_of(removed.items))
 ```
+
+## Rasch-analys 3 samtliga items
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
 ### Item fit
 ```{r}
-#| label: locdeps2.2
-RIitemfitPCM(df.omit.na, 300, 20)
-```
-### Targeting
-```{r}
-#| label: locdeps2.3
-RItargeting(df.omit.na)
-```
-### Targeting sorterad
-```{r}
-#| label: locdeps2.4
-df.erm<-PCM(df.omit.na)
-plotPImap(df.erm, sorted = T)
-```
-### Items
-```{r}
-#| label: locdeps2.5
-RIlistitems(df.omit.na)
+RIitemfitPCM2(df.omit.na, 400, 32, 8)
 ```
 ### PCA
 ```{r}
-#| label: locdeps2.6
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.omit.na)
 ```
-### Reliabilitet
+### Loadings 1st contrast
 ```{r}
-#| label: tifprel
-RItif(df.omit.na)
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 6
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 6
+RIitemHierarchy(df.omit.na)
 ```
 :::
+::::
 
-Vi har tre item-par som fortfarande korrelerar över gränsvärdet 0.2:
+Tre item-par korrelerar fortfarande över gränsvärdet 0.2:
 
 - F80 och 81
 - F82 och f83e
 - f83e och g
 
-Korrelationerna är samtliga under 0.3, och även om det sannolikt medför viss bias i indexvärde är det många av frågorna som är kvar som känns viktiga för att bibehålla validiteten i indexet.
+Vi tar bort:
 
-För att helt uppfylla kriterier för unidimensionalitet skulle vi kunna reducera items ytterligare, förslagsvis enligt nedan.
+- F81 är en mindre relevant fråga än F80.
+- F82 har bara en svarskategori, sämre targeting och låg outfit MSQ. f83e behålls.
+- f83g har sämre targeting.
 
-F81 är en mindre relevant fråga än F80.
-F82 har bara en svarskategori, sämre targeting och låg outfit MSQ. f83e behålls.
-f83g har sämre targeting.
+## Rasch-analys 4 samtliga items
 
-## Rasch-parametrar 3
-
-::: panel-tabset
-### Residualkorrelationer {.smaller}
 ```{r}
 #| label: locdeps3
 
 removed.items <- c(removed.items,"F81","F82","f83g")
 
-df.omit.na$F81 <- NULL
-df.omit.na$F82 <- NULL
-df.omit.na$f83g <- NULL
-
-RIresidcorr(df.omit.na, 0.2)
+df.omit.na <- df.omit.na |> 
+  select(!any_of(removed.items))
 ```
+
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
 ### Item fit
 ```{r}
-#| label: locdeps3.2
-RIitemfitPCM(df.omit.na, 300, 20)
-```
-### Targeting
-```{r}
-#| label: locdeps3.3
-RItargeting(df.omit.na)
-```
-### Targeting sorterad
-```{r}
-#| label: locdeps3.4
-df.erm<-PCM(df.omit.na)
-plotPImap(df.erm, sorted = T)
-```
-### Items
-```{r}
-#| label: locdeps3.5
-RIlistitems(df.omit.na)
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
 ```
 ### PCA
 ```{r}
-#| label: locdeps3.6
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.omit.na)
 ```
-
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 5
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df.omit.na)
+```
 ### Reliabilitet
 ```{r}
-#| label: tif1
 RItif(df.omit.na)
 ```
+
 :::
+::::
 
 Inga problem återstår men reliabiliteten är låg, framför allt för de som har lägre nivåer av risk.
 
-Vi återställer de tre items som togs bort sist, och genomför resterande analyser.
+Vi provar nu att lägga till frågan
 
-## Invarians/DIF-analys av kön
-
-::: panel-tabset
-### Tabell
+- F58 "Hur skulle dina föräldrar reagera om du hade skolkat?"
 ```{r}
-#| label: difgender
+
+df.omit.na <- cbind(df.omit.na,df.2014$F58)
+df.omit.na <- df.omit.na |> 
+  rename(F58 = "df.2014$F58")
+
+```
+
+## Rasch-analys 5 (med F58)
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 5
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df.omit.na)
+```
+### Reliabilitet
+```{r}
+RItif(df.omit.na)
+```
+
+:::
+::::
+
+
+
+## Invarians/DIF
+
+### Kön
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
 #dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
-
-df.omit.na <- na.omit(df.2014)
-df.omit.na$ar <- NULL
-df.omit.na$Kön <- NULL
-df.omit.na$ARSKURS <- NULL
-
-rcat1 <- c("F79", "f83a", "f83e", "f83g")
-for (i in rcat1) {
-  df.omit.na[[i]]<-recode(df.omit.na[[i]],"3=2",as.factor=FALSE)
-}
-
-removed.items <- c("F79","f83a","f83c","f83h")
-
-df.omit.na <- df.omit.na %>% 
-  select(!any_of(removed.items))
-
 RIdifTable(df.omit.na, dif.gender)
 ```
-### Figur
+#### Figur
 ```{r}
-#| label: difgender2
 RIdifFigure(df.omit.na, dif.gender)
 ```
-### Items
+:::
+::::
+
+Item F80 är det enda item som närmar sig gränsvärdet 0.5, vilket indikerar att det finns vissa skillnader mellan hur pojkar och flickor upplever denna fråga, men inte tillräckligt för att inverka signifikant på jämförbarheten av indexvärden.
+
+
+### Årskurs
+
 ```{r}
-#| label: dif1.3
-RIlistitems(df.omit.na)
+#| column: margin
+
+RIlistItemsMargin(df.omit.na)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+RIdifTable(df.omit.na, dif.arskurs)
+```
+#### Figur
+```{r}
+RIdifFigure(df.omit.na, dif.arskurs)
 ```
 :::
+::::
 
-Inget item har problematisk DIF för kön.
+Inga problem med jämförbarhet mellan årskurser. Item F58 har högst värde.
 
-## Invarians/DIF för årtal
+### Årtal
 
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.omit.na)
+```
+
+:::: column-page-inset-left
 ::: panel-tabset
-### Tabell
+#### Tabell
 ```{r}
 #| label: difyear1
 
 final.items <- names(df.omit.na)
-write.csv(final.items, file = "2022-08-24 ParentingFinalitems.csv")
+#write.csv(final.items, file = "2022-08-24 ParentingFinalitems.csv")
 df.dif.years <- df.dif.years %>% 
   select(any_of(final.items))
 
+df.dif.years$f83e <- recode(df.dif.years$f83e,"3=2",as.factor=FALSE)
+
 RIdifTable(df.dif.years, dif.year)
 ```
-### Figur
+#### Figur
 ```{r}
-#| label: difyear1.2
-
 RIdifFigure(df.dif.years, dif.year)
 ```
 :::
+::::
 
-Inga problematiska skillnader över tid.
+Inga problematiska skillnader över tid. Noterbart att F58 förflyttats i princip linjärt över tid, vilket kan vara intressant att fundera mera över.
 
 
 ## Item-parametrar
 
 ```{r}
+#| column: margin
+
+RIlistItemsMargin(df.dif.years, 13)
+```
+
+```{r}
 #| label: itemparams
 
-RIlistitems(df.omit.na)
-df.dif.years <- na.omit(df.dif.years)
 RIitemparams(df.dif.years)
 ```
 
+```{r}
+RIscoreSE(df.dif.years)
+```
 
 
-## Sammanfattning
-
-### Svarskategorier som åtgärdats:
-
-F79 och f83a, e, g har fått de mittersta svarskategorierna sammanslagna.
-
-### Residualkorrelationer & item-eliminering {.smaller}
-
-F79 och 80 har båda att göra med föräldrarnas vetskap om barnens förehavanden. F79 hade problem med svarskategorier och tas bort.
-
-f83a c och e handlar alla om uppmuntran från föräldrarna. Största korrelationen är mellan a och c, där a har en mera specifik frågeställning. F83e har bättre targeting än de andra två, så den sparas.
-
-f83h är korrelerad med tre andra item och tas bort.
-
-F81 mera relevant fråga än F80.
-
-
-
-## Person location och infit ZSTD 
+## Person fit
 
 ```{r}
 #| label: personfit1
 
 RIpfit(df.omit.na)
-
 ```
 
-## Test med extra item
+## Analys av delskalor
 
-I Stockholmsenkäten finns items som angår föräldrar på olika vis, som inte lagts samman med föräldrafrågorna tidigare.
+Denna sektion använder data i originalform, d.v.s. utan några svarskategorier åtgärdade.
 
-Vi provar att lägga till frågan
-
-- F58 "Hur skulle dina föräldrar reagera om du hade skolkat?"
+- Anknytning - (f83g,f83h,F82)
+- Uppmärksamhet - (f83a,f83c,f83e)
+- Inkonsekvens – (f83b,f83d,f83f)
+- Föräldrakontroll - (F79,F80,F81)
 
 
 ```{r}
-#| label: setup2.1
+Anknytning <- as.character(expression(f83g,f83h,F82))
+Uppmärksamhet <- as.character(expression(f83a,f83c,f83e))
+Inkonsekvens <- as.character(expression(f83b,f83d,f83f))
+Föräldrakontroll <- as.character(expression(F79,F80,F81))
 
-df.2 <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-15 sthlmsenkat recoded responses.parquet")
+df.omit.na <- df.backup
 
-df <- df.2 %>% 
-  select(itemlabels$itemnr,F58,Kön,ARSKURS,ar,SkolSDO)
-
-# create dataframe with 2014 data with all variables (post recode)
-df.2014 <- df %>% 
-  filter(ar == 2014)
-df.all.years<-df
-df.omit.na <- na.omit(df.2014)
-df.omit.na$ar <- NULL
-
-# create DIF variables for gender and grade
-dif.gender <- df.omit.na$Kön
-df.omit.na$Kön <- NULL
-dif.arskurs <- df.omit.na$ARSKURS
-df.omit.na$ARSKURS <- NULL
-dif.skolsdo <- df.omit.na$SkolSDO
-df.omit.na$SkolSDO <- NULL
-
-# prepare for dif between years
-df.dif.years <- df.all.years %>% 
-  select(!Kön,!ARSKURS,!SkolSDO)
-
-dif.year <- df.dif.years$ar
-df.dif.years$ar <- NULL
-
-removed.items <- c("F79","f83a","f83c","f83h")
-
-df.omit.na <- df.omit.na %>% 
-  select(!any_of(removed.items))
 ```
 
-## Rasch-parametrar test
+### Anknytning
 
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Anknytning))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
 ::: panel-tabset
-### Item fit
+#### Item fit {.smaller}
 ```{r}
-#| label: rascht0.fit
-RIitemfitPCM(df.omit.na, 300, 2)
+RIitemfitPCM2(df.subskala, 300, 32, 8)
 ```
-### PCA
+#### PCA
 ```{r}
-#| label: rascht0.pca
 #| tbl-cap: "PCA of Rasch model residuals"
-RIpcmPCA(df.omit.na)
+RIpcmPCA(df.subskala)
 ```
-### Residualkorrelationer
+#### Loadings 1st contrast
 ```{r}
-#| label: rascht0.rcorr
-RIresidcorr(df.omit.na, cutoff = 0.2)
+RIloadLoc(df.subskala)
 ```
-### Targeting
+#### Residualkorrelationer
 ```{r}
-#| label: rascht0.targ
-RItargeting(df.omit.na)
+RIresidcorr(df.subskala, cutoff = 0.2)
 ```
-### Targeting sorterad
+#### Targeting
 ```{r}
-#| label: rascht0.targs
-df.erm<-PCM(df.omit.na)
-plotPImap(df.erm, sorted = T)
+#| fig-height: 4
+RItargeting(df.subskala)
 ```
-### Loadings 1st contrast
+#### Itemhierarki
 ```{r}
-#| label: rascht0.load
-RIloadLoc(df.omit.na)
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
 ```
-### Reliabilitet
+#### Svarskategorier
 ```{r}
-#| label: rascht0.tif
-RItif(df.omit.na)
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
-### Items
 ```{r}
-#| label: rascht0.items
-RIlistitems(df.omit.na)
+plot(mirt.rasch, type="trace")
 ```
-Samt F58: "Hur skulle dina föräldrar reagera om du hade skolkat?"
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
 :::
+::::
 
-Vi tar bort f83g och F81 utifrån residualkorrelationerna.
+### Uppmärksamhet
 
-## Rasch-parametrar test 2
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Uppmärksamhet))
+```
 
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
 ::: panel-tabset
-### Item fit
+#### Item fit {.smaller}
 ```{r}
-#| label: rascht2.fit
-
-df.omit.na$f83g <- NULL
-df.omit.na$F81 <- NULL
-
-RIitemfitPCM(df.omit.na, 300, 2)
+RIitemfitPCM2(df.subskala, 400, 32, 8)
 ```
-### PCA
+#### PCA
 ```{r}
-#| label: rascht2.pca
 #| tbl-cap: "PCA of Rasch model residuals"
-RIpcmPCA(df.omit.na)
+RIpcmPCA(df.subskala)
 ```
-### Residualkorrelationer
+#### Loadings 1st contrast
 ```{r}
-#| label: rascht2.rcorr
-RIresidcorr(df.omit.na, cutoff = 0.2)
+RIloadLoc(df.subskala)
 ```
-### Targeting
+#### Residualkorrelationer
 ```{r}
-#| label: rascht2.targ
-RItargeting(df.omit.na)
+RIresidcorr(df.subskala, cutoff = 0.2)
 ```
-### Targeting sorterad
+#### Targeting
 ```{r}
-#| label: rascht2.targs
-df.erm<-PCM(df.omit.na)
-plotPImap(df.erm, sorted = T)
+#| fig-height: 4
+RItargeting(df.subskala)
 ```
-### Reliabilitet
+#### Itemhierarki
 ```{r}
-#| label: rascht2.tif
-RItif(df.omit.na)
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
 ```
-### Items
+#### Svarskategorier
 ```{r}
-#| label: rascht2.items
-RIlistitems(df.omit.na)
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
-Samt F58: "Hur skulle dina föräldrar reagera om du hade skolkat?"
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
 :::
+::::
 
-Med hjälp av den tillagda frågan (F58: "Hur skulle dina föräldrar reagera om du hade skolkat?") kan vi ta bort två items som skapade problem med residualkorrelationer och nå ett bättre index, och nu är det en korrelation som är över gränsvärde.
+### Inkonsekvens
 
-### Reliabilitet utan F82
 ```{r}
-#| label: rascht2.tif
-
-df.omit.na$F82 <- NULL
-RItif(df.omit.na)
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Inkonsekvens))
 ```
 
-Även om F82 skapar problem i indexet och ger mindre information än det item som vi valde att ha kvar, är det bra om den finns kvar som indikator.
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 300, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Föräldrakontroll
+
+```{r}
+# subset items to dataframe
+df.subskala <- df.omit.na %>% 
+  select(all_of(Föräldrakontroll))
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.subskala, 13)
+```
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.subskala, 500, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.subskala)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.subskala)
+```
+#### Residualkorrelationer
+```{r}
+RIresidcorr(df.subskala, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.subskala)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.subskala)
+```
+#### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+#### Items
+```{r}
+RIlistitems(df.subskala)
+```
+#### Reliabilitet
+```{r}
+RItif(df.subskala)
+```
+#### Person fit
+```{r}
+RIpfit(df.subskala)
+```
+:::
+::::
+
+### Delskalor - sammanfattande kommentar
+
+Alla delskalor har flera items som uppvisar låg item fit, vilket innebär att svaren är för förutsägbara tillsammans med övriga frågor. Det vill säga att de tillför relativt lite information.
+
+All delskalor uppvisar också låg reliabilitet.
 
 ## Programvara som använts för analyserna
 
@@ -794,7 +1392,7 @@ pkgs <- cite_packages(cite.tidyverse = TRUE,
                       bib.file = "grateful-refs.bib",
                       include.RStudio = TRUE)
 formattable(pkgs, 
-            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+            table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
 ```
 
 ## Referenser
