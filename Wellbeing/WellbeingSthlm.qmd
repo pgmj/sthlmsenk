@@ -1,0 +1,501 @@
+---
+title: "Välbefinnande"
+title-block-banner: "#009ca6"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-12-02'
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Innehållsförteckning"
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 250
+    layout-align: left
+    linestretch: 1.6
+    theme: materia
+  pdf:
+    papersize: a4
+    documentclass: report #article, report or book
+    classoption: [onecolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: true
+    embed-resources: false
+    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+
+```{r}
+#| include: false
+#| eval: false
+
+# 68. Tycker du att det är viktigt vad du kommer att jobba med när du blir stor eller spelar det ingen roll?
+# df$F67<-recode(df$F67,"'Är mycket viktigt'=0;
+#                'Är ganska viktigt'=1;
+#                'Är varken viktigt eller oviktigt'=2;
+#                'Spelar nästan ingen roll'=3;
+#                'Spelar ingen roll alls'=4;
+#                '<NA>'=NA",
+#                as.factor=FALSE)
+# 
+# #  69. Om du jämför dina framtidsutsikter med de flesta andras i din ålder, tror du då att dina är sämre, lika bra
+# # eller bättre?
+# df$F68<-recode(df$F68,"'Mycket bättre'=0;
+#                'Lite bättre'=1;
+#                'Lika bra'=2;
+#                'Lite sämre'=3;
+#                'Mycket sämre'=4;
+#                '<NA>'=NA",
+#                as.factor=FALSE)
+```
+
+
+```{r}
+#| label: setup
+#| include: false
+
+library(arrow)
+library(ggrepel)
+library(car)
+library(grateful) # devtools::install_github("Pakillo/grateful")
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable) 
+library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
+library(HH)
+library(glue)
+library(foreach)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+# import item information
+itemlabels2 <- read_excel("../../data/2022-08-22 SthlmsenkätenAllaItemsML.xls", sheet = 3)
+itemlabels <- read.csv("../../data/allitems.csv", fileEncoding = "UTF-8")
+df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
+
+
+# filter relevant variables
+df <- df.all %>% 
+  select(itemlabels2$itemnr,F67,F68,ar,Kön,ARSKURS,SkolSDO)
+
+# create dataframe with 2016 (because of F67 and F68) data with all variables (post recode)
+df.2016 <- df %>% 
+  filter(ar == 2016) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2016
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.SkolSDO <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  filter(ar %in% c(2016,2018,2020)) %>% 
+  select(!Kön,!ARSKURS,!SkolSDO) %>% 
+  na.omit()
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+# df.dif.years can later be used for DIF analysis of years
+
+itemnr.new <- c("F67","F68")
+item.new <- c("Tycker du att det är viktigt vad du kommer att jobba med när du blir stor eller spelar det ingen roll?","Om du jämför dina framtidsutsikter med de flesta andras i din ålder, tror du då att dina är sämre, lika bra
+# eller bättre?")
+item.index.new <- c("Framtidstro","Framtidstro")
+
+itemlabels.new <- data.frame(itemnr.new,item.new,item.index.new)
+names(itemlabels.new) <- c("itemnr","item","Index")
+
+#itemlabels<-rbind(itemlabels,itemlabels.new)
+
+```
+
+## Välbefinnande
+
+Detta är en explorativ analys, där vi valt ut items som kan tänkas bilda ett övergripande välbefinnande-index.
+
+Items F67 och F68 som handlar om "framtidstro" har funnits med i Stockholmsenkäten från 2016, så vi använder 2016 som utgångspunkt i denna analys.
+
+### Lista på items
+
+```{r}
+#| label: showitems
+
+itemlabels %>% 
+  filter(itemnr %in% names(df.omit.na)) %>% 
+  formattable(align = c("l", "l","l"), 
+              list(itemnr = formatter("span", style = ~style(color = "grey", 
+      font.weight = "bold"))), 
+      table.attr = "class=\"table table-striped\" style=\"font-size: 15px; font-family: Lato; width: 75%\"")
+
+```
+
+Eftersom de flesta av dessa items analyserats i andra index har vi redan åtgärdat svarskategorierna för dem.
+
+```{r}
+itemlabels$Index <- NULL
+```
+
+
+### Descriptives - item level
+
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+for (i in 1:ncol(df.omit.na)) {
+    barplot(table(df.omit.na[, i]), col = "#8dc8c7", main = names(df.omit.na[i]), 
+      ylab = "Number of responses", xlab = (itemlabels %>% 
+                                              filter(itemnr %in% names(df.omit.na)) 
+                                            %>% .[i,2]))
+  }
+```
+:::
+
+## Rasch-analys 1 samtliga items
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.dif.years, 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.omit.na)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+### Items
+```{r}
+RIlistitems(df.omit.na)
+```
+:::
+::::
+
+Item F67 har problem med svarskategorierna. Vi slår samman de tre högsta.
+
+```{r}
+df.omit.na$F67 <- recode(df.omit.na$F67,"4=2;3=2", as.factor=F)
+df.erm <- PCM(df.omit.na)
+plotICC(df.erm, item.subset = "F67")
+```
+
+
+Vi har många item-par med för höga residualkorrelationer. Mest påtagliga är:
+
+- F86a och c, samt c med F70)
+- f101j och k
+- f83e och h
+
+Vi tar bort:
+
+- f86c
+- f101k
+- f83h
+
+
+## Rasch-analys 2
+
+```{r}
+#| label: itemremoval1
+
+removed.items <- c("f101k","f83h","f86c")
+
+df.omit.na <-df.omit.na %>% 
+  select(!any_of(removed.items))
+
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.dif.years, 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.omit.na)
+```
+
+:::
+::::
+
+F99 har något låg ZSTD, medan MSQ är ok. Det finns två residualkorrelationer som är över gränsvärdet, men båda är mycket nära gränsvärdet, så vi lämnar dem.
+
+
+
+
+
+
+Reliabilitetskurvan (och targeting) visar att vi har en takeffekt som är ganska påtaglig, där ca 25% av respondenterna har högre nivå av "välbefinnande" (lägre poäng) än vad frågorna mäter. Så detta utgör inte något bra mått på välbefinnande i positiv bemärkelse, eftersom högre nivåer av välbefinnande inte kan mätas på ett adekvat sätt. Däremot kan dessa frågor fånga upp lägre nivåer av välbefinnande bättre, men frågan är vad vi använder ett sådant mått till?
+
+## Invarians/DIF
+
+### Kön
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+RIdifTable(df.omit.na, dif.gender)
+```
+#### Figur
+```{r}
+RIdifFigure(df.omit.na, dif.gender)
+```
+:::
+::::
+
+F92, "Hur mycket skulle du vilja ändra på dig själv?", uppvisar DIF nära gränsvärdet på 0.5 logits. I tabellen är 2 = pojke och 3 = flicka. Items f101j och F67 är över 0.3.
+
+
+### Årskurs
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| label: dif1
+RIdifTable(df.omit.na, dif.arskurs)
+```
+#### Figur
+```{r}
+#| label: dif1.2
+RIdifFigure(df.omit.na, dif.arskurs)
+```
+:::
+::::
+
+F70, "Brukar du delta i någon ledarledd fritidsaktivitet eller träning?", är enda frågan som ens går över 0.2 logits.
+
+### Årtal
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| label: difyear1
+
+final.items <- names(df.omit.na)
+# write.csv(final.psm.items, file = "2022-09-18_PSMfinalitems.csv")
+df.dif.years <- df.dif.years %>%
+  select(any_of(final.items))
+
+df.dif.years$F67 <- recode(df.dif.years$F67,"4=2;3=2", as.factor=F)
+
+RIdifTable(df.dif.years, dif.year)
+```
+#### Figur
+```{r}
+#| label: difyear1.2
+
+RIdifFigure(df.dif.years, dif.year)
+```
+:::
+::::
+
+Items fungerar stabilt över tid.
+
+## Reliabilitet
+```{r}
+RItif(df.omit.na)
+```
+
+En viss golveffekt föreligger reliabilitetsmässigt, men överlag ser detta bra ut.
+
+## Person fit
+
+```{r}
+RIpfit(df.omit.na)
+```
+
+## Item-parametrar
+```{r}
+#| label: itemparams
+
+RIitemparams(df.dif.years)
+```
+```{r}
+RIscoreSE(df.dif.years)
+```
+
+
+
+## Programvara som använts för analyserna
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+```
+
+
+
+
+
+
+
+
+

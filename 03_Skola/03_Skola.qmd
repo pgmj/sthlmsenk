@@ -20,7 +20,7 @@ format:
     monofont: 'Roboto Mono'
     code-overflow: wrap
     code-tools: true
-    code-fold: true
+    code-fold: false
     number-sections: true
     fig-dpi: 250
     layout-align: left
@@ -173,7 +173,7 @@ df <- df.all %>%
 df.2014 <- df %>% 
   filter(ar == 2014) %>% 
   na.omit()
-df.all.years<-df
+df.all.years <- df
 df.omit.na <- df.2014
 df.omit.na$ar <- NULL
 
@@ -187,7 +187,8 @@ df.omit.na$SkolSDO <- NULL
 
 # prepare for dif between years
 df.dif.years <- df.all.years %>% 
-  select(!Kön,!ARSKURS,!SkolSDO)
+  select(!Kön,!ARSKURS,!SkolSDO) %>% 
+  na.omit()
 
 dif.year <- df.dif.years$ar
 df.dif.years$ar <- NULL
@@ -369,7 +370,7 @@ RIlistItemsMargin(df.skolpos, fontsize = 12)
 ::: panel-tabset
 ### Item fit
 ```{r}
-RIitemfitPCM2(df.skolpos, 400, 32, 8)
+RIitemfitPCM2(df.skolpos, 500, 32, 8)
 ```
 ### PCA
 ```{r}
@@ -565,7 +566,10 @@ Reliabiliteten är klart acceptabel, och skevar något åt det högre hållet, d
 
 ## Item-parametrar positiva items
 ```{r}
-RIitemparams(df.skolpos)
+RIitemparams(df.dif.years.pos, "SkolaPositivaItems.csv")
+```
+```{r}
+RIscoreSE(df.dif.years.pos)
 ```
 
 ## Person fit positiva items
@@ -757,7 +761,10 @@ Reliabiliteten är klart acceptabel, och skevar något åt det högre hållet, d
 
 ## Item-parametrar negativa items
 ```{r}
-RIitemparams(df.skolneg)
+RIitemparams(df.dif.years.neg, "SkolaNegativaItems.csv")
+```
+```{r}
+RIscoreSE(df.dif.years.neg)
 ```
 
 ## Person fit positiva items

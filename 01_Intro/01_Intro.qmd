@@ -20,7 +20,7 @@ format:
     monofont: 'Roboto Mono'
     code-overflow: wrap
     code-tools: true
-    code-fold: true
+    code-fold: false
     number-sections: true
     fig-dpi: 250
     layout-align: left
@@ -305,6 +305,8 @@ Items som eliminerats, samtliga utifrån att de varit för lika en annan fråga,
 De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre. Figurtexten ger viktig information om hur reliabiliteten förhåller sig till respondenterna.
 
 Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
+
+test att referera till @fig-if-reliability
 
 ::: panel-tabset
 #### Normbrytande

@@ -441,18 +441,37 @@ RIlistItemsMargin(df.psm, fontsize = 13)
 ::: panel-tabset
 #### Tabell
 ```{r}
-#| label: dif1
 RIdifTable(df.psm, dif.gender)
 ```
 #### Figur
 ```{r}
-#| label: dif1.2
 RIdifFigure(df.psm, dif.gender)
 ```
 :::
 ::::
 
 Inga problem med DIF för något item gällande kön.
+
+### Årskurs
+```{r}
+#| column: margin
+RIlistItemsMargin(df.psm, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| label: dif1
+RIdifTable(df.psm, dif.arskurs)
+```
+#### Figur
+```{r}
+#| label: dif1.2
+RIdifFigure(df.psm, dif.arskurs)
+```
+:::
+::::
 
 ### Årtal
 ```{r}
@@ -496,7 +515,6 @@ RItif(df.psm)
 ```
 
 Vi har acceptabel reliabilitet för ca 68% av respondenterna.
-
 
 ## Rasch-analys 1 - psykiska besvär
 ```{r}
@@ -946,7 +964,7 @@ Items fungerar stabilt över tid.
 ```{r}
 RItif(df.psf)
 ```
-Mycket bättre än någon av delskalorna uppnår separat.
+Bättre reliabilitet än vad någon av delskalorna uppnår separat.
 
 ## Person fit
 
@@ -957,6 +975,9 @@ RIpfit(df.psf)
 ## Item-parametrar
 ```{r}
 RIitemparams(df.dif.years)
+```
+```{r}
+RIscoreSE(df.dif.years)
 ```
 
 
@@ -1244,7 +1265,7 @@ ggplot(df.if, aes(x = as.factor(F99o), y = SumScores)) +
 ```
 
 
-## Software used
+## Programvara som använts för analyserna
 
 ```{r}
 #| label: packagesv

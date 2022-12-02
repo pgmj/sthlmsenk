@@ -18,7 +18,7 @@ book:
     affiliation-url: 'https://ri.se/shic'
     orcid: '0000-0003-1669-592X'
     
-  date: '2022-11-21'
+  date: '2022-12-02'
   
   chapters:
   - index.qmd
@@ -29,11 +29,13 @@ book:
   - 05_Parenting/05_Parenting.qmd
   - 06_KamraterFritid/06_KamraterFritid.qmd
   - 07_Community/07_Community.qmd
+  - Wellbeing/WellbeingSthlm.qmd
   
 format:
   html:
     logo: rise_logo_quarto.png
     mainfont: 'Lato'
     monofont: 'Roboto Mono'
-    linestretch: 1.7
+    linestretch: 1.6
     theme: materia
+    link-external-newwindow: true

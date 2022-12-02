@@ -689,7 +689,10 @@ RIpfit(df.neg)
 ## Item-parametrar negativa items
 
 ```{r}
-RIitemparams(df.dif.years.neg)
+RIitemparams(df.dif.years.neg, "IFnegativaItems.csv")
+```
+```{r}
+RIscoreSE(df.dif.years.neg)
 ```
 
 
@@ -746,10 +749,6 @@ mirt.rasch <- mirt(df.pos, model=1, itemtype='Rasch') # unidimensional Rasch mod
 ```
 ```{r}
 plot(mirt.rasch, type="trace")
-```
-### Items
-```{r}
-RIlistitems(df.pos)
 ```
 :::
 ::::
@@ -811,18 +810,6 @@ RItargeting(df.pos)
 ```{r}
 #| fig-height: 7
 RIitemHierarchy(df.pos)
-```
-### Svarskategorier
-```{r}
-#| include: false
-mirt.rasch <- mirt(df.pos, model=1, itemtype='Rasch') # unidimensional Rasch model
-```
-```{r}
-plot(mirt.rasch, type="trace")
-```
-### Items
-```{r}
-RIlistitems(df.pos)
 ```
 :::
 ::::
@@ -916,7 +903,10 @@ RItif(df.pos)
 
 ## Item-parametrar positiva items
 ```{r}
-RIitemparams(df.pos)
+RIitemparams(df.dif.years.pos, "IFpositivaItems.csv")
+```
+```{r}
+RIscoreSE(df.dif.years.pos)
 ```
 
 ## Analys av delskalor
