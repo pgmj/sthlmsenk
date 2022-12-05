@@ -930,6 +930,9 @@ RIlistItemsMargin(df.dif.years, 13)
 #| label: itemparams
 
 RIitemparams(df.dif.years)
+itemlabels %>% 
+  filter(itemnr %in% names(df.dif.years)) %>% 
+  write_csv("CommunityItemnr.csv")
 ```
 
 ```{r}

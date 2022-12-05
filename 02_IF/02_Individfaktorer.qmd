@@ -690,6 +690,9 @@ RIpfit(df.neg)
 
 ```{r}
 RIitemparams(df.dif.years.neg, "IFnegativaItems.csv")
+itemlabels %>% 
+  filter(itemnr %in% names(df.dif.years.neg)) %>% 
+  write_csv("IFnegItemnr.csv")
 ```
 ```{r}
 RIscoreSE(df.dif.years.neg)
@@ -904,6 +907,9 @@ RItif(df.pos)
 ## Item-parametrar positiva items
 ```{r}
 RIitemparams(df.dif.years.pos, "IFpositivaItems.csv")
+itemlabels %>% 
+  filter(itemnr %in% names(df.dif.years.pos)) %>% 
+  write_csv("IFposItemnr.csv")
 ```
 ```{r}
 RIscoreSE(df.dif.years.pos)

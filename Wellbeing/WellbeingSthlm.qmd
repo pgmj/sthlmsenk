@@ -44,7 +44,7 @@ execute:
   echo: false
   warning: false
   message: false
-  cache: true
+  cache: refresh
 editor_options: 
   markdown: 
     wrap: 72
@@ -215,7 +215,7 @@ itemlabels %>%
 
 ```
 
-Eftersom de flesta av dessa items analyserats i andra index har vi redan åtgärdat svarskategorierna för dem.
+Eftersom de flesta av dessa items analyserats i andra index har vi redan åtgärdat svarskategorierna för de som uppvisat problem.
 
 ```{r}
 itemlabels$Index <- NULL
@@ -287,19 +287,19 @@ mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
-### Items
-```{r}
-RIlistitems(df.omit.na)
-```
 :::
 ::::
 
 Item F67 har problem med svarskategorierna. Vi slår samman de tre högsta.
 
+Item F68 har mycket små skillnader mellan de två högsta svarskategorierna, så vi slår samman dem.
+
 ```{r}
 df.omit.na$F67 <- recode(df.omit.na$F67,"4=2;3=2", as.factor=F)
+df.omit.na$F68 <- recode(df.omit.na$F68,"4=3", as.factor=F)
+
 df.erm <- PCM(df.omit.na)
-plotICC(df.erm, item.subset = "F67")
+plotICC(df.erm, item.subset = c("F67","F68"))
 ```
 
 
@@ -362,18 +362,11 @@ RItargeting(df.omit.na)
 #| fig-height: 7
 RIitemHierarchy(df.omit.na)
 ```
-
 :::
 ::::
 
 F99 har något låg ZSTD, medan MSQ är ok. Det finns två residualkorrelationer som är över gränsvärdet, men båda är mycket nära gränsvärdet, så vi lämnar dem.
 
-
-
-
-
-
-Reliabilitetskurvan (och targeting) visar att vi har en takeffekt som är ganska påtaglig, där ca 25% av respondenterna har högre nivå av "välbefinnande" (lägre poäng) än vad frågorna mäter. Så detta utgör inte något bra mått på välbefinnande i positiv bemärkelse, eftersom högre nivåer av välbefinnande inte kan mätas på ett adekvat sätt. Däremot kan dessa frågor fånga upp lägre nivåer av välbefinnande bättre, men frågan är vad vi använder ett sådant mått till?
 
 ## Invarians/DIF
 
@@ -387,6 +380,7 @@ RIlistItemsMargin(df.omit.na, fontsize = 12)
 ::: panel-tabset
 #### Tabell
 ```{r}
+#| fig-height: 3
 RIdifTable(df.omit.na, dif.gender)
 ```
 #### Figur
@@ -409,7 +403,7 @@ RIlistItemsMargin(df.omit.na, fontsize = 13)
 ::: panel-tabset
 #### Tabell
 ```{r}
-#| label: dif1
+#| fig-height: 3
 RIdifTable(df.omit.na, dif.arskurs)
 ```
 #### Figur
@@ -440,6 +434,7 @@ df.dif.years <- df.dif.years %>%
   select(any_of(final.items))
 
 df.dif.years$F67 <- recode(df.dif.years$F67,"4=2;3=2", as.factor=F)
+df.dif.years$F68 <- recode(df.dif.years$F68,"4=3", as.factor=F)
 
 RIdifTable(df.dif.years, dif.year)
 ```
@@ -472,6 +467,9 @@ RIpfit(df.omit.na)
 #| label: itemparams
 
 RIitemparams(df.dif.years)
+itemlabels %>% 
+  filter(itemnr %in% names(df.dif.years)) %>% 
+  write_csv("WellbeingItemnr.csv")
 ```
 ```{r}
 RIscoreSE(df.dif.years)

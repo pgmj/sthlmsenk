@@ -131,7 +131,7 @@ indexitems <- read_excel("../../data/Index och items i Stockholmsenkätanalyser1
 
 # import data
 df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
-df<-df.all
+df <- df.all
 
 # code to create a vector to select only items from a specific domain/index
 items.if.all <- itemlabels %>% 
@@ -306,7 +306,6 @@ De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linj
 
 Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
 
-test att referera till @fig-if-reliability
 
 ::: panel-tabset
 #### Normbrytande

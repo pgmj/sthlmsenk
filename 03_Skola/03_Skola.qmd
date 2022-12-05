@@ -75,6 +75,17 @@ bibliography: grateful-refs.bib
 #                  as.factor=FALSE)
 # }
 
+### Additional item
+# Hur ofta har du blivit mobbad eller trakasserad i skolan det här läsåret?
+# df$F61<-recode(df$F61,"'Jag har inte blivit mobbad'=0;
+#                'Det har hänt någon enstaka gång'=1;
+#                '2 eller 3 gånger i månaden'=2;
+#                'Ungefär en gång i veckan'=3;
+#                'Flera gånger i veckan'=4;
+#                '<NA>'=NA;
+#                'Ska ej besvaras'=NA",
+#                as.factor=FALSE)
+
 ```
 
 
@@ -201,7 +212,7 @@ df.skolpos <- df.omit.na %>%
 df.skolneg <- df.omit.na %>% 
   select(any_of(Negativa))
 
-responsesF55<-read.csv("../../data/responsesF55.csv")
+responsesF55<-read.csv("../../data/responsesF55.csv", fileEncoding = "ISO-8859-1")
 
 ```
 
@@ -492,7 +503,7 @@ RIlistItemsMargin(df.skolpos, 12)
 ::: panel-tabset
 #### Tabell
 ```{r}
-#dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
+#| fig-height: 3
 RIdifTable(df.skolpos, dif.gender)
 ```
 #### Figur
@@ -509,13 +520,15 @@ Item f54a är det enda som avviker och närmar sig gränsvärdet 0.5. Inget anna
 ```{r}
 #| column: margin
 
-RIlistItemsMargin(df.skolpos)
+RIlistItemsMargin(df.skolpos, 12)
 ```
 
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
 ```{r}
+#| fig-height: 3
+
 RIdifTable(df.skolpos, dif.arskurs)
 ```
 #### Figur
@@ -567,6 +580,9 @@ Reliabiliteten är klart acceptabel, och skevar något åt det högre hållet, d
 ## Item-parametrar positiva items
 ```{r}
 RIitemparams(df.dif.years.pos, "SkolaPositivaItems.csv")
+itemlabels %>% 
+  filter(itemnr %in% names(df.dif.years.pos)) %>% 
+  write_csv("SkolaPosItemnr.csv")
 ```
 ```{r}
 RIscoreSE(df.dif.years.pos)
@@ -694,7 +710,7 @@ RIlistItemsMargin(df.skolneg, 12)
 ::: panel-tabset
 #### Tabell
 ```{r}
-#dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
+#| fig-height: 3
 RIdifTable(df.skolneg, dif.gender)
 ```
 #### Figur
@@ -718,6 +734,7 @@ RIlistItemsMargin(df.skolneg)
 ::: panel-tabset
 #### Tabell
 ```{r}
+#| fig-height: 3
 RIdifTable(df.skolneg, dif.arskurs)
 ```
 #### Figur
@@ -762,6 +779,9 @@ Reliabiliteten är klart acceptabel, och skevar något åt det högre hållet, d
 ## Item-parametrar negativa items
 ```{r}
 RIitemparams(df.dif.years.neg, "SkolaNegativaItems.csv")
+itemlabels %>% 
+  filter(itemnr %in% names(df.dif.years.neg)) %>% 
+  write_csv("SkolaNegItemnr.csv")
 ```
 ```{r}
 RIscoreSE(df.dif.years.neg)

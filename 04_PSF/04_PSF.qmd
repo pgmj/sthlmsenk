@@ -943,10 +943,10 @@ df.dif.years <- df.dif.years %>%
 df.dif.years$F91 <- recode(df.dif.years$F91, "2=1;3=2;4=2", as.factor = FALSE)
 df.dif.years$F92 <- recode(df.dif.years$F92, "4=3", as.factor = FALSE)
 df.dif.years$F93 <- recode(df.dif.years$F93, "4=3", as.factor = FALSE)
-df.dif.years$F95 <- recode(df.dif.years$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
-df.dif.years$F97 <- recode(df.dif.years$F97, "4=3;3=2;2=1;1=0", as.factor = FALSE)
 df.dif.years$F98 <- recode(df.dif.years$F98, "4=3", as.factor = FALSE)
 df.dif.years$F99 <- recode(df.dif.years$F99, "4=3", as.factor = FALSE)
+df.dif.years$F95 <- recode(df.dif.years$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
+df.dif.years$F97 <- recode(df.dif.years$F97, "4=3;3=2;2=1;1=0", as.factor = FALSE)
 
 RIdifTable(df.dif.years, dif.year)
 ```
@@ -975,6 +975,9 @@ RIpfit(df.psf)
 ## Item-parametrar
 ```{r}
 RIitemparams(df.dif.years)
+itemlabels %>% 
+  filter(itemnr %in% names(df.dif.years)) %>% 
+  write_csv("PSFitemnr.csv")
 ```
 ```{r}
 RIscoreSE(df.dif.years)

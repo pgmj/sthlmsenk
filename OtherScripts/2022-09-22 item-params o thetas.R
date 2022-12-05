@@ -42,15 +42,15 @@ RISEgrey3 <- "#828282"
 RISEgrey4 <- "#555555"
 
 #----- read item/variable information-----
-allitems <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/allitems.csv")
-itemlabels <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/allitems.csv")
-#itemlabels.final <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/FINALallitems.csv")
-itemlabels.final <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/FINALallitemsSCORING.csv")
+allitems <- read.csv("../data/allitems.csv")
+itemlabels <- read.csv("../data/allitems.csv")
+#itemlabels.final <- read.csv("../data/FINALallitems.csv")
+itemlabels.final <- read.csv("../data/FINALallitemsSCORING.csv")
 
 
 #---- read item data----
 # recoded items (except for F61) based on analyses 02-08
-df <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-24 sthlmsenkat recoded responses.parquet")
+df <- read_parquet("../../data/2022-09-24 sthlmsenkat recoded responses.parquet")
 
 
 # create vector with all index names
@@ -86,10 +86,10 @@ for (i in sthlm.index){
 }
 
 #---- write item parameters to a single excel file----
-#setwd("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/")
+#setwd("../../data/")
 for (i in 1:length(sthlm.index)) {
   write.xlsx(allitemps[[i]],
-             "C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-24_itemparams.xls", 
+             "../../data/2022-09-24_itemparams.xls", 
              sheet = sthlm.index[i], 
              append = T, 
              showNA = F)
@@ -101,9 +101,9 @@ for (i in 1:length(sthlm.index)) {
 #---- read item params----
 # (no need to re-calculate or access raw data)
 allitemps <- list()
-#setwd("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/")
+#setwd("../../data/")
 for (i in 1:length(sthlm.index)) {
-  read.xlsx("/Users/magnuspjo/Library/CloudStorage/OneDrive-RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-23_itemparams.xls", 
+  read.xlsx("../data/2022-09-23_itemparams.xls", 
              sheetName = sthlm.index[i]) %>% 
     select(!NA.) %>% # remove item names
     as.matrix() -> allitemps[[length(allitemps) + 1]]
@@ -209,13 +209,13 @@ for (i in sthlm.index) {
 
 #---- cleaned code for estimating thetas----
 
-df <- read_parquet("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-24 sthlmsenkat recoded responses.parquet")
+df <- read_parquet("../../data/2022-09-24 sthlmsenkat recoded responses.parquet")
 
 library(catR)
 library(xlsx)
 
-itemlabels.final <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/FINALallitemsSCORING.csv")
-allitems <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/allitems.csv")
+itemlabels.final <- read.csv("../../data/FINALallitemsSCORING.csv")
+allitems <- read.csv("../../data/allitems.csv")
 
 
 # create vector with all index names
@@ -226,9 +226,9 @@ sthlm.index <- itemlabels.final %>%
 #---- read item params----
 # (no need to re-calculate or access raw data)
 allitemps <- list()
-#setwd("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/")
+#setwd("../../data/")
 for (i in 1:length(sthlm.index)) {
-  read.xlsx("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-24_itemparams.xls", 
+  read.xlsx("../data/2022-09-24_itemparams.xls", 
             sheetName = sthlm.index[i]) %>% 
     select(!NA.) %>% # remove item names
     as.matrix() -> allitemps[[length(allitemps) + 1]]
@@ -282,5 +282,5 @@ for (i in sthlm.index) {
   thetaEstScores <- c()
 }
 
-write_parquet(df, sink = "C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-25_SthlmStadSCORED.parquet")
+write_parquet(df, sink = "../../data/2022-09-25_SthlmStadSCORED.parquet")
 
