@@ -121,16 +121,16 @@ min.responses <- 5
 # Select the variables we will work with, and filter out respondents with a lot of missing data
 df.if <- df %>% 
   head(100) %>% 
-    select(all_of(itemlabels.final %>% 
+    select(all_of(allItems %>% 
                   filter(Index == 'PsykSomBesv') %>% 
                   select(itemnr) %>% 
                   pull()
                 ),individ) %>%
-  filter(length(itemlabels.final %>% 
+  filter(length(allItems %>% 
                   filter(Index == 'PsykSomBesv') %>% 
                   select(itemnr) %>% 
                   pull()
-                )-rowSums(is.na(.[itemlabels.final %>% 
+                )-rowSums(is.na(.[allItems %>% 
                                     filter(Index == 'PsykSomBesv') %>% 
                                     select(itemnr) %>% 
                                     pull()])) >= min.responses) # include only respondents with data for at least min.responses items
@@ -139,11 +139,19 @@ df.if <- df %>%
 df.if.id<-df.if$individ 
 df.if$individ <- NULL
 
+x <- allItems %>% 
+  distinct(Index) %>% 
+  select(Index) %>% 
+  rownames_to_column(var = "order") %>% 
+  filter(Index == 'PsykSomBesv') %>% 
+  pull(order) %>% 
+  as.numeric()
+
 # create vector for theta scores
 thetaEstScores <- c()
 for (i in 1:nrow(df.if)){
   p1 <- as.numeric(as.vector((df.if[i,])))
-  ptheta <- thetaEst(allitemps[[1]], p1, model = "PCM", method = "ML") # "WL" or "ML"
+  ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "ML") # "WL" or "ML"
   thetaEstScores <- c(thetaEstScores,ptheta)
 }
 

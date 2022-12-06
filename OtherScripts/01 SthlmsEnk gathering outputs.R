@@ -4,7 +4,7 @@
 # both are needed for the estimation of person locations for each subscale
 library(arrow)
 library(tidyverse)
-
+library(xlsx)
 # read all item data into dataframes
 IFitemParams <- read_csv_arrow("02_IF/IFnegativaItems.csv")
 IFitems <- read_csv_arrow("02_IF/IFnegItemnr.csv")
@@ -29,31 +29,31 @@ WellbeingItems <- read_csv_arrow("Wellbeing/WellbeingItemnr.csv")
 # collect all item parameters as matrix objects (needed for catR::thetaEst()) within a list object, so that we can loop/map it later
 # itemParams[[1]] will be IFitemParams, etc
 itemParams <- list()
-itemParams$IFitemParams <- as.matrix(IFitemParams)
-itemParams$SkolaNegParams <- as.matrix(SkolaNegParams)
-itemParams$SkolaPosParams <- as.matrix(SkolaPosParams)
-itemParams$PSFitemParams <- as.matrix(PSFitemParams)
-itemParams$ParentingParams <- as.matrix(ParentingParams)
-itemParams$CommunityParams <- as.matrix(CommunityParams)
-itemParams$WellbeingParams <- as.matrix(WellbeingParams)
+itemParams$Utagerande <- as.matrix(IFitemParams)
+itemParams$SkolaNegativ <- as.matrix(SkolaNegParams)
+itemParams$SkolaPositiv <- as.matrix(SkolaPosParams)
+itemParams$PsykSomBesv <- as.matrix(PSFitemParams)
+itemParams$Parenting <- as.matrix(ParentingParams)
+itemParams$Community <- as.matrix(CommunityParams)
+itemParams$Wellbeing <- as.matrix(WellbeingParams)
 
 # collect all itemnr and descriptions in a list object (as tibble)
 # itemNumber[[1]]$itemnr will access a vector of IF items, that can be use for item selection
 # we also add an index variable to each dataframe
 itemNumber <- list()
-itemNumber$IFitems <- IFitems %>% 
+itemNumber$Utagerande <- IFitems %>% 
   add_column(Index = "Utagerande")
-itemNumber$SkolaNegItems <- SkolaNegItems %>% 
+itemNumber$SkolaNegativ <- SkolaNegItems %>% 
   add_column(Index = "SkolaNegativ")
-itemNumber$SkolaPosItems <- SkolaPosItems %>% 
+itemNumber$SkolaPositiv <- SkolaPosItems %>% 
   add_column(Index = "SkolaPositiv")
-itemNumber$PSFitems <- PSFitems %>% 
+itemNumber$PsykSomBesv <- PSFitems %>% 
   add_column(Index = "PsykSomBesv")
-itemNumber$ParentingItems <- ParentingItems %>% 
+itemNumber$Parenting <- ParentingItems %>% 
   add_column(Index = "Parenting")
-itemNumber$CommunityItems <- CommunityItems %>% 
+itemNumber$Community <- CommunityItems %>% 
   add_column(Index = "Community")
-itemNumber$WellbeingItems <- WellbeingItems %>% 
+itemNumber$Wellbeing <- WellbeingItems %>% 
   add_column(Index = "Wellbeing")
 
 # create a df with all items
@@ -62,7 +62,7 @@ for (i in 1:length(itemNumber)){
   allItems <- rbind(allItems,itemNumber[[i]])
 }
 
-### when needed, remove duplicates (created by Wellbeing index) by using the distinct() command 
+### when/if needed, remove duplicates (created by Wellbeing index) by using the distinct() command 
 # allItems %>%
 #   distinct(.keep_all = TRUE)
 
@@ -76,7 +76,7 @@ for (i in 2:length(itemParams)){
 
 # join params and descriptions
 allItemInfo <- cbind(allItems,allItemParams)
-#write.xlsx(allItemInfo, "2022-12-05 allItemInfo.xls")
+write.xlsx(allItemInfo, "../data/2022-12-06 allItemInfo.xls", row.names = F)
 
 # add itemnr identifyer to params df
 allItemParams <- allItemParams %>% 

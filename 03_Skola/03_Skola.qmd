@@ -381,6 +381,7 @@ RIlistItemsMargin(df.skolpos, fontsize = 12)
 ::: panel-tabset
 ### Item fit
 ```{r}
+#| cache: yes
 RIitemfitPCM2(df.skolpos, 500, 32, 8)
 ```
 ### PCA
@@ -792,6 +793,17 @@ RIscoreSE(df.dif.years.neg)
 RIpfit(df.skolneg)
 ```
 
+En explorativ analys visar att item F61 (om mobbning i skolan) kan fungera tillsammans med de negativa skolfrågorna.
+
+Svarsskalan behöver kodas enligt nedan:
+
+- 'Jag har inte blivit mobbad'=0;
+- 'Det har hänt någon enstaka gång'=1;
+- '2 eller 3 gånger i månaden'=2;
+- 'Ungefär en gång i veckan'=2;
+- 'Flera gånger i veckan'=2;
+
+Om tid finns kommer analysen i framtiden att uppdateras med tillägg av F61.
 
 ## Analys av delskalor
 
@@ -960,7 +972,8 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 400, 32, 8)
+#| cache: yes
+RIitemfitPCM2(df.subskala, 450, 32, 8)
 ```
 #### PCA
 ```{r}

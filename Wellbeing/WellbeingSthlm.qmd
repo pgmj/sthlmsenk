@@ -44,7 +44,7 @@ execute:
   echo: false
   warning: false
   message: false
-  cache: refresh
+  cache: true
 editor_options: 
   markdown: 
     wrap: 72
@@ -151,7 +151,8 @@ yz = 10 # number of random samples
 itemlabels2 <- read_excel("../../data/2022-08-22 SthlmsenkätenAllaItemsML.xls", sheet = 3)
 itemlabels <- read.csv("../../data/allitems.csv", fileEncoding = "UTF-8")
 df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
-
+df.all$f86a <- read_parquet("../../data/2022-08-22 sthlmsenkat data.parquet") %>% 
+  pull(f86a)
 
 # filter relevant variables
 df <- df.all %>% 

@@ -44,7 +44,7 @@ execute:
   echo: false
   warning: false
   message: false
-  cache: true
+  cache: refresh
 editor_options: 
   markdown: 
     wrap: 72
@@ -720,7 +720,7 @@ RIlistItemsMargin(df.other, fontsize = 13)
 ::: panel-tabset
 #### Item fit
 ```{r}
-RIitemfitPCM2(df.other, 320, 32, 8)
+RIitemfitPCM2(df.other, 350, 32, 8)
 ```
 #### PCA
 ```{r}
@@ -756,7 +756,7 @@ plot(mirt.rasch, type="trace")
 :::
 ::::
 
-Även här sticker f101g ut och verkar tillhöra en annan dimension, den tas bort.
+Även här sticker f101g ut. Den verkar tillhöra en annan dimension och bör möjligen tas bort, men först behöver andra saker åtgärdas.
 
 Många items har problem med svarskategorier och residualkorrelationer.
 
@@ -771,7 +771,6 @@ Vi tar bort k (korrelerar med två item, plus dålig targeting) och h (sämre ta
 
 df.other$f101k <- NULL
 df.other$f101h <- NULL
-df.other$f101g <- NULL
 ```
 
 ### Rasch-analys 2
@@ -798,16 +797,19 @@ RIloadLoc(df.other)
 ```
 #### Residualkorrelationer
 ```{r}
+#| cache: false
+
 RIresidcorr(df.other, cutoff = 0.2)
 ```
 #### Targeting
 ```{r}
-#| fig-height: 4
+#| fig-height: 5
+
 RItargeting(df.other)
 ```
 #### Itemhierarki
 ```{r}
-#| fig-height: 4
+#| fig-height: 5
 RIitemHierarchy(df.other)
 ```
 #### Svarskategorier
@@ -830,6 +832,49 @@ df.other$f101j <- recode(df.other$f101j,"2=1;3=2",as.factor = F)
 df.erm <- PCM(df.other)
 plotICC(df.erm, item.subset = "f101j")
 ```
+
+
+### Rasch-analys 3
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.other, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Item fit
+```{r}
+RIitemfitPCM2(df.other, 320, 32, 8)
+```
+#### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.other)
+```
+#### Loadings 1st contrast
+```{r}
+RIloadLoc(df.other)
+```
+#### Residualkorrelationer
+```{r}
+#| cache: false
+
+RIresidcorr(df.other, cutoff = 0.2)
+```
+#### Targeting
+```{r}
+#| fig-height: 5
+
+RItargeting(df.other)
+```
+#### Itemhierarki
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df.other)
+```
+:::
+::::
 
 
 ## Invarians/DIF

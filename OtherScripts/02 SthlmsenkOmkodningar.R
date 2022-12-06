@@ -33,7 +33,8 @@ df.sthlm <- df.sthlm %>%
 
 # to match Vaxholms variables
 df.sthlm <- df.sthlm %>% 
-  add_column(SkolID_gammal = NA)
+  add_column(SkolID_gammal = NA) %>% 
+  add_column(DIDkommun = 'Stockholm')
 
 ## Vallentuna ----------------------------------------------------------
 df.vtuna1618 <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Vallentuna/Sthlmsenk/Stockholmsenkäten 2018 Vallentuna 2016-2018.sav"))
@@ -63,21 +64,24 @@ df.vtuna <- rbind(df.vtuna1,df.vtuna2)
 
 # to match Vaxholms variables
 df.vtuna <- df.vtuna %>% 
-  add_column(SkolID_gammal = NA, SkolSDO = NA)
+  add_column(SkolID_gammal = NA, SkolSDO = NA) %>% 
+  add_column(DIDkommun = 'Vallentuna')
 
 ## Vaxholm ----------------------------------------------------------
 
 df.vaxholm <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Vaxholm/Sthlmsenk/Stockholmsenkäten 2008-2022 Vaxholm (1).sav"))
 
 df.vaxholm <- df.vaxholm %>% 
-  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(DIDkommun = 'Vaxholm')
 
 ## Danderyd ----------------------------------------------------------------
 
 df.danderyd <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Danderyd/Stockholmsenkäten 2014-2022 Danderyd.sav"))
 
 df.danderyd <- df.danderyd %>% 
-  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(DIDkommun = 'Danderyd')
 
 
 ## Täby --------------------------------------------------------------------
@@ -85,7 +89,8 @@ df.danderyd <- df.danderyd %>%
 df.täby <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Täby/Stockholmsenkäten 2016 & 2020-2022 Täby (2).sav"))
 
 df.täby <- df.täby %>% 
-  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(DIDkommun = 'Täby')
 
 # Combine all data --------------------------------------------------------
 
@@ -93,16 +98,16 @@ df.täby <- df.täby %>%
 # df.sthlm %>%
 #  select_at(vars(names(df.vaxholm)))
 
-# df <- rbind(df.sthlm, 
-#             df.vtuna, 
-#             df.vaxholm,
-#             df.dandery,
-#             df.täby)
-
-df <- rbind(df.vtuna, 
+df <- rbind(df.sthlm,
+            df.vtuna,
             df.vaxholm,
             df.danderyd,
             df.täby)
+
+# df <- rbind(df.vtuna, 
+#             df.vaxholm,
+#             df.danderyd,
+#             df.täby)
 
 # General recode preprocess -----------------------------------------------
 
@@ -389,10 +394,11 @@ df$f66p<-recode(df$f66p,"2=1;3=2", as.factor = F)
 
 ##----- 03 Skola-----
 
+# positiva
 df$f54a<-recode(df$f54a,"3=2",as.factor=FALSE)
 df$f54b<-recode(df$f54b,"3=2",as.factor=FALSE)
+# negativa
 df$f54o<-recode(df$f54o,"2=1;3=2",as.factor=FALSE)
-
 df$F61 <- recode(df$F61,"3=2;4=2",as.factor=F)
 
 ## 04 PSF-----
@@ -462,3 +468,8 @@ df$F68<-recode(df$F68,"'Mycket bättre'=0;
                '<NA>'=NA",
                as.factor=FALSE)
 df$F68 <- recode(df$F68,"4=3", as.factor=F)
+
+
+# Write new datafile ------------------------------------------------------
+
+write_parquet(df, sink = glue("../data/{Sys.Date()}_recodedData.parquet"))
