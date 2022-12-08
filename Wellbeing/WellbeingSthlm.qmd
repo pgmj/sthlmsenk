@@ -1,6 +1,7 @@
 ---
 title: "Välbefinnande"
 title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
 author: 
   name: Magnus Johansson
   affiliation: RISE Research Institutes of Sweden
@@ -224,7 +225,12 @@ itemlabels$Index <- NULL
 
 
 ### Descriptives - item level
+```{r}
+#| column: margin
+RIlistItemsMargin(df.dif.years, 12)
+```
 
+:::: column-page-inset-left
 ::: panel-tabset
 #### Tile plot
 ```{r}
@@ -243,6 +249,7 @@ for (i in 1:ncol(df.omit.na)) {
   }
 ```
 :::
+::::
 
 ## Rasch-analys 1 samtliga items
 

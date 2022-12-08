@@ -1,17 +1,21 @@
 ---
-title: "Stockholmsenkäten"
-subtitle: "Mobbning"
+title: "Mobbning"
 title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
 author: 
   name: Magnus Johansson
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-09-21'
+date: '2022-12-06'
 format: 
   html:
     toc: true
+    toc-depth: 3
+    toc-title: "Innehållsförteckning"
     embed-resources: true
+    standalone: true
+    page-layout: full
     logo: rise_logo_quarto.png
     mainfont: 'Lato'
     monofont: 'Roboto Mono'
@@ -19,7 +23,10 @@ format:
     code-tools: true
     code-fold: true
     number-sections: true
-    fig-dpi: 300
+    fig-dpi: 250
+    layout-align: left
+    linestretch: 1.6
+    theme: materia
   pdf:
     papersize: a4
     documentclass: report #article, report or book
@@ -53,8 +60,7 @@ bibliography: grateful-refs.bib
 library(arrow)
 library(ggrepel)
 library(car)
-library(ggrepel)
-library(grateful)
+library(grateful) # devtools::install_github("Pakillo/grateful")
 library(kableExtra)
 library(readxl)
 library(tidyverse)
@@ -67,8 +73,11 @@ library(matrixStats)
 library(reshape)
 library(knitr)
 library(cowplot)
-library(formattable)
-library(RISEkbmRasch)
+library(formattable) 
+library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
+library(HH)
+library(glue)
+library(foreach)
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
@@ -115,10 +124,10 @@ jz = 300 # number to include in dataset
 yz = 10 # number of random samples
 
 # import item information
-itemlabels <- read.csv("/Users/magnuspjo/Library/CloudStorage/OneDrive-RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/MOBBNINGitemlabels.csv", fileEncoding = "UTF-8")
+itemlabels <- read.csv("../../data/MOBBNINGitemlabels.csv", fileEncoding = "UTF-8")
 
 # import recoded data
-df.all <- read_parquet("/Users/magnuspjo/Library/CloudStorage/OneDrive-RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/2022-09-18 sthlmsenkat recoded responses.parquet")
+df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
 
 # filter relevant variables
 df <- df.all %>% 
@@ -127,9 +136,9 @@ df <- df.all %>%
 
 # create dataframe with 2014 data with all variables (post recode)
 df.2014 <- df %>% 
-  filter(ar == 2014) %>% 
+  filter(ar %in% c(2012,2014,2016,2018)) %>% 
   na.omit()
-df.all.years<-df
+df.all.years <- na.omit(df)
 df.omit.na <- df.2014
 df.omit.na$ar <- NULL
 
@@ -158,84 +167,92 @@ Item f60a har enbart kryssruta för "Nej" och har därför tagits bort. Övriga 
 
 Item F61 efterfrågar frekvens på mobbning/trakassering i skolan under läsåret, och har därför fler svarskategorier.
 
-### Deskriptiva data
+Eftersom det är relativt få respondenter i varje års mätning lägger vi samman 2012-2018 och får `r nrow(df.omit.na)` respondenter totalt.
 
+## Deskriptiva data
+
+### Demografi
+```{r}
+#| label: descriptives1
+#| layout-ncol: 3
+RIdemographics(dif.gender, "Kön")
+RIdemographics(dif.arskurs, "Årskurs")
+#RIdemographics(dif.stadsdel, "Stadsdel")
+```
+### Item-data
+
+:::: column-page-inset-left
 ::: panel-tabset
 #### Tile plot
 ```{r}
 #| label: descriptives2
 RItileplot(df.omit.na)
 ```
+#### Stacked bars
+```{r}
+#| label: stack1
+RIbarstack(df.omit.na)
+```
 #### Barplots {.scrollable}
 ```{r}
 #| label: alt-descriptives
 #| layout-ncol: 2
-for (i in 1:ncol(df.omit.na)) {
-    barplot(table(df.omit.na[, i]), col = "#8dc8c7", main = names(df.omit.na[i]), 
-      ylab = "Number of responses", xlab = (itemlabels %>% 
-                                              filter(itemnr %in% names(df.omit.na)) 
-                                            %>% .[i,2]))
-  }
+RIbarplot(df.omit.na)
 ```
 :::
+::::
 
-## Rasch-parametrar 1
+
+## Rasch-analys 1
 
 Eftersom vi har en blandning av dikotoma och polytoma (fler än 2 svarskategorier) använder vi Partial Credit Model.
 
+```{r}
+#| column: margin
+RIlistItemsMargin(df.omit.na, fontsize = 13)
+```
+
+:::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
 ```{r}
-#| label: rasch1.fit
-
-RIitemfitPCM2(df.omit.na)
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
 ```
 ### PCA
 ```{r}
-#| label: rasch1.pca
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.omit.na)
 ```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
 ### Residualkorrelationer
 ```{r}
-#| label: rasch1.rcorr
 RIresidcorr(df.omit.na, cutoff = 0.2)
 ```
 ### Targeting
 ```{r}
-#| label: rasch1.targ
+#| fig-height: 4
 RItargeting(df.omit.na)
 ```
-### Targeting sorterad
+### Itemhierarki
 ```{r}
-#| label: rasch1.targs
-df.erm<-PCM(df.omit.na)
-plotPImap(df.erm, sorted = T)
+#| fig-height: 4
+RIitemHierarchy(df.omit.na)
 ```
-### Loadings 1st contrast
+### Svarskategorier
 ```{r}
-#| label: rasch1.load
-RIloadLoc(df.omit.na)
-```
-### Analysis of response categories
-
-```{r}
-#| label: rasch1.cat
 #| include: false
 mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
 ```{r}
-#| label: rasch1.catfig
 plot(mirt.rasch, type="trace")
 ```
-### Items
-```{r}
-#| label: rasch1.items
-RIlistitems(df.omit.na)
-```
 :::
+::::
 
-F61 har för låg MSQ, och svarskategorierna fungerar dåligt.
+F61 har alldeles för låg item fit, och svarskategorierna fungerar dåligt.
 
 - Jag har inte blivit mobbad = 0
 - Det har hänt någon enstaka gång = 1 
@@ -243,7 +260,15 @@ F61 har för låg MSQ, och svarskategorierna fungerar dåligt.
 - Ungefär en gång i veckan = 3
 - Flera gånger i veckan = 4
 
-Vi tar bort F61 pga låg MSQ, men provar att använda den bland skolfrågor och "Vantrivsel i skolan".
+Vi kodar om F61 så att 3 och 4 = 2 och tittar sedan på item fit igen. Det är inte oväntat att en allmän fråga får låg item fit när den används tillsammans med mera specifika frågor inom samma område.
+
+```{r}
+df.omit.na$F61 <- recode(df.omit.na$F61,"4=2;3=2")
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
+
+```
+
+Vi tar bort F61 pga låg item fit, men kan prova att använda den bland skolfrågor och "Vantrivsel i skolan".
 
 Item f60h, som frågar specifikt om lärare medan alla andra item är ospecifika kring vem som mobbar, har något hög Outfit MSQ och avvikande loading.
 
@@ -258,7 +283,7 @@ Eftersom vi inte längre har en blandning av dikotoma och polytoma items, utan b
 
 df.omit.na$F61 <- NULL
 
-RIitemfitRM(df.omit.na, 300, 6)
+RIitemfitRM(df.omit.na, 300, 32)
 ```
 ### PCA
 ```{r}
@@ -294,4 +319,27 @@ RIlistitems(df.omit.na)
 ```
 :::
 
+Inga problem med dimensionalitet.
+
+## Reliabilitet
+
+```{r}
+RItif(df.omit.na)
+```
+
+Det är inte möjligt att bilda något meningsfullt index kring mobbningsfrågorna. Däremot kan som tidigare nämnt F61 läggas in bland skolfrågorna.
+
+## Programvara som använts
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+```
+
+## Referenser
 

@@ -1,6 +1,7 @@
 ---
 title: "Föräldrafrågor"
 title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
 author: 
   name: Magnus Johansson
   affiliation: RISE Research Institutes of Sweden
@@ -371,8 +372,7 @@ RIlistItemsMargin(df.2, fontsize = 12)
 ::: panel-tabset
 ### Item fit
 ```{r}
-#| cache: yes
-RIitemfitPCM2(df.2, 450, 32, 8)
+RIitemfitPCM2(df.2, 450, 32, 4)
 ```
 ### PCA
 ```{r}
@@ -593,7 +593,6 @@ RIlistItemsMargin(df.2, fontsize = 12)
 ::: panel-tabset
 ### Item fit
 ```{r}
-#| cache: yes
 RIitemfitPCM2(df.2, 400, 32, 8)
 ```
 ### PCA
@@ -1058,9 +1057,13 @@ df.dif.years$f83e <- recode(df.dif.years$f83e,"3=2",as.factor=FALSE)
 
 RIdifTable(df.dif.years, dif.year)
 ```
-#### Figur
+#### Figur 1
 ```{r}
 RIdifFigure(df.dif.years, dif.year)
+```
+#### Figur 2
+```{r}
+RIdifFigTime(df.dif.years, dif.year)
 ```
 :::
 ::::
@@ -1202,7 +1205,7 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 450, 32, 8)
+RIitemfitPCM2(df.subskala, 500, 32, 8)
 ```
 #### PCA
 ```{r}
@@ -1334,7 +1337,7 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 500, 32, 2)
+RIitemfitPCM(df.subskala, 500, 32)
 ```
 #### PCA
 ```{r}

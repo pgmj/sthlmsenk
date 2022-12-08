@@ -1,25 +1,18 @@
 project:
   type: book
   output-dir: __book
-# https://quarto.org/docs/reference/projects/books.html
-# https://quarto.org/docs/reference/projects/books.html#navbar
-# https://quarto.org/docs/reference/projects/books.html#sidebar
 book:
   title: "Stockholmsenkäten"
   subtitle: "Psykometrisk analys med Rasch-metodik"
-  repo-url: https://github.com/pgmj/sthlmsenk
-  
+  repo-url: "https://github.com/pgmj/sthlmsenk"
   sidebar:
     style: floating
-  
   author: 
     name: 'Magnus Johansson'
     affiliation: 'RISE Research Institutes of Sweden'
     affiliation-url: 'https://ri.se/shic'
     orcid: '0000-0003-1669-592X'
-    
-  date: '2022-12-02'
-  
+  date: '2022-12-08'
   chapters:
   - index.qmd
   - 01_Intro/01_Intro.qmd
@@ -30,6 +23,7 @@ book:
   - 06_KamraterFritid/06_KamraterFritid.qmd
   - 07_Community/07_Community.qmd
   - Wellbeing/WellbeingSthlm.qmd
+  - 08_Mobbning/08_Mobbning.qmd
   
 format:
   html:

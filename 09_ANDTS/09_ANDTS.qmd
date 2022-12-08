@@ -1,0 +1,192 @@
+---
+title: "ANDTS"
+title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
+author:
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://ri.se/shic
+  orcid: 0000-0003-1669-592X
+date: '2022-12-08'
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Innehållsförteckning"
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: false
+    number-sections: true
+    fig-dpi: 250
+    layout-align: left
+    linestretch: 1.6
+    theme: materia
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+#    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib
+---
+
+```{r}
+
+# import item information
+itemlabels<-read_excel("../../data/")
+
+df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
+
+# 5. Bjudvanor - ANforalderindex=mean(F84,F40,F17,F21)
+# ANTf – ANTindex - 1. mean(ANTf36,ANTf13,ANTf18,ANTf45)
+
+## Egen användning
+# 14. Röker du?
+# 15. Röker du e-cigaretter?
+# 19. Snusar du?
+# 35. Hur ofta dricker du vid ett och samma tillfälle alkohol motsvarande minst:
+# 37. Hur många gånger har du druckit så mycket alkohol att du känt dig berusad under den senaste 4-veckorsperioden?
+# 42. Har du sniffat/boffat någon gång?
+# 48. Hur många gånger totalt har du använt hasch/marijuana?
+# 49. Hur många gånger totalt har du använt annan narkotika än hasch/marijuana?
+# 50. Hur många gånger har du använt narkotika (cannabis eller annan narkotika) den senaste 4-veckors perioden?
+# 53. Har du någon gång haft möjlighet att pröva narkotika?
+# 54. Har du det senaste läsåret varit i kontakt med någon av följande hjälpinstanser på grund av att du använt alkohol eller droger?
+# 74. Hur mycket pengar har du spelat för de senaste 30 dagarna?
+
+## Tidig debut:
+# 21. Hur gammal var du första gången du snusade?
+# 38. Hur gammal var du första gången du kände dig berusad?
+# 45. Hur gammal var du första gången du sniffade/boffade?
+# 52. Hur gammal var du första gången du använde narkotika?
+
+## Föräldrar
+# 18. Får du röka för dina föräldrar?
+# 22. Får du snusa för dina föräldrar?
+# 23. Använder någon i din familj tobak (röker eller snusar)?
+# 41. Får du dricka alkohol för dina föräldrar?
+# 76. Får du satsa pengar på spel för dina föräldrar?
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
+
+library(arrow)
+library(ggrepel)
+library(car)
+library(grateful) # devtools::install_github("Pakillo/grateful")
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable) 
+library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
+library(HH)
+library(glue)
+library(foreach)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+
+
+df <- df.all %>% 
+  select(itemlabels$itemnr,Kön,ARSKURS,ar,SkolSDO)
+
+# create dataframe with 2014 data with all variables (post recode)
+df.2014 <- df %>% 
+  filter(ar == 2014) %>% 
+  na.omit()
+df.all.years<-df
+df.omit.na <- df.2014
+df.omit.na$ar <- NULL
+
+# create DIF variables for gender and grade
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.stadsdel <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+
+# prepare for dif between years
+df.dif.years <- df.all.years %>% 
+  select(!Kön,!ARSKURS,!SkolSDO) %>%
+  na.omit()
+
+
+```

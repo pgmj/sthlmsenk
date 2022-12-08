@@ -1,7 +1,8 @@
 ---
 title: "Närsamhälle"
 title-block-banner: "#009ca6"
-author: 
+title-block-banner-color: "#FFFFFF"
+author:
   name: Magnus Johansson
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
@@ -44,7 +45,7 @@ execute:
   echo: false
   warning: false
   message: false
-  cache: refresh
+  cache: true
 editor_options: 
   markdown: 
     wrap: 72
@@ -265,7 +266,7 @@ items.kontroll <- c("f101b","f101c","f101h","f101i")
 #| layout-ncol: 3
 RIdemographics(dif.gender, "Kön")
 RIdemographics(dif.arskurs, "Årskurs")
-RIdemographics(dif.stadsdel, "Stadsdel")
+#RIdemographics(dif.stadsdel, "Stadsdel")
 ```
 ### Item-data
 
@@ -948,9 +949,13 @@ df.dif.years$f101j <- recode(df.dif.years$f101j,"2=1;3=2", as.factor = F)
 
 RIdifTable(df.dif.years, dif.year)
 ```
-#### Figur
+#### Figur 1
 ```{r}
 RIdifFigure(df.dif.years, dif.year)
+```
+#### Figur 2
+```{r}
+RIdifFigTime(df.dif.years, dif.year)
 ```
 :::
 ::::

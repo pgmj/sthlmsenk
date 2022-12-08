@@ -1,6 +1,7 @@
 ---
 title: "Kamrater, fritid och prosocialt index"
 title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
 author: 
   name: Magnus Johansson
   affiliation: RISE Research Institutes of Sweden

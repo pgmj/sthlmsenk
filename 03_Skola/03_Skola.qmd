@@ -1,6 +1,7 @@
 ---
 title: "Skola"
 title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
 author: 
   name: Magnus Johansson
   affiliation: RISE Research Institutes of Sweden
@@ -167,8 +168,7 @@ yz = 10 # number of random samples
 itemlabels<-read_excel("../../data/Skola_itemlabels.xls")
 
 # import recoded data
-# df <- read.csv("C:/Users/magnuspjo/OneDrive - RISE/Dokument/Länsstyrelsen/Stockholmsenkäten2022/data/SthlmsEnkat220405.csv", fileEncoding = "ISO-8859-1")
-# df$X<-NULL
+
 df.all <- read_parquet("../../data/2022-08-22 sthlmsenkat data.parquet")
 
 # Negativa<-names(df.all[c(156:157,160,162,164,166,168)])
@@ -381,7 +381,6 @@ RIlistItemsMargin(df.skolpos, fontsize = 12)
 ::: panel-tabset
 ### Item fit
 ```{r}
-#| cache: yes
 RIitemfitPCM2(df.skolpos, 500, 32, 8)
 ```
 ### PCA
@@ -561,9 +560,13 @@ df.dif.years.pos <- df.dif.years.pos %>%
 
 RIdifTable(df.dif.years.pos, dif.year)
 ```
-#### Figur
+#### Figur 1
 ```{r}
 RIdifFigure(df.dif.years.pos, dif.year)
+```
+#### Figur 2
+```{r}
+RIdifFigTime(df.dif.years.pos, dif.year)
 ```
 :::
 ::::
@@ -760,9 +763,13 @@ df.dif.years.neg$f54o <- recode(df.dif.years.neg$f54o, "2=1;3=2", as.factor = FA
 
 RIdifTable(df.dif.years.neg, dif.year)
 ```
-#### Figur
+#### Figur 1
 ```{r}
 RIdifFigure(df.dif.years.neg, dif.year)
+```
+#### Figur 2
+```{r}
+RIdifFigTime(df.dif.years.neg, dif.year)
 ```
 :::
 ::::
@@ -788,22 +795,156 @@ itemlabels %>%
 RIscoreSE(df.dif.years.neg)
 ```
 
-## Person fit positiva items
+## Person fit negativa items
 ```{r}
 RIpfit(df.skolneg)
 ```
 
-En explorativ analys visar att item F61 (om mobbning i skolan) kan fungera tillsammans med de negativa skolfrågorna.
+## Negativa items + F61
 
-Svarsskalan behöver kodas enligt nedan:
+Item F61 ("Hur ofta har du blivit mobbad eller trakasserad i skolan det här läsåret?") kan möjligen fungera tillsammans med de negativa skolfrågorna.
+
+Svarsskalan har kodats enligt nedan, och den separata analysen av mobbnings-relaterade items tyder på att de tre högsta kategorierna kan behöva slås samman:
 
 - 'Jag har inte blivit mobbad'=0;
 - 'Det har hänt någon enstaka gång'=1;
 - '2 eller 3 gånger i månaden'=2;
-- 'Ungefär en gång i veckan'=2;
-- 'Flera gånger i veckan'=2;
+- 'Ungefär en gång i veckan'=3;
+- 'Flera gånger i veckan'=4;
 
-Om tid finns kommer analysen i framtiden att uppdateras med tillägg av F61.
+```{r}
+### Additional item
+# Hur ofta har du blivit mobbad eller trakasserad i skolan det här läsåret?
+df.all$F61 <- recode(df.all$F61,"'Jag har inte blivit mobbad'=0;
+               'Det har hänt någon enstaka gång'=1;
+               '2 eller 3 gånger i månaden'=2;
+               'Ungefär en gång i veckan'=3;
+               'Flera gånger i veckan'=4;
+               '<NA>'=NA;
+               'Ska ej besvaras'=NA",
+               as.factor=FALSE)
+
+df.skolneg2 <- df.all %>% 
+  filter(ar == 2014) %>% 
+  select(any_of(final.items.neg),F61,Kön,ARSKURS) %>% 
+  na.omit()
+
+# create DIF variables for gender and grade
+dif.gender <- df.skolneg2$Kön
+df.skolneg2$Kön <- NULL
+dif.arskurs <- df.skolneg2$ARSKURS
+df.skolneg2$ARSKURS <- NULL
+
+df.skolneg2$f54o <- recode(df.skolneg2$f54o, "2=1;3=2", as.factor = FALSE)
+
+itemlabels <- read.csv("../../data/allitems.csv") %>% 
+  filter(Index == "Skola") %>% 
+  select(itemnr,item)
+
+```
+
+## Rasch-analys 1 negativa + F61
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.skolneg2, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.skolneg2, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.skolneg2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.skolneg2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.skolneg2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 5
+RItargeting(df.skolneg2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df.skolneg2)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.skolneg2, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+::::
+
+Som väntat problem med svarskategorierna. Vi slår samman de tre högsta och gör om analysen.
+
+```{r}
+df.skolneg2$F61 <- recode(df.skolneg2$F61, "4=2;3=2", as.factor = FALSE)
+
+```
+
+## Rasch-analys 2 negativa + F61
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.skolneg2, fontsize = 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.skolneg2, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.skolneg2)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.skolneg2)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.skolneg2, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 5
+RItargeting(df.skolneg2)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df.skolneg2)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.skolneg2, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+::::
+
+Även med svarskategorierna i ordning uppvisar F61 hög outfit MSQ och ZSTD. Faktorladdning på första kontrasten indikerar också att F61 avviker något. Det är inte befogat att ta med F61 i detta index.
 
 ## Analys av delskalor
 
@@ -972,8 +1113,7 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-#| cache: yes
-RIitemfitPCM2(df.subskala, 450, 32, 8)
+RIitemfitPCM2(df.subskala, 500, 32, 4)
 ```
 #### PCA
 ```{r}

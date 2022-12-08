@@ -1,6 +1,7 @@
 ---
 title: "Psykiska/psykosomatiska besvär"
 title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
 author: 
   name: Magnus Johansson
   affiliation: RISE Research Institutes of Sweden
@@ -497,11 +498,15 @@ df.dif.years.psm$F95 <- recode(df.dif.years.psm$F95, "4=3;3=2;2=1;1=0", as.facto
 
 RIdifTable(df.dif.years.psm, dif.year)
 ```
-#### Figur
+#### Figur 1
 ```{r}
 #| label: difyear1.2
 
 RIdifFigure(df.dif.years.psm, dif.year)
+```
+#### Figur 2
+```{r}
+RIdifFigTime(df.dif.years.psm, dif.year)
 ```
 :::
 ::::
@@ -950,9 +955,13 @@ df.dif.years$F97 <- recode(df.dif.years$F97, "4=3;3=2;2=1;1=0", as.factor = FALS
 
 RIdifTable(df.dif.years, dif.year)
 ```
-#### Figur
+#### Figur 1
 ```{r}
 RIdifFigure(df.dif.years, dif.year)
+```
+#### Figur 2
+```{r}
+RIdifFigTime(df.dif.years, dif.year)
 ```
 :::
 ::::
