@@ -54,46 +54,6 @@ bibliography: grateful-refs.bib
 ---
 
 ```{r}
-
-# import item information
-itemlabels<-read_excel("../../data/")
-
-df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
-
-# 5. Bjudvanor - ANforalderindex=mean(F84,F40,F17,F21)
-# ANTf – ANTindex - 1. mean(ANTf36,ANTf13,ANTf18,ANTf45)
-
-## Egen användning
-# 14. Röker du?
-# 15. Röker du e-cigaretter?
-# 19. Snusar du?
-# 35. Hur ofta dricker du vid ett och samma tillfälle alkohol motsvarande minst:
-# 37. Hur många gånger har du druckit så mycket alkohol att du känt dig berusad under den senaste 4-veckorsperioden?
-# 42. Har du sniffat/boffat någon gång?
-# 48. Hur många gånger totalt har du använt hasch/marijuana?
-# 49. Hur många gånger totalt har du använt annan narkotika än hasch/marijuana?
-# 50. Hur många gånger har du använt narkotika (cannabis eller annan narkotika) den senaste 4-veckors perioden?
-# 53. Har du någon gång haft möjlighet att pröva narkotika?
-# 54. Har du det senaste läsåret varit i kontakt med någon av följande hjälpinstanser på grund av att du använt alkohol eller droger?
-# 74. Hur mycket pengar har du spelat för de senaste 30 dagarna?
-
-## Tidig debut:
-# 21. Hur gammal var du första gången du snusade?
-# 38. Hur gammal var du första gången du kände dig berusad?
-# 45. Hur gammal var du första gången du sniffade/boffade?
-# 52. Hur gammal var du första gången du använde narkotika?
-
-## Föräldrar
-# 18. Får du röka för dina föräldrar?
-# 22. Får du snusa för dina föräldrar?
-# 23. Använder någon i din familj tobak (röker eller snusar)?
-# 41. Får du dricka alkohol för dina föräldrar?
-# 76. Får du satsa pengar på spel för dina föräldrar?
-```
-
-```{r}
-#| label: setup
-#| code-fold: false
 #| include: false
 
 library(arrow)
@@ -123,6 +83,181 @@ select <- dplyr::select
 count <- dplyr::count
 recode <- car::recode
 rename <- dplyr::rename
+
+# import item information
+itemlabels <- read_excel("ANDTSitemlabels.xls")
+
+df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
+df <- df.all
+
+itemsANDTSegen <- c("F14","FNY12020","F18","F34","F41","F47","F48","f53a","F73")
+itemsANDTSdebut <- c("F16","F20","F37","F44","F51")
+itemsANDTSfldr <- c("F17","F21","f22a","F40","FNY22020")
+
+# subset items before recoding if we need the uncoded data later on
+df.andts <- df %>% 
+  select(all_of(c(itemsANDTSdebut,itemsANDTSegen,itemsANDTSfldr)))
+
+df$F14 <- recode(df$F14,"'Nej, jag har aldrig rökt'=0;
+                 'Nej, bara provat hur det smakar'=1;
+                 'Nej, jag har rökt men slutat'=2;
+                 'Ja, ibland men inte varje dag'=3;
+                 'Ja, dagligen'=4;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$FNY12020 <- recode(df$FNY12020,"'Nej, jag har aldrig rökt e-cigaretter'=0;
+                 'Nej, bara provat hur det smakar'=1;
+                 'Nej, jag har rökt e-cigaretter men slutat'=2;
+                 'Ja, ibland men inte varje dag'=3;
+                 'Ja, dagligen'=4;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$F18 <- recode(df$F18,"'Nej, jag har aldrig snusat'=0;
+                 'Nej, bara provat hur det smakar'=1;
+                 'Nej, jag har snusat men slutat'=2;
+                 'Ja, ibland men inte varje dag'=3;
+                 'Ja, dagligen'=4;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$F34 <- recode(df$F34,"'Dricker inte alkohol'=0;
+                 'Aldrig'=0;
+                 'Ytterst sällan'=1;
+                 'Någon gång per år'=2;
+                 'Någon gång i månaden'=3;
+                 'Ett par gånger i månaden'=4;
+                 'Någon gång i veckan'=5;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$F41 <- recode(df$F41,"'Nej, ingen gång'=0;
+                 'Ja, 1 gång'=1;
+                 'Ja, 2-4 gånger'=2;
+                 'Ja, 5-10 gånger'=3;
+                 'Ja, 11-20 gånger'=4;
+                 'Ja, 21-50 gånger'=5;
+                 'Ja, mer än 50 gånger'=6;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$F47 <- recode(df$F47,"'Ingen gång'=0;
+                 '1 gång'=1;
+                 '2-4 gånger'=2;
+                 '5-10 gånger'=3;
+                 '11-20 gånger'=4;
+                 '21-50 gånger'=5;
+                 'Mer än 50 gånger'=6;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$F48 <- recode(df$F48,"'Ingen gång'=0;
+                 '1 gång'=1;
+                 '2-4 gånger'=2;
+                 '5-10 gånger'=3;
+                 '11-20 gånger'=4;
+                 '21-50 gånger'=5;
+                 'Mer än 50 gånger'=6;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+# f53-frågorna handlar om huruvida man sökt hjälp, och vi skiljer ej på var man sökt hjälp, 
+# bara om man sökt hjälp (1) eller ej (0)
+df <- df %>% 
+  mutate(f53 = case_when(
+    f53a == "Chosen" ~ 0,
+    f53b == "Chosen" ~ 1,
+    f53c == "Chosen" ~ 1,
+    f53d == "Chosen" ~ 1,
+    f53e == "Chosen" ~ 1,
+    f53f == "Chosen" ~ 1,
+    TRUE ~ NA_real_)
+    )
+
+df$F73 <- recode(df$F73,"'Har inte spelat de senaste 30 dagarna'=0;
+                 'Mindre än 50 kronor'=1;
+                 '50-99 kronor'=2;
+                 '100-199 kronor'=3;
+                 '200-299 kronor'=4;
+                 '300-399 kronor'=5;
+                 '400 kronor eller mer'=6;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+
+# c("F17","F21","f22a","F40","FNY22020")
+
+df$F17 <- recode(df$F17,"'Nej'=0;
+                 'Ja'=2;
+                 'Vet inte'=1;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$F21 <- recode(df$F21,"'Nej'=0;
+                 'Ja'=2;
+                 'Vet inte'=1;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+df$F40 <- recode(df$F40,"'Nej'=0;
+                 'Ja'=2;
+                 'Vet inte'=1;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+# f22 har kodats så att Nej = 0, Vet ej = 1, och sedan ökande nivå för varje person som kryssats för, d.v.s. max 5
+
+df$f22b <- recode(df$f22b,"'Chosen'=1;
+                 'Not chosen'=0;
+                 '<NA>'=NA", 
+                 as.factor = F)
+df$f22c <- recode(df$f22c,"'Chosen'=1;
+                 'Not chosen'=0;
+                 '<NA>'=NA", 
+                 as.factor = F)
+df$f22d <- recode(df$f22d,"'Chosen'=1;
+                 'Not chosen'=0;
+                 '<NA>'=NA", 
+                 as.factor = F)
+df$f22e <- recode(df$f22e,"'Chosen'=1;
+                 'Not chosen'=0;
+                 '<NA>'=NA", 
+                 as.factor = F)
+df <- df %>% 
+  mutate(f22 = case_when(
+    f22a == "Chosen" ~ 0,
+    f22f == "Chosen" ~ 1,
+    (f22b+f22c+f22d+f22e) == 1 ~ 2,
+    (f22b+f22c+f22d+f22e) == 2 ~ 3,
+    (f22b+f22c+f22d+f22e) == 3 ~ 4,
+    (f22b+f22c+f22d+f22e) == 4 ~ 5,
+    TRUE ~ NA_real_
+  ))
+
+df$FNY22020 <- recode(df$FNY22020,"'Nej'=0;
+                 'Ja'=2;
+                 'Vet inte'=1;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+# Debutålder under 6 år förefaller orimlig eller åtminstone ovanlig, så den kodas om till missing/NA
+
+# for (i in itemsANDTSdebut){
+#   df[[i]] <- recode(df[[i]],"0:5=NA", as.factor = F)
+# }
+df <- df %>% 
+  mutate(across(itemsANDTSdebut, as.character))
+
+df <- df %>% 
+  mutate(across(itemsANDTSdebut, as.numeric))
+
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+#| include: false
 
 ### set up color palette based on RISE guidelines
 RISEprimGreen <- "#009ca6"
@@ -163,18 +298,84 @@ jz = 300 # number to include in dataset
 yz = 10 # number of random samples
 
 
+# create dataframe with 2014 and 2020 data with all variables (post recode)
+df.omit.na <- df %>% 
+  filter(ar %in% c(2014,2020)) %>% 
+  select(itemlabels$itemnr,Kön,ARSKURS,SkolSDO)
 
-df <- df.all %>% 
-  select(itemlabels$itemnr,Kön,ARSKURS,ar,SkolSDO)
+```
 
-# create dataframe with 2014 data with all variables (post recode)
-df.2014 <- df %>% 
-  filter(ar == 2014) %>% 
-  na.omit()
-df.all.years<-df
-df.omit.na <- df.2014
-df.omit.na$ar <- NULL
+## Bakgrund
 
+Vi har tagit data från 2014 och 2020, eftersom två frågor tillkommit 2020.
+
+Frågorna har delats in i tre tänkta områden, som markerats med bakgrundsfärg i tabellen nedan:
+
+- eget bruk
+- debutålder
+- föräldrarna/familjen
+
+```{r}
+itemlabels %>% 
+  kbl(booktabs = T, escape = F) %>%
+      # bootstrap options are for HTML output
+      kable_styling(bootstrap_options = c("striped", "hover"), 
+                    position = "left",
+                    full_width = F,
+                    font_size = r.fontsize,
+                    fixed_thead = T) %>% # when there is a long list in the table
+      #  column_spec(c(2:3), color = "red") %>% 
+      row_spec(1:9, bold = F, color = "black", background = "lightblue") %>% 
+      row_spec(10:14, bold = F, color = "white", background = RISEprimGreen) %>%
+      row_spec(15:19, bold = F, color = "white", background = RISEcompPurple) %>%
+      column_spec(1, bold = T) %>% 
+      kable_classic(html_font = "Lato")
+```
+
+## Bortfall i data
+
+Eftersom ANDTS-frågorna har större bortfall i svar kommer vi inte filtrera bort respondenter med saknade svar. Även eftersom de två nya frågorna FNY12020 och FNY22020 enbart har data från 2020. Vi sätter således en gräns på minst 9 svar på de 19 frågorna för att vara med i analysen.
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.omit.na, 11)
+```
+
+
+```{r}
+#---- Create a figure showing % of missing data for each item, based on the complete dataset----
+df.omit.na %>%
+  select(itemlabels$itemnr) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  mutate(Missing = rowSums(is.na(.))) %>% 
+  select(Missing) %>% 
+  arrange(desc(Missing)) %>% 
+  rownames_to_column(var = "Item") %>% 
+  mutate(Percentage = Missing/nrow(df)*100) %>% 
+  mutate(Item = factor(Item, levels = rev(Item))) %>%
+  ggplot(aes(x = Item, y = Percentage)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Missing data per item") +
+  xlab("Items") +
+  ylab("Percentage of responses missing")
+
+
+```
+
+
+```{r}
+
+#---- Filtering participants based on missing data----
+
+# If you want to include participants with missing data, input the minimum number of items responses that a participant should have to be included in the analysis:
+min.responses <- 9
+
+# Select the variables we will work with, and filter out respondents with a lot of missing data
+df.omit.na <- df.omit.na %>% 
+  filter(length(itemlabels$itemnr)-rowSums(is.na(.[itemlabels$itemnr])) >= min.responses)
 # create DIF variables for gender and grade
 dif.gender <- df.omit.na$Kön
 df.omit.na$Kön <- NULL
@@ -183,10 +384,139 @@ df.omit.na$ARSKURS <- NULL
 dif.stadsdel <- df.omit.na$SkolSDO
 df.omit.na$SkolSDO <- NULL
 
-# prepare for dif between years
-df.dif.years <- df.all.years %>% 
-  select(!Kön,!ARSKURS,!SkolSDO) %>%
-  na.omit()
+```
 
+
+## Deskriptiva data
+
+### Demografi
+```{r}
+#| label: descriptives1
+#| layout-ncol: 3
+RIdemographics(dif.gender, "Kön")
+RIdemographics(dif.arskurs, "Årskurs")
+#RIdemographics(dif.stadsdel, "Stadsdel")
+```
+### Item-data
+
+Vi tar bort items om debutålder från tile-plotten, eftersom de skulle göra övriga frågor svårlästa.
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+
+df.omit.na %>% 
+  select(!any_of(itemsANDTSdebut)) %>% 
+  RItileplot()
 
 ```
+
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+
+```
+:::
+::::
+
+## Eget bruk
+
+```{r}
+
+min.responses <- 6
+
+# Select the variables we will work with, and filter out respondents with a lot of missing data
+df.eget <- df.omit.na %>% 
+  select(any_of(itemsANDTSegen)) %>% 
+  filter(length(itemsANDTSegen)-rowSums(is.na(.)) >= min.responses)
+
+```
+
+### Svarskategorier
+
+Eftersom frekvensbaserade svarskategorier använts, som ofta har mindre meningsfulla skillnader mellan de högre kategorierna, behöver vi först titta på om de behöver slås samman.
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.eget, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+Vi ser många problem här som behöver åtgärdas:
+
+- F41 - dikotomiseras mellan 0 och övriga kategorier
+- F47 - vi slår samman 3+4 och 5+6
+- F48 - dikotomiseras mellan 0 och övriga kategorier
+- F73 - dikotomiseras mellan 0 och övriga kategorier (kan behöva testa 0+1 och övriga)
+- F14 - dikotomiseras mellan 0+1 och övriga kategorier
+- FNY12020 - slår samman de tre högsta
+- F18 - slår samman de tre högsta
+- F34 - slår samman 0+1, 2+3, och 4+5
+
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.eget, fontsize = 11)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM(df.eget)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+
+# df.eget$F47 <- NULL
+# df.eget$F73 <- NULL
+
+RIpcmPCA(df.eget)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(na.omit(df.eget))
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.eget, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.eget)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.eget)
+```
+### Svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.eget, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+::::
+
+## Programvara som använts
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+```
+
+## Referenser
