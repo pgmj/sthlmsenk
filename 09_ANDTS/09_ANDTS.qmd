@@ -23,7 +23,7 @@ format:
     code-tools: true
     code-fold: false
     number-sections: true
-    fig-dpi: 250
+    #fig-dpi: 250
     layout-align: left
     linestretch: 1.6
     theme: materia
@@ -300,14 +300,15 @@ yz = 10 # number of random samples
 
 # create dataframe with 2014 and 2020 data with all variables (post recode)
 df.omit.na <- df %>% 
-  filter(ar %in% c(2014,2020)) %>% 
+  #filter(ar %in% c(2014,2020)) %>% 
+  filter(ar == "2020") %>% 
   select(itemlabels$itemnr,Kön,ARSKURS,SkolSDO)
 
 ```
 
 ## Bakgrund
 
-Vi har tagit data från 2014 och 2020, eftersom två frågor tillkommit 2020.
+Vi har tagit data från 2020, eftersom två frågor tillkommit 2020.
 
 Frågorna har delats in i tre tänkta områden, som markerats med bakgrundsfärg i tabellen nedan:
 
@@ -334,7 +335,7 @@ itemlabels %>%
 
 ## Bortfall i data
 
-Eftersom ANDTS-frågorna har större bortfall i svar kommer vi inte filtrera bort respondenter med saknade svar. Även eftersom de två nya frågorna FNY12020 och FNY22020 enbart har data från 2020. Vi sätter således en gräns på minst 9 svar på de 19 frågorna för att vara med i analysen.
+Eftersom ANDTS-frågorna har större bortfall i svar kommer vi inte helt filtrera bort respondenter med saknade svar.
 
 ```{r}
 #| column: margin
@@ -365,13 +366,14 @@ df.omit.na %>%
 
 ```
 
+Efter att ha tagit bort respondenter med färre än 12 items besvarade ser bortfallet ut enligt nedan.
 
 ```{r}
 
 #---- Filtering participants based on missing data----
 
 # If you want to include participants with missing data, input the minimum number of items responses that a participant should have to be included in the analysis:
-min.responses <- 9
+min.responses <- 12
 
 # Select the variables we will work with, and filter out respondents with a lot of missing data
 df.omit.na <- df.omit.na %>% 
@@ -384,8 +386,27 @@ df.omit.na$ARSKURS <- NULL
 dif.stadsdel <- df.omit.na$SkolSDO
 df.omit.na$SkolSDO <- NULL
 
+df.omit.na %>%
+  select(itemlabels$itemnr) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  mutate(Missing = rowSums(is.na(.))) %>% 
+  select(Missing) %>% 
+  arrange(desc(Missing)) %>% 
+  rownames_to_column(var = "Item") %>% 
+  mutate(Percentage = Missing/nrow(df)*100) %>% 
+  mutate(Item = factor(Item, levels = rev(Item))) %>%
+  ggplot(aes(x = Item, y = Percentage)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Missing data per item") +
+  xlab("Items") +
+  ylab("Percentage of responses missing")
+
+n2020 <- df %>% filter(ar == "2020") %>% nrow()
 ```
 
+Vi har `r nrow(df.omit.na)` respondenter i data, av totalt `r n2020` respondenter för år 2020. Det innebär att samplet vi analyserar består av den delen som använder olika typer av substanser. Vi kan senare jämföra dem med de som filtrerats ut.
 
 ## Deskriptiva data
 
@@ -423,22 +444,20 @@ RIbarplot(df.omit.na)
 :::
 ::::
 
+Vi kan se att det är mycket få respondenter i en del kategorier, och sneda svarsfördelningar.
+
 ## Eget bruk
 
 ```{r}
 
-min.responses <- 6
-
-# Select the variables we will work with, and filter out respondents with a lot of missing data
 df.eget <- df.omit.na %>% 
-  select(any_of(itemsANDTSegen)) %>% 
-  filter(length(itemsANDTSegen)-rowSums(is.na(.)) >= min.responses)
+  select(any_of(itemsANDTSegen))
 
 ```
 
 ### Svarskategorier
 
-Eftersom frekvensbaserade svarskategorier använts, som ofta har mindre meningsfulla skillnader mellan de högre kategorierna, behöver vi först titta på om de behöver slås samman.
+Eftersom frekvensbaserade svarskategorier använts, som ofta har mindre psykometriskt meningsfulla skillnader mellan de högre kategorierna, behöver vi först titta på om de behöver slås samman.
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.eget, model=1, itemtype='Rasch') # unidimensional Rasch model
@@ -448,15 +467,53 @@ plot(mirt.rasch, type="trace")
 ```
 Vi ser många problem här som behöver åtgärdas:
 
-- F41 - dikotomiseras mellan 0 och övriga kategorier
+- F14 - kategori 2 slås samman med kategori 3
+- FNY12020 - slår samman de tre högsta
+- F18 - slår samman 2+1 och 3+4
+- F34 - slår samman 1+2
+- F41 - tas bort - mycket få svar över 0
 - F47 - vi slår samman 3+4 och 5+6
 - F48 - dikotomiseras mellan 0 och övriga kategorier
-- F73 - dikotomiseras mellan 0 och övriga kategorier (kan behöva testa 0+1 och övriga)
-- F14 - dikotomiseras mellan 0+1 och övriga kategorier
-- FNY12020 - slår samman de tre högsta
-- F18 - slår samman de tre högsta
-- F34 - slår samman 0+1, 2+3, och 4+5
+- F73 - vi slår samman mittenkategorierna 1-5, och låter 0 och 6 vara kvar.
 
+Det innebär att boffning/sniffning tas bort.
+
+### Omkodning av svarskategorier
+
+::: tab-panel
+#### Tileplot
+```{r}
+df.eget$F14 <- recode(df.eget$F14,"3=2;4=3")
+df.eget$FNY12020 <- recode(df.eget$FNY12020,"3:4=2")
+df.eget$F18 <- recode(df.eget$F18,"2=1;3:4=2")
+df.eget$F34 <- recode(df.eget$F34,"2=1;3=2;4=3;5=4")
+
+df.eget$F41 <- NULL
+df.eget$F47 <- recode(df.eget$F47,"4=3;5:6=4")
+df.eget$F48 <- recode(df.eget$F48,"2=1;3:6=2")
+df.eget$F73 <- recode(df.eget$F73,"2:5=1;6=2")
+
+RItileplot(df.eget)
+```
+#### Analys av svarskategorier
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.eget, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+:::
+
+F48 ser tveksam ut. Vi provar 1=0;2:3=1;4:6=2 i stället.
+
+```{r}
+df.eget$F48 <- recode(df.omit.na$F48,"1=0;2:3=1;4:6=2")
+df.erm <- PCM(df.eget)
+plotICC(df.erm, item.subset = "F48")
+```
+
+Ser bättre ut.
 
 ```{r}
 #| column: margin
@@ -467,14 +524,11 @@ RIlistItemsMargin(df.eget, fontsize = 11)
 ::: panel-tabset
 ### Item fit
 ```{r}
-RIitemfitPCM(df.eget)
+RIitemfitPCM2(df.eget, 400, 30, 10)
 ```
 ### PCA
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
-
-# df.eget$F47 <- NULL
-# df.eget$F73 <- NULL
 
 RIpcmPCA(df.eget)
 ```
@@ -496,16 +550,196 @@ RItargeting(df.eget)
 #| fig-height: 4
 RIitemHierarchy(df.eget)
 ```
-### Svarskategorier
+:::
+::::
+
+Vi kan se att de två högsta svarskategorierna för F47 behöver slås samman, de är oordnade. Det är också tydligt att F73 har hög item fit och behöver tas bort.
+
 ```{r}
-#| include: false
-mirt.rasch <- mirt(df.eget, model=1, itemtype='Rasch') # unidimensional Rasch model
+df.eget$F47 <- recode(df.eget$F47,"4=3")
+df.eget$F73 <- NULL
 ```
+
+
+## Eget bruk 2
+
 ```{r}
-plot(mirt.rasch, type="trace")
+#| column: margin
+RIlistItemsMargin(df.eget, fontsize = 11)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.eget, 400, 30, 10)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+
+RIpcmPCA(df.eget)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(na.omit(df.eget))
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.eget, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 4
+RItargeting(df.eget)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 4
+RIitemHierarchy(df.eget)
 ```
 :::
 ::::
+
+
+### Summering av åtgärder för svarskategorier
+
+```{r}
+#| eval: false
+#| echo: true
+#| output: asis
+
+df.eget$F14 <- recode(df.eget$F14,"3=2;4=3")
+df.eget$FNY12020 <- recode(df.eget$FNY12020,"3:4=2")
+df.eget$F18 <- recode(df.eget$F18,"2=1;3:4=2")
+df.eget$F34 <- recode(df.eget$F34,"2=1;3=2;4=3;5=4")
+
+df.eget$F41 <- NULL
+df.eget$F47 <- recode(df.eget$F47,"4=3;5:6=4")
+df.eget$F47 <- recode(df.eget$F47,"4=3") # i praktiken 4:6=3 
+
+df.eget$F73 <- recode(df.eget$F73,"2:5=1;6=2")
+df.eget$F48 <- recode(df.omit.na$F48,"1=0;2:3=1;4:6=2")
+
+```
+
+
+## Invarians/DIF
+
+### Kön
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.eget, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| fig-height: 3
+RIdifTable(df.eget, dif.gender)
+```
+#### Figur item 
+```{r}
+
+RIdifFigure(df.eget, dif.gender)
+```
+#### Figur svarströsklar
+```{r}
+RIdifFigThresh(df.eget, dif.gender)
+```
+:::
+::::
+
+Det är röker och snusar som skiljer sig mellan könen. Figuren med itemtrösklar visar på mera detaljinformation.
+
+
+### Årskurs
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.eget, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| fig-height: 3
+RIdifTable(df.eget, dif.arskurs)
+```
+#### Figur item 
+```{r}
+
+RIdifFigure(df.eget, dif.arskurs)
+```
+#### Figur svarströsklar
+```{r}
+RIdifFigThresh(df.eget, dif.arskurs)
+```
+:::
+::::
+
+FNY12020 går över gränsvärdet, medan F47 är mycket nära. Det verkar huvudsakligen vara den lägsta tröskeln som förändrats för F47.
+
+### Årtal
+
+Här exkluderas FNY122020 eftersom den bara finns för 2020.
+
+```{r}
+#| column: margin
+
+final.items <- names(df.eget)
+df.dif.years <- df %>% 
+  select(any_of(final.items),ar) %>% 
+  select(!FNY12020) %>% 
+  na.omit()
+
+dif.year <- df.dif.years$ar
+df.dif.years$ar <- NULL
+
+df.dif.years$F14 <- recode(df.dif.years$F14,"3=2;4=3")
+df.dif.years$F18 <- recode(df.dif.years$F18,"2=1;3:4=2")
+df.dif.years$F34 <- recode(df.dif.years$F34,"2=1;3=2;4=3;5=4")
+
+df.dif.years$F41 <- NULL
+df.dif.years$F47 <- recode(df.dif.years$F47,"4=3;5:6=4")
+df.dif.years$F47 <- recode(df.dif.years$F47,"4=3") # i praktiken 4:6=3 
+
+df.dif.years$F48 <- recode(df.dif.years$F48,"1=0;2:3=1;4:6=2")
+
+RIlistItemsMargin(df.dif.years, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| fig-width: 10
+
+RIdifTable(df.dif.years, dif.year)
+```
+#### Figur item
+```{r}
+RIdifFigure(df.dif.years, dif.year)
+```
+#### Figur tid
+```{r}
+RIdifFigTime(df.dif.years, dif.year)
+```
+#### Figur svarströsklar
+```{r}
+RIdifFigThresh(df.dif.years, dif.year)
+```
+:::
+::::
+
+Här sker en del intressanta förändringar över tid hos samtliga items.
+
+
+
 
 ## Programvara som använts
 

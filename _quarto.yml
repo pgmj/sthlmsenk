@@ -34,3 +34,4 @@ format:
     linestretch: 1.6
     theme: materia
     link-external-newwindow: true
+    fig-dpi: 96
