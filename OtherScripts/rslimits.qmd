@@ -1,0 +1,669 @@
+---
+title: "Data i dialog"
+subtitle: "Gränsvärden"
+title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://www.ri.se/sv/vad-vi-gor/expertiser/kategoriskt-baserade-matningar
+  orcid: 0000-0003-1669-592X
+date: '2023-01-11'
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Innehållsförteckning"
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 150
+    layout-align: left
+    linestretch: 1.6
+    theme: materia
+    link-external-newwindow: true
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+  docx:
+    toc: true
+    number-sections: true
+    title: "Rasch in Quarto"
+    subtitle: "Template file"
+    author: "Magnus Johansson"
+#    reference-doc: RISEmallMJv6.dotx
+# execute:
+#   echo: false
+#   warning: false
+#   message: false
+#   cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+---
+
+## Förberedelser
+
+Först läser vi in all information om alla items i alla index.
+
+```{r}
+### This is a script to collect outputs from all psychometric analyses, which includes two types of files
+# 1. CSV file with itemnr and item description
+# 2. CSV file with item parameters from Rasch analysis
+# both are needed for the estimation of person locations for each subscale
+library(arrow)
+library(tidyverse)
+library(xlsx)
+årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)
+
+# read all item data into dataframes
+IFitemParams <- read_csv_arrow("../02_IF/IFnegativaItems.csv")
+IFitems <- read_csv_arrow("../02_IF/IFnegItemnr.csv")
+
+SkolaNegParams <- read_csv_arrow("../03_Skola/SkolaNegativaItems.csv")
+SkolaNegItems <- read_csv_arrow("../03_Skola/SkolaNegItemnr.csv")
+SkolaPosParams <- read_csv_arrow("../03_Skola/SkolaPositivaItems.csv")
+SkolaPosItems <- read_csv_arrow("../03_Skola/SkolaPosItemnr.csv")
+
+PSFitemParams <- read_csv_arrow("../04_PSF/itemParameters.csv")
+PSFitems <- read_csv_arrow("../04_PSF/PSFitemnr.csv")
+
+ParentingParams <- read_csv_arrow("../05_Parenting/itemParameters.csv")
+ParentingItems <- read_csv_arrow("../05_Parenting/ParentingItemnr.csv")
+
+CommunityParams <- read_csv_arrow("../07_Community/itemParameters.csv")
+CommunityItems <- read_csv_arrow("../07_Community/CommunityItemnr.csv")
+
+WellbeingParams <- read_csv_arrow("../Wellbeing/itemParameters.csv")
+WellbeingItems <- read_csv_arrow("../Wellbeing/WellbeingItemnr.csv")
+
+# collect all item parameters as matrix objects (needed for catR::thetaEst()) within a list object, so that we can loop/map it later
+# itemParams[[1]] will be IFitemParams, etc
+itemParams <- list()
+itemParams$Utagerande <- as.matrix(IFitemParams)
+itemParams$SkolaNegativ <- as.matrix(SkolaNegParams)
+itemParams$SkolaPositiv <- as.matrix(SkolaPosParams)
+itemParams$PsykSomBesv <- as.matrix(PSFitemParams)
+itemParams$Parenting <- as.matrix(ParentingParams)
+itemParams$Community <- as.matrix(CommunityParams)
+itemParams$Wellbeing <- as.matrix(WellbeingParams)
+
+# collect all itemnr and descriptions in a list object (as tibble)
+# itemNumber[[1]]$itemnr will access a vector of IF items, that can be use for item selection
+# we also add an index variable to each dataframe
+itemNumber <- list()
+itemNumber$Utagerande <- IFitems %>% 
+  add_column(Index = "Utagerande")
+itemNumber$SkolaNegativ <- SkolaNegItems %>% 
+  add_column(Index = "SkolaNegativ")
+itemNumber$SkolaPositiv <- SkolaPosItems %>% 
+  add_column(Index = "SkolaPositiv")
+itemNumber$PsykSomBesv <- PSFitems %>% 
+  add_column(Index = "PsykSomBesv")
+itemNumber$Parenting <- ParentingItems %>% 
+  add_column(Index = "Parenting")
+itemNumber$Community <- CommunityItems %>% 
+  add_column(Index = "Community")
+itemNumber$Wellbeing <- WellbeingItems %>% 
+  add_column(Index = "Wellbeing")
+
+# create a df with all items
+allItems <- data.frame(matrix(ncol = 3, nrow = 0))
+for (i in 1:length(itemNumber)){
+  allItems <- rbind(allItems,itemNumber[[i]])
+}
+
+### when/if needed, remove duplicates (created by Wellbeing index) by using the distinct() command 
+# allItems %>%
+#   distinct(.keep_all = TRUE)
+
+# create a df with all item parameters and itemnr
+allItemParams <- data.frame(matrix(ncol = 5, nrow = 0))
+allItemParams <- data.frame(itemParams[[1]])
+#names(allItemParams) <- c("Threshold 1","Threshold 2","Threshold 3")
+for (i in 2:length(itemParams)){
+  allItemParams <- bind_rows(allItemParams,data.frame(itemParams[[i]]))
+}
+
+# join params and descriptions
+allItemInfo <- cbind(allItems,allItemParams)
+#write.xlsx(allItemInfo, "../data/2022-12-06 allItemInfo.xls", row.names = F)
+
+# add itemnr identifyer to params df
+allItemParams <- allItemParams %>% 
+  add_column(itemnr = allItems$itemnr) %>% 
+  relocate(itemnr, .before = "Threshold.1")
+
+# get all iteminfo in the same frame, but without itemnr duplicates (wellbeing item duplicates removed)
+allItemInfoNonDup <- left_join(allItems %>% 
+                           distinct(itemnr, .keep_all = TRUE),
+                         allItemParams %>% 
+                           distinct(itemnr, .keep_all = TRUE),
+                         by = "itemnr")
+
+```
+
+Sedan läser vi in data, enbart från Stockholm, år 2006-2020.
+
+```{r}
+library(car)
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+df <- read_parquet("../../data/2023-01-10_ScoredRev.parquet") %>% 
+  filter(DIDkommun == "Stockholm") %>% 
+  mutate(År = factor(ar))
+
+# create vector with risk factors
+sthlm.index <- allItems %>%
+  filter(!Index %in% c("Wellbeing","SkolaPositiv")) %>% 
+  distinct(Index) %>% 
+  pull()
+
+```
+
+## Inledning
+
+Vi vill ta fram gränsvärden för "något förhöjd" och "mycket förhöjd" risk, och sätter initialt dessa värden utifrån kvartilen (75:e percentilen) med högst svar på varje riskfaktor, samt de 10% med högst svar på varje riskfaktor (90:e percentilen).
+(Vi tar även fram de 5% som ligger allra högst, även om det gränsvärdet antagligen inte kommer att användas.)
+
+Steg ett är att skriva en funktion för att ta fram dessa gränsvärden för varje mättillfälle från 2006 till 2020.
+
+```{r}
+# Koden är modifierad utifrån
+# https://tbradley1013.github.io/2018/10/01/calculating-quantiles-for-groups-with-dplyr-summarize-and-purrr-partial/
+p <- c(0.75,0.90,0.95)
+p_names <- map_chr(p, ~paste0(.x*100, "%"))
+p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
+  set_names(nm = p_names)
+```
+
+Högsta kvartilen för varje år och index, och på raden längst ner tar vi fram medelvärdet av raderna ovanför, för varje kolumn.
+
+```{r}
+library(formattable)
+df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("75%"))%>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+```
+
+Här ser det intressant ut att Community har samma värde alla år, vilket inte är fallet för övriga. Detta bör tittas närmare på. Vi ska se om det är samma för 90:e percentilen.
+
+```{r}
+df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("90%")) %>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+```
+
+Här är det något större variation på Community, medan Parenting uppvisar samma nivå hela vägen.
+
+### Distributioner
+
+Vi tittar närmare på distributionerna av Parenting och Community, och tar fram kvartilerna med en annan funktion för att säkerställa att den hittills använda funktionen är korrekt utformad.
+
+Först övergripande värden för samtliga år.
+
+```{r}
+df %>% 
+  select(Parenting,Community) %>% 
+  summary()
+```
+
+Vi kan se att det är stora mängder missing data (NA) i Community . Totala sampelstorleken är `r nrow(df)`.
+
+Sedan fördelat på år.
+
+```{r}
+df %>% 
+#  select(År,Parenting) %>%
+  group_by(År) %>% 
+  summarise(ParentingMedel = mean(Parenting, na.rm = T),
+            ParentingSD = sd(Parenting, na.rm = T),
+            ParentingQuartile = quantile(Parenting, probs = c(0.75), na.rm = T),
+            CommunityMedel = mean(Community, na.rm = T),
+            CommunitySD = sd(Community, na.rm = T),
+            CommunityQuartile = quantile(Community, probs = c(0.75), na.rm = T),
+            ) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+```
+
+Detta stämmer överens med resultat av funktionen som testades tidigare.
+
+Vi tittar närmare på fördelningen mera finkornigt.
+
+::: panel-tabset
+#### Föräldraskap
+```{r}
+ggplot(df,aes(x = År, y = Parenting)) +
+  geom_violin(aes(fill = År), alpha = 1) +
+  geom_boxplot(alpha = 0.4, width = 0.6, outlier.shape = NA, notch = TRUE) +
+  scale_fill_brewer(type = "qual", palette = "Dark2") +
+  xlab("Årtal") +
+  ylab("Föräldraskap")
+
+ggplot(df,aes(x = Parenting)) +
+  geom_histogram() +
+  facet_wrap(~År)
+
+```
+#### Närsamhälle
+```{r}
+ggplot(df,aes(x = År, y = Community)) +
+  geom_violin(aes(fill = År), alpha = 1) +
+  geom_boxplot(alpha = 0.4, width = 0.6, outlier.shape = NA, notch = TRUE) +
+  scale_fill_brewer(type = "qual", palette = "Dark2") +
+  xlab("Årtal") +
+  ylab("Närsamhälle")
+
+ggplot(df,aes(x = Community)) +
+  geom_histogram() +
+  facet_wrap(~År)
+  
+```
+
+Det ser ut som att vi har en del outliers som ställer till problem, d.v.s. respondenter som svarat max/min på samtliga frågor som bildar ett index.
+
+Vi kan prova att filtrera bort dem och se hur det påverkar beräkningen av gränsvärden. Först vill vi veta hur många det är som uppvisar dessa tak-/golveffekter. Att många slår i golv/tak kan bero på att frågorna inte förmår att fånga in deras upplevelse, men det kan också vara svarsmönster som tyder på att man bara kryssat i max/minimum och inte svarat på frågorna.
+
+Påminner om att låga svar = låg risk.
+
+```{r}
+df %>% 
+  filter(Parenting == -4) %>% 
+  count(Parenting)
+
+df %>% 
+  filter(Parenting == 4) %>% 
+  count(Parenting)
+
+df %>% 
+  filter(Community == -4) %>% 
+  count(Community)
+
+df %>% 
+  filter(Community == 4) %>% 
+  count(Community)
+
+```
+
+Vi provar även ett R-paket med funktioner för att identifiera outliers.
+
+```{r}
+library(performance)
+df %>% 
+  select(any_of(c(ParentingItems$itemnr))) %>% 
+  na.omit() %>% 
+  check_outliers(method = c("mahalanobis", "zscore_robust","iqr","zscore","optics"))
+
+```
+Bara 118 outliers baserat på rådata är förvånansvärt lågt. Dock fungerar bara denna funktion på individer som har fullständiga data, vilket gör det svårt att direkt jämföra med beräkningen vi gjorde på max-/min-värden.
+
+```{r}
+df %>% 
+ select(any_of(c(ParentingItems$itemnr))) %>% 
+  na.omit() %>% 
+ nrow()
+```
+
+85330 individer fanns med i underlaget som kollades av `check_outliers()`, att jämföra med totala samplet på `r nrow(df)`, och de 6039 som saknar estimerat mätvärde på Parenting p.g.a. för få svar (färre än 5 items besvarade).
+
+Låt oss räkna fram hur många individer som har svarat max/min på alla, så att det överensstämmer med estimerade mätvärden. Samtliga personer som har -4 eller +4 borde ha lägsta respektive högsta på alla frågor (0 respektive 17 summapoäng).
+
+```{r}
+
+df %>% 
+  select(any_of(c(ParentingItems$itemnr))) %>% 
+  mutate(Summapoäng = rowSums(., na.rm = F)) %>%
+  count(Summapoäng == 0)
+  
+df %>% 
+  select(any_of(c(ParentingItems$itemnr))) %>% 
+  mutate(Summapoäng = rowSums(., na.rm = F)) %>%
+  count(Summapoäng == 17)
+
+```
+Av de som svarat på samtliga 6 frågor i Parenting har 1099 svarat 0 på alla frågor, vilket gör att det förefaller sannolikt att siffran på 1528 som fått -4 i mätvärde är korrekt, eftersom den inkluderar de som svarat på 5 frågor eller fler.
+
+## Gränsvärden utan extrema svar
+
+Vi tar bort de som fått mätvärde -4 på samtliga, och låter de som fått mätvärde 4 vara kvar i beräkningen av gränsvärden, för att se hur det påverkar.
+
+```{r}
+df %>% 
+  filter(!Parenting == -4) %>% 
+  group_by(År) %>% 
+  summarise(ParentingMedel = mean(Parenting, na.rm = T),
+            ParentingSD = sd(Parenting, na.rm = T),
+            ParentingQuartile = quantile(Parenting, probs = c(0.75), na.rm = T)
+                      ) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+
+df %>% 
+  filter(!Community == -4) %>% 
+  group_by(År) %>% 
+  summarise(CommunityMedel = mean(Community, na.rm = T),
+            CommunitySD = sd(Community, na.rm = T),
+            CommunityQuartile = quantile(Community, probs = c(0.75), na.rm = T)
+                      ) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+```
+Vi kan se att medelvärden och SD har förändrats, men i stort är kvartilerna samma som med outliers undantaget Parenting 2018 och 2020 som uppvisar mycket små skillnader.
+
+Låt oss titta på 90:e percentilen på samma vis.
+
+```{r}
+df %>% 
+  filter(!Parenting == -4) %>% 
+  group_by(År) %>% 
+  summarise(ParentingMedel = mean(Parenting, na.rm = T),
+            ParentingSD = sd(Parenting, na.rm = T),
+            Parenting90th = quantile(Parenting, probs = c(0.9), na.rm = T)
+                      ) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+
+df %>% 
+  filter(!Community == -4) %>% 
+  group_by(År) %>% 
+  summarise(CommunityMedel = mean(Community, na.rm = T),
+            CommunitySD = sd(Community, na.rm = T),
+            Community90th = quantile(Community, probs = c(0.9), na.rm = T)
+                      ) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+```
+
+
+
+```{r}
+df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("75%"))%>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable()
+```
+
+## Gränsvärden från alla år i samma data
+
+Hittills har vi tagit ut gränsvärden baserat på varje år, och räknat fram genomsnitt. Låt oss jämföra med vad vi skulle få fram om vi lägger in alla år och utgår från de samlade mätningarna. Det medför att årtal som har mera mätdata kommer att ge mera input till de värden som kommer fram.
+
+### Antal mätningar per år
+
+```{r}
+responsesAll <- df %>% 
+  count(År) %>% 
+  rename(Antal = n) %>% 
+  ggplot(aes(x = År, y = Antal)) + 
+  geom_point_interactive(aes(tooltip = Antal),
+                         col = 'dodgerblue4',
+                         size = 3) +
+  geom_segment(
+    aes(y = 0, yend = Antal, x = År, xend = År),
+    linewidth = 0.6,
+    col = 'dodgerblue4'
+  ) +
+  scale_color_brewer(type = "qual", palette = "Dark2") +
+  scale_x_discrete(guide = guide_axis(n.dodge = 1), breaks = årtal) +
+  scale_y_continuous(limits = c(0,20000)) +
+  labs(title = "Antal respondenter per år",
+       subtitle = "")
+
+girafe(ggobj = responsesAll)
+
+```
+
+
+```{r}
+
+df %>% 
+  summarise(UtagerandeQuartile = quantile(Utagerande, probs = c(0.75), na.rm = T),
+            Utagerande90th = quantile(Utagerande, probs = c(0.9), na.rm = T),
+            SkolaNegativQuartile = quantile(SkolaNegativ, probs = c(0.75), na.rm = T),
+            SkolaNegativ90th = quantile(SkolaNegativ, probs = c(0.9), na.rm = T),
+            PsykSomBesvQuartile = quantile(PsykSomBesv, probs = c(0.75), na.rm = T),
+            PsykSomBesv90th = quantile(PsykSomBesv, probs = c(0.9), na.rm = T),
+            ParentingQuartile = quantile(Parenting, probs = c(0.75), na.rm = T),
+            Parenting90th = quantile(Parenting, probs = c(0.9), na.rm = T),
+            CommunityQuartile = quantile(Community, probs = c(0.75), na.rm = T),
+            Community90th = quantile(Community, probs = c(0.9), na.rm = T)
+                      ) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  t() %>% 
+  as.data.frame() %>% 
+  formattable()
+
+```
+
+Baserat på genomsnitt av alla år får vi ett värde där alla mättillfällen viktas lika. Här är outliers med.
+
+```{r}
+
+# Koden är modifierad utifrån
+# https://tbradley1013.github.io/2018/10/01/calculating-quantiles-for-groups-with-dplyr-summarize-and-purrr-partial/
+p <- c(0.75,0.90,0.95)
+p_names <- map_chr(p, ~paste0(.x*100, "%"))
+p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
+  set_names(nm = p_names)
+
+# varje körning tar fram ett värde.
+rslimits.75 <- df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("75%")) %>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  t() %>%
+  as.data.frame() %>% 
+  pull()
+rslimits.90 <- df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("90%")) %>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  t() %>%
+  as.data.frame() %>% 
+  pull()
+# rslimits.95 <- df %>%
+#   filter(!ar == 2022) |> 
+#   filter(DIDkommun == 'Stockholm') %>% 
+#   select(ar,all_of(sthlm.index)) %>% 
+#   group_by(ar) %>%
+#   summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>%
+#   select(ar,ends_with("95%")) %>%
+#   add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>%
+#   t() %>%
+#   as.data.frame() %>%
+#   pull()
+
+rslimits <- na.omit(as.data.frame(cbind(rslimits.75,rslimits.90)))
+rslimits <- rslimits %>% 
+  rownames_to_column(var = "Index")
+rslimits$Index <- sthlm.index
+
+rslimits <- rslimits %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  janitor::row_to_names(1) %>% 
+  mutate_if(is.character, as.numeric)
+formattable(rslimits)
+# write_csv(rslimits, "../data/2023-01-17_rslimitsRisk.csv")
+```
+
+## Protective/positive factors
+
+```{r}
+p <- c(0.15,0.85)
+p_names <- map_chr(p, ~paste0(.x*100, "%"))
+p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
+  set_names(nm = p_names)
+
+sthlm.index <- c("SkolaPositiv","Wellbeing")
+
+rslimits.15 <- df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("15%")) %>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  t() %>%
+  as.data.frame() %>% 
+  pull()
+rslimits.85 <- df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("85%")) %>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  t() %>%
+  as.data.frame() %>% 
+  pull()
+
+
+rslimitsProt <- na.omit(as.data.frame(cbind(rslimits.15,rslimits.85)))
+rslimitsProt <- rslimitsProt %>% 
+  rownames_to_column(var = "Index")
+rslimitsProt$Index <- sthlm.index
+
+rslimitsProt <- rslimitsProt %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  janitor::row_to_names(1) %>% 
+  mutate_if(is.character, as.numeric)
+# write_csv(rslimitsProt, "../data/2023-01-17_rslimitsProt.csv")
+```
+
+```{r}
+df %>%
+#  select(År,Parenting) %>%
+  group_by(År) %>%
+  summarise(WellbeingMedel = mean(Wellbeing, na.rm = T),
+            WellbeingSD = sd(Wellbeing, na.rm = T),
+            Wellbeing85 = quantile(Wellbeing, probs = c(0.85), na.rm = T),
+            Wellbeing15 = quantile(Wellbeing, probs = c(0.15), na.rm = T),
+            SkolaPositivMedel = mean(SkolaPositiv, na.rm = T),
+            SkolaPositivSD = sd(SkolaPositiv, na.rm = T),
+            SkolaPositiv85 = quantile(SkolaPositiv, probs = c(0.85), na.rm = T),
+            SkolaPositiv15 = quantile(SkolaPositiv, probs = c(0.15), na.rm = T)
+            ) %>%
+  mutate(across(where(is.numeric), round, 2)) %>%
+  formattable()
+
+df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("15%")) %>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round, 2)) %>%
+  formattable()
+
+df %>%
+#  select(År,Parenting) %>%
+  group_by(År) %>%
+  summarise(
+            Wellbeing85 = quantile(Wellbeing, probs = c(0.85), na.rm = T),
+            Wellbeing15 = quantile(Wellbeing, probs = c(0.15), na.rm = T),
+            
+            SkolaPositiv85 = quantile(SkolaPositiv, probs = c(0.85), na.rm = T),
+            SkolaPositiv15 = quantile(SkolaPositiv, probs = c(0.15), na.rm = T)
+            ) %>%
+  mutate(across(where(is.numeric), round, 2)) %>%
+  formattable()
+
+df %>% 
+  filter(!ar == 2022) |> 
+  filter(DIDkommun == 'Stockholm') %>% 
+  select(ar,all_of(sthlm.index)) %>% 
+  group_by(ar) %>% 
+  summarize_at(vars(sthlm.index), funs(!!!p_funs)) %>% 
+  select(ar,ends_with("85%")) %>% 
+  add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round, 2)) %>%
+  formattable()
+
+```
+
+```{r}
+df %>%
+  group_by(År) %>%
+  summarise(WellbeingMedel = mean(Wellbeing, na.rm = T),
+            WellbeingSD = sd(Wellbeing, na.rm = T),
+            Wellbeing85 = quantile(Wellbeing, probs = c(0.85), na.rm = T),
+            Wellbeing15 = quantile(Wellbeing, probs = c(0.15), na.rm = T),
+            SkolaPositivMedel = mean(SkolaPositiv, na.rm = T),
+            SkolaPositivSD = sd(SkolaPositiv, na.rm = T),
+            SkolaPositiv85 = quantile(SkolaPositiv, probs = c(0.85), na.rm = T),
+            SkolaPositiv15 = quantile(SkolaPositiv, probs = c(0.15), na.rm = T)
+            ) %>%
+  mutate(across(where(is.numeric), round, 2)) %>%
+  ggplot(aes(x = År)) +
+  geom_line(aes(y = WellbeingMedel), color = "lightblue") +
+  geom_line(aes(y = SkolaPositivMedel), color = "lightpink")
+```
+
+
+Missing data comparison group by year, municipality, per estimated index
+
+Check outliers for all respondents, based on their original response data (pre merged categories). Maybe works with unrecoded data? Would be ideal to avoid reversed items, to keep original response patterns. This can be used then to filter and present only outliers response pattern (for each index) using RItileplot().
+
+Filter IDs based on deviant ZSTD?
+
+Filter df based on outlier row ID, group by municipality and year and present counts.
+
+
+

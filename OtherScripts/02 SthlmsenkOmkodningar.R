@@ -8,6 +8,11 @@ count <- dplyr::count
 recode <- car::recode
 rename <- dplyr::rename
 
+# First, read data for the municipality in focus, and adjust available columns/variables
+# as needed (a vector of necessary variables should be made). Then jump to the 
+# General recode preprocessing part and run the rest of the code. After that, open script 03
+# to estimate person locations for each index
+
 
 # Import data -------------------------------------------------------------
 
@@ -67,6 +72,16 @@ df.vtuna <- df.vtuna %>%
   add_column(SkolID_gammal = NA, SkolSDO = NA) %>% 
   add_column(DIDkommun = 'Vallentuna')
 
+
+### Vallentuna 2022 ---------------------------------------------------------
+
+df <- read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Vallentuna/Sthlmsenk/Stockholmsenkäten 2022 Vallentuna.sav",
+          to.data.frame = TRUE) %>% 
+  add_column(DIDkommun = 'Vallentuna',
+             SkolID_gammal = NA,
+             SkolSDO = NA) %>% 
+  rename(Kön = F2)
+
 ## Vaxholm ----------------------------------------------------------
 
 df.vaxholm <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Vaxholm/Sthlmsenk/Stockholmsenkäten 2008-2022 Vaxholm (1).sav"))
@@ -91,6 +106,53 @@ df.täby <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibra
 df.täby <- df.täby %>% 
   select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
   add_column(DIDkommun = 'Täby')
+
+
+
+## Södertälje --------------------------------------------------------------
+
+df.södertälje <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Södertälje/Stockholmsenkäten 2002-2022 Södertälje_granskad.sav"))
+# estimerade <- names(df) %>% tail(7)
+df.södertälje <- df.södertälje %>% 
+  rename(Kön = F2) %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(SkolID_gammal = NA, 
+             SkolSDO = NA,
+             riskPSF = NA) %>% 
+  add_column(DIDkommun = 'Södertälje')
+
+# df <- df.södertälje
+# 
+# df <- df %>%
+#   rename(`Hur länge har du bott i Sverige?` = F5,
+#          `Vilken högsta utbildning har din mamma?` = f6a,
+#          `Vilken högsta utbildning har din pappa?` = f6b,
+#          `Vad bor du i för typ av bostad?` = F7)
+# df.old <- read_parquet("../DIDapp/data/SthlmsEnkRev_2022-12-20.parquet")
+# df.old <- df.old %>%
+#   rename(Community = Närsamhälle,
+#          Parenting = Föräldraskap,
+#          PsykSomBesv = 'Psykiska/ psykosomatiska besvär',
+#          SkolaNegativ = 'Vantrivsel i skolan',
+#          Wellbeing = Välbefinnande,
+#          SkolaPositiv = 'Positiv skolanknytning'
+#   )
+# df.old <- df.old %>%
+#   rename(DIDkommun = Kommun)
+# 
+# setdiff(names(df),names(df.old))
+# setdiff(names(df.old),names(df))
+# df$SkolID_gammal <- NULL
+# df$F3_Omkodad <- NULL
+# 
+# nameorder <- as.data.frame(cbind(names(df.old),names(df)))
+# 
+# df <- df %>%
+#   relocate(riskPSF, .after = Wellbeing)
+
+df.new <- rbind(df.old,df)
+
+write_parquet(df.new, sink = glue("../data/{Sys.Date()}_ScoredRev.parquet"))
 
 # Combine all data --------------------------------------------------------
 

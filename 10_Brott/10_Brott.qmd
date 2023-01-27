@@ -23,7 +23,7 @@ format:
     code-tools: true
     code-fold: false
     number-sections: true
-    fig-dpi: 250
+    #fig-dpi: 250
     layout-align: left
     linestretch: 1.6
     theme: materia
@@ -55,6 +55,72 @@ bibliography: grateful-refs.bib
 
 ```{r}
 
+library(arrow)
+library(ggrepel)
+library(car)
+library(grateful) # devtools::install_github("Pakillo/grateful")
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(ggplot2)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(cowplot)
+library(formattable) 
+library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
+library(HH)
+library(glue)
+library(foreach)
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
 # import item information
 
 df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
@@ -95,7 +161,12 @@ df %>%
   select(ends_with("a")) %>% 
   glimpse()
 
-itemlabels<-read_excel("../../data/")
+itemlabels<-read_excel("BrottItemlabels.xls")
+
+# create dataframe with 2014 and 2020 data with all variables (post recode)
+df.1418 <- df %>% 
+  filter(ar %in% c(2014,2018)) %>% 
+  select(itemlabels$itemnr,Kön,ARSKURS,SkolSDO)
 
 ```
 
@@ -104,33 +175,6 @@ itemlabels<-read_excel("../../data/")
 #| code-fold: false
 #| include: false
 
-library(arrow)
-library(ggrepel)
-library(car)
-library(grateful) # devtools::install_github("Pakillo/grateful")
-library(kableExtra)
-library(readxl)
-library(tidyverse)
-library(eRm)
-library(mirt)
-library(psych)
-library(ggplot2)
-library(psychotree)
-library(matrixStats)
-library(reshape)
-library(knitr)
-library(cowplot)
-library(formattable) 
-library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
-library(HH)
-library(glue)
-library(foreach)
-
-### some commands exist in multiple packages, here we define preferred ones that are frequently used
-select <- dplyr::select
-count <- dplyr::count
-recode <- car::recode
-rename <- dplyr::rename
 
 ### set up color palette based on RISE guidelines
 RISEprimGreen <- "#009ca6"
@@ -199,9 +243,9 @@ df.dif.years <- df.all.years %>%
 
 ```
 
-## Brott/kriminalitet
+## Beskrivning frågor
 
-Frågorna i detta avsnitt är i datafilen betecknade som f75a till och med s (19 frågor, nr 77 i PDF med frågor), samt f77aa till ea (5 frågor, nr 80 i PDF).
+Frågorna i detta avsnitt är i datafilen betecknade som f75a till och med s (19 frågor, nr 77 i PDF med frågor), samt f77aa till ea (5 frågor, nr 80 i PDF). Den första sektionen fokuserar på hur ofta respondenten begått olika brott, medan den andra sektionen fokuserar på huruvida respondenten blivit utsatt för brott.
 
 Frågorna f75a-s inleds med "Hur många gånger har du gjort följande saker under de senaste 12 månaderna?"
 
@@ -213,10 +257,253 @@ Svarsalternativen är
 - 6-10 gånger 
 - Mer än 10 gånger
 
-De kodas om som siffror 0-5, där 0 = "Ingen gång".
+De kodas om som siffror 0-5, där 0 = "Ingen gång". 
+
+Denna typ av frekvensskattningar med så många svarsalternativ brukar sällan ge psykometriskt meningsfull information, d.v.s. det är inte tillräckligt stor skillnad på de olika svarsalternativen för att var och en av kategorierna ska bidra med mera information om respondenten. Vi kommer med största sannolikhet behöva slå samman flera av dem för att kunna göra en rimlig analys.
 
 Frågorna f77a-e inleds med "Har du varit med om något av följande under de senaste 12 månaderna?"
 
 Svarsalternativen är "Nej" eller "Ja ..... antal gånger", med följdfråga på "Ja" som är "Anmälde du detta till polisen". Vi kommer inte titta på följdfrågorna i denna analys.
 
+För denna analys är inte målsättningen att undersöka möjligheten att ta fram ett eller flera indexvärden utifrån sammansättningar av items/frågor som sedan kan användas på samtliga deltagare. Detta beror på att de flesta har såpass liten användning av substanser eller ens har svarat på frågorna. Däremot vill vi se hur frågorna fungerar relativt varandra (item-hierarki) och om det skiljer sig mellan kön, årskurs och över tid.
 
+```{r}
+itemlabels %>% 
+  kbl(booktabs = T, escape = F) %>%
+      # bootstrap options are for HTML output
+      kable_styling(bootstrap_options = c("striped", "hover"), 
+                    position = "left",
+                    full_width = F,
+                    font_size = r.fontsize,
+                    fixed_thead = T) %>% # when there is a long list in the table
+      #  column_spec(c(2:3), color = "red") %>% 
+      row_spec(1:19, bold = F, color = "black", background = "lightblue") %>% 
+      row_spec(20:24, bold = F, color = "white", background = RISEprimGreen) %>%
+      column_spec(1, bold = T) %>% 
+      kable_classic(html_font = "Lato")
+```
+
+### Svarsbortfall
+
+```{r}
+df.1418 %>%
+  select(itemlabels$itemnr) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  mutate(Missing = rowSums(is.na(.))) %>% 
+  select(Missing) %>% 
+  arrange(desc(Missing)) %>% 
+  rownames_to_column(var = "Item") %>% 
+  mutate(Percentage = Missing/nrow(df)*100) %>% 
+  mutate(Item = factor(Item, levels = rev(Item))) %>%
+  ggplot(aes(x = Item, y = Percentage)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Missing data per item") +
+  xlab("Items") +
+  ylab("Percentage of responses missing")
+
+
+```
+
+Det är låg nivå av bortfall på itemnivå.
+
+```{r}
+
+df.omit.na <- na.omit(df.1418)
+
+dif.gender <- df.omit.na$Kön
+df.omit.na$Kön <- NULL
+dif.arskurs <- df.omit.na$ARSKURS
+df.omit.na$ARSKURS <- NULL
+dif.stadsdel <- df.omit.na$SkolSDO
+df.omit.na$SkolSDO <- NULL
+```
+
+
+Vi har `r nrow(df.omit.na)` respondenter med kompletta svar från 2014 och 2018 (`r nrow(df.1418)-nrow(df.omit.na)` har filtrerats bort p.g.a. saknade svar). Att vi valt att ta med två år är för att säkerställa att det finns tillräcklig variation i data.
+
+## Deskriptiva data
+
+### Demografi
+```{r}
+#| label: descriptives1
+#| layout-ncol: 3
+RIdemographics(dif.gender, "Kön")
+RIdemographics(dif.arskurs, "Årskurs")
+#RIdemographics(dif.stadsdel, "Stadsdel")
+```
+
+### Item-data
+
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tile plot
+```{r}
+#| label: descriptives2
+RItileplot(df.omit.na)
+```
+
+#### Barplots {.scrollable}
+```{r}
+#| label: alt-descriptives
+#| layout-ncol: 2
+RIbarplot(df.omit.na)
+
+```
+:::
+::::
+
+Som väntat extremt skeva svarsfördelningar.
+
+Svarsalternativen för f75-frågorna är:
+
+- Ingen gång
+- 1-2 gånger
+- 3-5 gånger
+- 6-10 gånger 
+- Mer än 10 gånger
+
+Vi kan prova att slå samman de tre högsta, så vi får tre kategorier för samtliga frågor, innan vi går vidare till Rasch-analysen.
+
+```{r}
+
+for (i in items.brott){
+  df.omit.na[[i]] <- recode(df.omit.na[[i]],"3:4=2")
+}
+RItileplot(df.omit.na)
+
+```
+
+Vi tittar på f75-frågorna först.
+```{r}
+df.f75 <- df.omit.na %>% 
+  select(all_of(items.brott))
+```
+### Analys av svarskategorier f75
+
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.f75, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+
+Det fungerar inte med tre kategorier. Vi slår samman alla kategorier över 0, så det blir en helt dikotom modell.
+
+```{r}
+
+for (i in items.brott){
+  df.f75[[i]] <- recode(df.omit.na[[i]],"2:4=1")
+}
+RItileplot(df.f75)
+
+```
+
+## Rasch-analys 1 - f75
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.f75, fontsize = 11)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitRM(df.f75, 500, 10)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+
+RIpcmPCA(df.f75)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(na.omit(df.f75))
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.f75, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.f75, dich = TRUE)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+df.erm <- RM(df.f75)
+plotPImap(df.erm, sorted = T)
+
+```
+:::
+::::
+
+Item f75p (tjuvåkt på tunnelbana/pendeltåg) verkar inte passa in bland de övriga frågorna.
+
+Ett antal kluster av residualkorrelationer, bl.a. mellan olika typer av stöld, och köpt/sålt stöldgods.
+
+Att Outfit MSQ visar på problem är inte oväntat när vi har en sådan klar majoritet som svarar 0 på frågorna och MSQ är oviktad. I denna analys är ZSTD betydligt mera viktig att titta på.
+
+Vi går dock inte vidare och gör några åtgärder, utan tittar i stället på invarians/DIF.
+
+## Invarians/DIF
+
+### Kön
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.f75, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| fig-height: 3
+RIdifTable(df.f75, dif.gender)
+```
+#### Figur item 
+```{r}
+
+RIdifFigure(df.f75, dif.gender)
+```
+#### Figur svarströsklar
+```{r}
+RIdifFigThresh(df.f75, dif.gender)
+```
+:::
+::::
+
+
+### Årskurs
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.f75, 13)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+#### Tabell
+```{r}
+#| fig-height: 3
+RIdifTable(df.f75, dif.arskurs)
+```
+#### Figur item 
+```{r}
+
+RIdifFigure(df.f75, dif.arskurs)
+```
+#### Figur svarströsklar
+```{r}
+RIdifFigThresh(df.f75, dif.arskurs)
+```
+:::
+::::

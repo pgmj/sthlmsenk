@@ -11,7 +11,7 @@ rename <- dplyr::rename
 
 # Read recoded data -------------------------------------------------------
 
-df <- read_parquet("../data/2022-12-05_recodedData.parquet")
+#df <- read_parquet("../data/2022-12-05_recodedData.parquet")
 
 # all analyzed items
 allAnalyzedItems <- read.csv("../data/allitems.csv")
@@ -31,7 +31,8 @@ sthlm.index <- allItems %>%
 
 # Nested loop function for estimating thetas for all indices --------------------
 
-# Select the variables we will work with, and filter out respondents with a lot of missing data
+# Select the variables we will work with, and filter out respondents with
+# more missing data than allowed according to `min.responses`
 for (i in sthlm.index) {
   df.if <- df %>% 
     #head(100) %>% # for testing purposes subset small group
@@ -82,6 +83,44 @@ for (i in sthlm.index) {
   thetaEstScores <- c()
 }
 
+# Reverse score positive scales -------------------------------------------
+
+df$SkolaPositiv <- df$SkolaPositiv*-1
+df$Wellbeing <- df$Wellbeing*-1
+
+
+# Save to file ------------------------------------------------------------
+
+# code below for adding Vallentuna 2022 data, messily
+# df.old <- read_parquet("../DIDapp/data/2023-01-10_ScoredRev.parquet")
+# #df <- df %>% 
+# #  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
+# 
+# df.new <- df %>% 
+#   select(!any_of(c("Skolenhetskod","Skolnamn","F3_Omkodad","SkolID_gammal")))
+#   
+# df.old$individ <- NULL
+# df.new$individ <- NULL
+# 
+# setdiff(names(df.old),names(df.new))
+# setdiff(names(df.new),names(df.old))
+# 
+# df.new <- df.new %>%
+#   rename(`Hur länge har du bott i Sverige?` = F5,
+#          `Vilken högsta utbildning har din mamma?` = f6a,
+#          `Vilken högsta utbildning har din pappa?` = f6b,
+#          `Vad bor du i för typ av bostad?` = F7)
+# 
+# df.new <- df.new %>% 
+#   add_column(DIDkommun = "Vallentuna",
+#              riskPSF = NA)
+# 
+# df.new <- df.new %>% 
+#   relocate(DIDkommun, .after = "SkolSDO")
+# 
+# df.newest <- rbind(df.old,df.new)
+# 
+# write_parquet(df.newest, sink = "../DIDapp/data/2023-01-23_ScoredRev.parquet")
 
 # Single index calculation ------------------------------------------------
 
@@ -134,6 +173,7 @@ for (i in "Wellbeing") {
   thetas <- NULL
   thetaEstScores <- c()
 }
+
 
 
 # Dividing the function to test its components ----------------------------

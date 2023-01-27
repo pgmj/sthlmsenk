@@ -653,6 +653,12 @@ RIdifFigure(df.neg, dif.arskurs)
 Inga problem. Item f66f är den som har högst nivå.
 
 ### Årtal
+
+```{r}
+#| column: margin
+
+RIlistItemsMargin(df.neg)
+```
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell

@@ -7,7 +7,7 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-12-08'
+date: '2023-01-27'
 format: 
   html:
     toc: true
@@ -74,9 +74,47 @@ library(knitr)
 library(cowplot)
 library(formattable) 
 library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
-library(HH)
 library(glue)
 library(foreach)
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+# set some colors used later
+cutoff_line <- RISEprimRed
+dot_color <- "black"
+backg_color <- RISEprimGreenLight
+
+# set fontsize for all tables
+r.fontsize <- 15
+
+### first we pre-set our chosen cut-off values for some commonly used indices:
+msq_min <- 0.7
+msq_max <- 1.3
+zstd_min <- -2
+zstd_max <- 2
+loc_dep <- 0.2 # above average residual correlation
+dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
+
+### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
+### run analysis yz random samples to get average ZSTD
+jz = 300 # number to include in dataset
+yz = 10 # number of random samples
+
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
@@ -105,6 +143,7 @@ df$F14 <- recode(df$F14,"'Nej, jag har aldrig rökt'=0;
                  'Ja, dagligen'=4;
                  '<NA>'=NA", 
                  as.factor = F)
+df$F14r <- recode(df$F14,"0:2=0;3=1;4=2") # possible part of frequency based index
 
 df$FNY12020 <- recode(df$FNY12020,"'Nej, jag har aldrig rökt e-cigaretter'=0;
                  'Nej, bara provat hur det smakar'=1;
@@ -114,6 +153,8 @@ df$FNY12020 <- recode(df$FNY12020,"'Nej, jag har aldrig rökt e-cigaretter'=0;
                  '<NA>'=NA", 
                  as.factor = F)
 
+df$FNY12020r <- recode(df$FNY12020,"0:2=0;3=1;4=2")
+
 df$F18 <- recode(df$F18,"'Nej, jag har aldrig snusat'=0;
                  'Nej, bara provat hur det smakar'=1;
                  'Nej, jag har snusat men slutat'=2;
@@ -121,6 +162,8 @@ df$F18 <- recode(df$F18,"'Nej, jag har aldrig snusat'=0;
                  'Ja, dagligen'=4;
                  '<NA>'=NA", 
                  as.factor = F)
+
+df$F18r <- recode(df$F18,"0:2=0;3=1;4=2")
 
 df$F34 <- recode(df$F34,"'Dricker inte alkohol'=0;
                  'Aldrig'=0;
@@ -241,6 +284,33 @@ df$FNY22020 <- recode(df$FNY22020,"'Nej'=0;
                  '<NA>'=NA", 
                  as.factor = F)
 
+
+# 37. Hur många gånger har du druckit så mycket alkohol att du känt dig berusad under den senaste 4-veckorsperioden?
+# df %>% count(as.numeric(df$f36)) visar en konstig fördelning, vi kodar om den enligt nedan
+df$f36r <- recode(as.numeric(as.character(df$f36)),"4:12=3;13:31=NA")
+# 50. Hur många gånger har du använt narkotika (cannabis eller annan narkotika) den senaste 4-veckors perioden?
+df$F49r <- recode(as.numeric(as.character(df$F49)),"4:12=3;13:100=NA")
+
+# 36. Hur många gånger har du druckit så mycket alkohol att du känt dig berusad?
+# 1) Ingen gång   gå till fråga 39
+# Vi vill koda om F35, svar "Ingen gång" till att motsvara 0 för f36r
+# Samma gäller för F45 om narkotika inkl cannabis, med F49 om senaste 4v.
+df <- df %>% 
+  mutate(F35r = case_when(F35 == "Ingen gång" ~ 0,
+                          TRUE ~ NA_real_
+  )) %>% 
+  mutate(F36new = coalesce(f36r,F35r)) %>% 
+  mutate(F45r = case_when(F45 == "Nej" ~ 0,
+                          TRUE ~ NA_real_
+  )) %>% 
+  mutate(F49new = coalesce(F49r,F45r))
+
+
+# ta fram ett indexvärde för bruk under senaste 4v
+senaste4v <- c("F14r","F18r","F36new","F49new","FNY12020r")
+df <- df %>% 
+  mutate(Senaste4v = rowSums(df %>% select(all_of(senaste4v)), na.rm = T))
+
 # Debutålder under 6 år förefaller orimlig eller åtminstone ovanlig, så den kodas om till missing/NA
 
 # for (i in itemsANDTSdebut){
@@ -276,33 +346,14 @@ RISEgrey2 <- "#c8c8c8"
 RISEgrey3 <- "#828282"
 RISEgrey4 <- "#555555"
 
-# set some colors used later
-cutoff_line <- RISEprimRed
-dot_color <- "black"
-backg_color <- RISEprimGreenLight
-
-# set fontsize for all tables
-r.fontsize <- 15
-
-### first we pre-set our chosen cut-off values for some commonly used indices:
-msq_min <- 0.7
-msq_max <- 1.3
-zstd_min <- -2
-zstd_max <- 2
-loc_dep <- 0.2 # above average residual correlation
-dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
-
-### zstd is inflated with large samples (N > 500). Reduce sample size to jz and 
-### run analysis yz random samples to get average ZSTD
-jz = 300 # number to include in dataset
-yz = 10 # number of random samples
-
-
 # create dataframe with 2014 and 2020 data with all variables (post recode)
 df.omit.na <- df %>% 
   #filter(ar %in% c(2014,2020)) %>% 
   filter(ar == "2020") %>% 
   select(itemlabels$itemnr,Kön,ARSKURS,SkolSDO)
+
+df.debutAge <- df %>% 
+  select(itemsANDTSdebut,Kön,ARSKURS,SkolSDO,ar)
 
 ```
 
@@ -310,11 +361,36 @@ df.omit.na <- df %>%
 
 Vi har tagit data från 2020, eftersom två frågor tillkommit 2020.
 
-Frågorna har delats in i tre tänkta områden, som markerats med bakgrundsfärg i tabellen nedan:
+Frågorna har delats in i tre tänkta områden, som markerats med bakgrundsfärg i tabellen med items längre ner:
 
 - eget bruk
 - debutålder
 - föräldrarna/familjen
+
+Frågorna har stor variation i svarskategorierna, vilket beskrivs i PDF-filen med frågor, och även framgår om man klickar på </CODE> vid denna sidas rubrik högst upp och tittar på källkoden till analysen där omkodning ("recode") av svarskategorierna finns med tidigt i koden (innan denna text).
+
+Exempel på vanliga typer av svarskategorier och deras omkodning:
+
+- 'Nej, jag har aldrig rökt'=0;
+- 'Nej, bara provat hur det smakar'=1;
+- 'Nej, jag har rökt men slutat'=2;
+- 'Ja, ibland men inte varje dag'=3;
+- 'Ja, dagligen'=4;
+
+och:
+
+- 'Nej, ingen gång'=0;
+- 'Ja, 1 gång'=1;
+- 'Ja, 2-4 gånger'=2;
+- 'Ja, 5-10 gånger'=3;
+- 'Ja, 11-20 gånger'=4;
+- 'Ja, 21-50 gånger'=5;
+- 'Ja, mer än 50 gånger'=6;
+
+Denna typ av frekvensskattningar med så många svarsalternativ brukar sällan ge psykometriskt meningsfull information, d.v.s. det är inte tillräckligt stor skillnad på de olika svarsalternativen för att var och en av kategorierna ska bidra med mera information om respondenten. Vi kommer med största sannolikhet behöva slå samman flera av dem för att kunna göra en rimlig analys.
+
+För denna analys är målsättningen inte att undersöka möjligheten att ta fram ett eller flera indexvärden utifrån sammansättningar av items/frågor som sedan kan användas på samtliga deltagare. Detta beror på att de flesta deltagare har såpass liten användning av substanser eller ens har svarat på frågorna. Däremot vill vi se hur frågorna fungerar relativt varandra (item-hierarki) och om det skiljer sig mellan kön, årskurs och över tid.
+
 
 ```{r}
 itemlabels %>% 
@@ -348,6 +424,7 @@ RIlistItemsMargin(df.omit.na, 11)
 #---- Create a figure showing % of missing data for each item, based on the complete dataset----
 df.omit.na %>%
   select(itemlabels$itemnr) %>% 
+  
   t() %>% 
   as.data.frame() %>% 
   mutate(Missing = rowSums(is.na(.))) %>% 
@@ -362,7 +439,6 @@ df.omit.na %>%
   ggtitle("Missing data per item") +
   xlab("Items") +
   ylab("Percentage of responses missing")
-
 
 ```
 
@@ -444,7 +520,7 @@ RIbarplot(df.omit.na)
 :::
 ::::
 
-Vi kan se att det är mycket få respondenter i en del kategorier, och sneda svarsfördelningar.
+Vi kan se att det är mycket få respondenter i en del kategorier, och flera olika strukturer på svarsfördelningar.
 
 ## Eget bruk
 
@@ -524,7 +600,7 @@ RIlistItemsMargin(df.eget, fontsize = 11)
 ::: panel-tabset
 ### Item fit
 ```{r}
-RIitemfitPCM2(df.eget, 400, 30, 10)
+RIitemfitPCM2(df.eget, 500, 32, 8)
 ```
 ### PCA
 ```{r}
@@ -542,12 +618,12 @@ RIresidcorr(df.eget, cutoff = 0.2)
 ```
 ### Targeting
 ```{r}
-#| fig-height: 4
+#| fig-height: 5
 RItargeting(df.eget)
 ```
 ### Itemhierarki
 ```{r}
-#| fig-height: 4
+#| fig-height: 5
 RIitemHierarchy(df.eget)
 ```
 :::
@@ -572,7 +648,7 @@ RIlistItemsMargin(df.eget, fontsize = 11)
 ::: panel-tabset
 ### Item fit
 ```{r}
-RIitemfitPCM2(df.eget, 400, 30, 10)
+RIitemfitPCM2(df.eget, 500, 32, 8)
 ```
 ### PCA
 ```{r}
@@ -590,12 +666,12 @@ RIresidcorr(df.eget, cutoff = 0.2)
 ```
 ### Targeting
 ```{r}
-#| fig-height: 4
+#| fig-height: 5
 RItargeting(df.eget)
 ```
 ### Itemhierarki
 ```{r}
-#| fig-height: 4
+#| fig-height: 5
 RIitemHierarchy(df.eget)
 ```
 :::
@@ -689,7 +765,6 @@ FNY12020 går över gränsvärdet, medan F47 är mycket nära. Det verkar huvuds
 Här exkluderas FNY122020 eftersom den bara finns för 2020.
 
 ```{r}
-#| column: margin
 
 final.items <- names(df.eget)
 df.dif.years <- df %>% 
@@ -709,7 +784,11 @@ df.dif.years$F47 <- recode(df.dif.years$F47,"4=3;5:6=4")
 df.dif.years$F47 <- recode(df.dif.years$F47,"4=3") # i praktiken 4:6=3 
 
 df.dif.years$F48 <- recode(df.dif.years$F48,"1=0;2:3=1;4:6=2")
+```
 
+
+```{r}
+#| column: margin
 RIlistItemsMargin(df.dif.years, 13)
 ```
 
@@ -738,8 +817,683 @@ RIdifFigThresh(df.dif.years, dif.year)
 
 Här sker en del intressanta förändringar över tid hos samtliga items.
 
+## Debutålder
+
+Här är det förmodligen mest intressant att ta fram medelvärde, median, och spridningsmått, samt visualiseringar.
+
+Det finns dock låga svar som är tvivelaktiga att ta med. När frågor om debutålder besvaras med exempelvis intervallet 0-4 år förefaller det osannolikt att svaret är uppriktigt. 
 
 
+```{r}
+
+df.debut <- df.omit.na %>%
+  select(any_of(itemsANDTSdebut))
+
+```
+
+### Övergripande svarsfördelning
+
+Tabellen nedan gäller samtliga fem items, enbart år 2020.
+
+```{r}
+df.debutAge %>% 
+  filter(ar == 2020) %>% 
+  select(all_of(itemsANDTSdebut)) %>% 
+  RIallresp()
+```
+
+Förslagsvis kodas alla svar under 9 års ålder som missing/NA innan andra beräkningar genomförs.
+
+### Omkodning av låga svar
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.debut, 13)
+```
+
+```{r}
+
+df.debdist <- df.debutAge %>%
+  mutate(across(itemsANDTSdebut, ~ recode(.x, "0:8=NA")))
+df.debdist %>% 
+  filter(ar == 2020) %>% 
+  select(all_of(itemsANDTSdebut)) %>% 
+  RItileplot()
+```
+
+### Visualisering av debutålder
+
+```{r}
+df.debdist %>% 
+  filter(ar == 2020) %>% 
+  select(all_of(itemsANDTSdebut)) %>% 
+  pivot_longer(everything()) %>%
+  rename(Item = name,
+         Ålder = value) %>% 
+  ggplot(aes(x = Ålder, group = Item, fill = Item)) +
+  geom_histogram(bins = 20,
+                 position = "stack",
+                 alpha = 0.9) +
+  scale_fill_viridis_d() +
+  scale_x_continuous(breaks = c(9:21))
+```
+
+Ovan finns alla svar samlade från både Åk 9 och Gy 2, och båda kön tillsammans.
+
+Nedan finns svaren uppdelade på årskurs.
+
+```{r}
+
+df.debdist %>% 
+  filter(ar == 2020) %>%
+  filter(!ARSKURS == "<NA>") %>% 
+  select(any_of(c(itemsANDTSdebut,"ARSKURS","ar"))) %>% 
+  pivot_longer(itemsANDTSdebut) %>%
+  rename(Item = name,
+         Ålder = value,
+         Årskurs = ARSKURS) %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = Ålder, group = Item, fill = Item)) +
+  geom_histogram(bins = 20,
+                 position = "stack",
+                 alpha = 0.9) +
+  scale_fill_viridis_d() +
+  scale_x_continuous(breaks = c(9:21)) +
+  facet_wrap(~Årskurs)
+
+```
+
+```{r}
+df.debdist %>% 
+  filter(ar == 2020) %>%
+  filter(!ARSKURS == "<NA>") %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  select(any_of(c(itemsANDTSdebut,"ARSKURS","ar","Kön"))) %>% 
+  pivot_longer(itemsANDTSdebut) %>%
+  rename(Item = name,
+         Ålder = value,
+         Årskurs = ARSKURS) %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = Ålder, group = Item, fill = Item)) +
+  geom_histogram(bins = 20,
+                 position = "stack",
+                 alpha = 0.9) +
+  scale_fill_viridis_d() +
+  scale_x_continuous(breaks = c(9:21)) +
+  facet_grid(Kön~Årskurs)
+```
+Nedan enbart åk2.
+```{r}
+df.debdist %>% 
+  #filter(ar == 2020) %>%
+  filter(ARSKURS == "Gy 2") %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  select(any_of(c(itemsANDTSdebut,"ARSKURS","ar","Kön"))) %>% 
+  pivot_longer(itemsANDTSdebut) %>%
+  rename(Item = name,
+         Ålder = value,
+         Årskurs = ARSKURS) %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = Ålder, group = Item, fill = Item)) +
+  geom_histogram(bins = 20,
+                 position = "stack",
+                 alpha = 0.9) +
+  scale_fill_viridis_d() +
+  scale_x_continuous(breaks = c(9:21),
+                     guide = guide_axis(n.dodge = 2)) +
+  facet_grid(Kön~År)
+```
+
+```{r}
+# df.debdist %>% 
+#   #filter(ar == 2020) %>%
+#   filter(ARSKURS == "Gy 2") %>% 
+#   filter(Kön %in% c("Pojke","Flicka")) %>% 
+#   select(any_of(c(itemsANDTSdebut,"ARSKURS","ar","Kön"))) %>% 
+#   group_by()
+#   pivot_longer(itemsANDTSdebut) %>%
+#   rename(Item = name,
+#          Ålder = value,
+#          Årskurs = ARSKURS) %>%
+#   mutate(År = factor(ar)) %>% 
+#   ggplot(aes(x = År, y = Ålder, group = Item, color = Item)) +
+#   geom_point(size = 2) +
+#   geom_line() +
+#   scale_fill_viridis_d() +
+#   scale_x_discrete(breaks = årtal,
+#                      guide = guide_axis(n.dodge = 2)) +
+#   facet_grid(~Kön)
+```
+
+
+### Bortfall av svar
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.debut, 13)
+```
+
+```{r}
+#---- Create a figure showing % of missing data for each item, based on the complete dataset----
+df.debut %>%
+  t() %>% 
+  as.data.frame() %>% 
+  mutate(Missing = rowSums(is.na(.))) %>% 
+  select(Missing) %>% 
+  arrange(desc(Missing)) %>% 
+  rownames_to_column(var = "Item") %>% 
+  mutate(Percentage = Missing/nrow(df)*100) %>% 
+  mutate(Item = factor(Item, levels = rev(Item))) %>%
+  ggplot(aes(x = Item, y = Percentage)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Missing data per item") +
+  xlab("Items") +
+  ylab("Percentage of responses missing")
+
+```
+
+Enbart de som besvarat åtminstone tre av de fem frågorna kan vara med i analysen.
+
+```{r}
+# If you want to include participants with missing data, input the minimum number of items responses that a participant should have to be included in the analysis:
+min.responses <- 3
+
+# Select the variables we will work with, and filter out respondents with a lot of missing data
+df.deb2 <- df.debdist %>% 
+  filter(length(itemsANDTSdebut)-rowSums(is.na(.[itemsANDTSdebut])) >= min.responses) %>% 
+  select(any_of(itemsANDTSdebut))
+
+```
+
+Detta reducerar sampelstorleken från `r nrow(df.omit.na)` till `r nrow(df.deb2)` respondenter.
+
+### Svarskategorier
+
+```{r}
+RIallresp(df.deb2)
+```
+
+
+Vi slår samman alla upp till 11 år i samma kategori, som betecknas med siffran 0, därefter blir 12 år = kategori 1, 13 år = 2, och så vidare upp till 18-20 år = 7.
+
+```{r}
+
+df.deb2 <- df.deb2 %>%
+  mutate(across(everything(), ~ recode(.x, "1:11=0;12=1;13=2;14=3;15=4;16=5;17=6;18:20=7")))
+
+```
+
+```{r}
+RItileplot(df.deb2)
+```
+
+
+
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.deb2, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+```{r}
+plot(mirt.rasch, type="trace")
+```
+
+Enbart item F16 (rökning) uppvisar ordnade svarskategorier. Vi går ändå vidare och tittar på andra parametrar innan några eventuella åtgärder görs.
+
+Det är dock svårt att få modellen att konvergera, vilket också bekräftar att debutålder inte är meningsfullt att bygga något index av.
+
+
+## Möjliga indexberäkningar
+
+Smolkowski et al., 2006, p. 241, skriver "We created an index of substance use by summing the number of reported substances used in the last month: cigarettes, alcohol, marijuana, or any of the other drugs."
+
+Det ter sig lite märkligt att inte alls vikta substanserna, men vi kan prova ett liknande upplägg.
+
+Vi har fem items som kan användas, som avser tobaksrökning, snus, alkohol, narkotika (inkl cannabis), samt e-cigaretter. Dock har den sistnämna enbart funnits sedan 2020, så den utelämnas tills vi har hittat ett sätt att se till att den inte förvränger jämförbarheten över tid. Det kan ev. vara lämpligt att på något vis integrera tobaksanvändning, oavsett form.
+
+- Fråga 37 (f36 i data), *Hur många gånger har du druckit så mycket alkohol att du känt dig berusad under den senaste 4-veckorsperioden?*
+Fördelningen av svaren är märklig, se histogram nedan
+
+```{r}
+hist(as.numeric(df$f36), col = RISEprimGreen)
+```
+
+Vi kodar om enligt: "4:12=3;13:31=NA"
+
+```{r}
+hist(df$f36r, col = RISEprimGreen)
+
+```
+Samma sak gäller frågan om narkotika-användning.
+
+- 50. Hur många gånger har du använt narkotika (cannabis eller annan narkotika) den senaste 4-veckors perioden?
+```{r}
+hist(as.numeric(df$F49), col = RISEprimGreen)
+
+```
+Omkodning: "4:12=3;13:100=NA"
+
+```{r}
+hist(df$F49r, col = RISEprimGreen)
+```
+
+Item F14 är inte formulerad enligt samma tydliga frekvensfråga som de två tidigare frågorna.
+Den har sedan tidigare kodats enligt nedan:
+
+recode(df$F14,"'Nej, jag har aldrig rökt'=0;
+                 'Nej, bara provat hur det smakar'=1;
+                 'Nej, jag har rökt men slutat'=2;
+                 'Ja, ibland men inte varje dag'=3;
+                 'Ja, dagligen'=4;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+Och inför test av index kodas den
+"0:2=0;3=1;4=2"
+
+```{r}
+hist(df$F14r, col = RISEprimGreen)
+
+```
+
+
+Samma gäller FNY12020 (e-cigaretter)
+
+recode(df$FNY12020,"'Nej, jag har aldrig rökt e-cigaretter'=0;
+                 'Nej, bara provat hur det smakar'=1;
+                 'Nej, jag har rökt e-cigaretter men slutat'=2;
+                 'Ja, ibland men inte varje dag'=3;
+                 'Ja, dagligen'=4;
+                 '<NA>'=NA", 
+                 as.factor = F)
+
+Som blir "0:2=0;3=1;4=2"
+
+```{r}
+hist(df$FNY12020r, col = RISEprimGreen)
+
+```
+Och även F18 för snus.
+
+```{r}
+hist(df$F18r, col = RISEprimGreen)
+
+```
+
+### Separerade på respektive substans
+```{r}
+# for FNY12020r and F14r (e-cig and smoking)
+årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)
+ax.size <- 10
+title.size <- 12
+legend.size <- 10
+stript.size <- 10
+itemlabelsPlotFaktor <- cbind(senaste4v,
+                              c("Rökning","Snus","Alkohol","Narkotika (inkl. cannabis)","E-cigaretter")) %>% 
+  as.data.frame() %>% 
+  rename(itemnr = senaste4v,
+         item = V2)
+  
+
+andtsUseShare <- function(andts) {
+  plotFaktor <- andts
+  plotFaktorName <- itemlabelsPlotFaktor %>% 
+    filter(itemnr == plotFaktor) %>% 
+    pull(item)
+  
+  df %>%
+    filter(Kön %in% c("Pojke", "Flicka"),
+           !ARSKURS == "<NA>") %>%
+    select(all_of(senaste4v), ar, Kön, ARSKURS) %>%
+    mutate(
+      bruk4v = case_when(
+        .data[[plotFaktor]] == 0 ~ "Ej använt",
+        .data[[plotFaktor]] == 1 ~ "Ibland men inte varje dag",
+        .data[[plotFaktor]] == 2 ~ "Dagligen",
+        TRUE ~ "Svar saknas"
+      )
+    ) %>% 
+    mutate(bruk4v = factor(bruk4v, levels = c("Dagligen","Ibland men inte varje dag","Ej använt","Svar saknas"))) %>% 
+    group_by(ar, Kön, ARSKURS) %>%
+    count(bruk4v, .drop = FALSE) %>%
+    mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+    ggplot(aes(x = ar, y = Andel)) +
+    geom_area(aes(fill = bruk4v),
+      position = "stack",
+      alpha = 0.85
+    ) +
+    scale_fill_manual(values = c("#D55E00", "#F0E442", "#009E73", "lightgrey")) +
+    scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
+    scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
+    xlab("Årtal") +
+    ylab("Andel i %") +
+    theme(
+      axis.text.x = element_text(size = ax.size, family = "sans"),
+      axis.text.y = element_text(size = ax.size, family = "sans"),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 14),
+      panel.spacing = unit(0.5, "cm", data = NULL)
+    ) +
+    labs(
+      title = paste0(plotFaktorName),
+      subtitle = "Uppdelat på kön"
+    ) +
+    facet_grid(ARSKURS ~ Kön)
+}
+```
+
+```{r}
+andtsUseShare("F14r")
+andtsUseShare("F18r")
+```
+
+```{r}
+# for f36r and F49r
+andtsUseShare2 <- function(andts) {
+  plotFaktor <- andts
+  plotFaktorName <- itemlabelsPlotFaktor %>% 
+    filter(itemnr == plotFaktor) %>% 
+    pull(item)
+  
+  df %>%
+    filter(Kön %in% c("Pojke", "Flicka"),
+           !ARSKURS == "<NA>") %>%
+    select(all_of(senaste4v), ar, Kön, ARSKURS) %>%
+    mutate(
+      bruk4v = case_when(
+        .data[[plotFaktor]] == 0 ~ "Ej använt",
+        .data[[plotFaktor]] == 1 ~ "En gång",
+        .data[[plotFaktor]] == 2 ~ "Två gånger",
+        .data[[plotFaktor]] == 3 ~ "Tre gånger eller fler",
+        TRUE ~ "Svar saknas"
+      )
+    ) %>% 
+    mutate(bruk4v = factor(bruk4v, levels = c("Tre gånger eller fler","Två gånger","En gång","Ej använt","Svar saknas"))) %>% 
+    group_by(ar, Kön, ARSKURS) %>%
+    count(bruk4v, .drop = FALSE) %>%
+    mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+    ggplot(aes(x = ar, y = Andel)) +
+    geom_area(aes(fill = bruk4v),
+      position = "stack",
+      alpha = 0.85
+    ) +
+    scale_fill_manual(values = c("#D55E00", "orange", "#F0E442", "#009E73", "lightgrey")) +
+    scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
+    scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
+    xlab("Årtal") +
+    ylab("Andel i %") +
+    theme(
+      axis.text.x = element_text(size = ax.size, family = "sans"),
+      axis.text.y = element_text(size = ax.size, family = "sans"),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 14),
+      panel.spacing = unit(0.5, "cm", data = NULL)
+    ) +
+    labs(
+      title = paste0(plotFaktorName, ", användning senaste 4 veckorna"),
+      subtitle = "Uppdelat på kön"
+    ) +
+    facet_grid(ARSKURS ~ Kön)
+}
+```
+
+```{r}
+andtsUseShare2("F36new")
+andtsUseShare2("F49new")
+```
+
+### Indexvärde för bruk under senaste 4v
+
+Om vi slår samman "F14r","F18r","F36new","F49new","FNY12020r" kan man max ha 2+2+3+3+3 = 12
+
+```{r}
+
+hist(df$Senaste4v, col = RISEprimGreen)
+df %>% count(Senaste4v) %>% formattable()
+```
+
+Dock finns ingen viktning i ovanstående, så allt bruk likställs, utöver att det går att rapportera högre nivå av alkohol och narkotika, där det är viktigt att notera att den sistnämna inkluderar cannabis.
+
+
+
+```{r}
+df %>% 
+  select(all_of(senaste4v)) %>% 
+  pivot_longer(everything()) %>% 
+  ggplot(aes(x = value, fill = name)) +
+  geom_histogram()
+```
+
+F14r = rökning
+F18r = snus
+f36r = alkohol
+F49r = narkotika (cannabis eller annan narkotika)
+GNY12020r = e-cigaretter
+
+Ovanstående är alla år sammanslaget. Nedan fördelat på årtal.
+
+```{r}
+df %>% 
+  select(all_of(senaste4v),ar) %>% 
+  pivot_longer(senaste4v) %>% 
+  ggplot(aes(x = value, fill = name)) +
+  geom_histogram() +
+  facet_wrap(~ factor(ar))
+```
+
+```{r}
+df %>% 
+  select(all_of(senaste4v),ar) %>% 
+  pivot_longer(senaste4v) %>% 
+  ggplot(aes(x = value, fill = name)) +
+  geom_histogram() +
+  facet_grid(factor(ar) ~ name)
+```
+
+#### Test visualisering oviktat index "Bruk senaste 4v"
+
+Utifrån siffrorna i tabellen tidigare ter det sig rimligt att slå samman de som har värden på 6 eller mer. Vi ska också testa att gruppera de som har x antal bruk.
+
+```{r}
+plotFaktor = "Senaste4v"
+df %>%
+  filter(Kön %in% c("Pojke", "Flicka"),
+         !ARSKURS == "<NA>") %>%
+  select(Senaste4v, ar, Kön, ARSKURS) %>%
+  mutate(Senaste4v = recode(Senaste4v,"7:10=6")) %>% 
+  mutate(Senaste4v = factor(Senaste4v,
+         levels = rev(c(0:6))
+         )
+         ) %>% 
+  #levels = c("Tre gånger eller fler","Två gånger","En gång","Ej använt","Svar saknas"))) %>% 
+  group_by(ar, Kön, ARSKURS) %>%
+  count(Senaste4v, .drop = FALSE) %>%
+  mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+  ggplot(aes(x = ar, y = Andel)) +
+  geom_area(aes(fill = Senaste4v),
+            position = "stack",
+            alpha = 0.85
+  ) +
+  #scale_fill_manual(values = c("#D55E00", "orange", "#F0E442", "#009E73", "lightgrey")) +
+  scale_fill_viridis_d() +
+  scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
+  scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
+  xlab("Årtal") +
+  ylab("Andel i %") +
+  theme(
+    axis.text.x = element_text(size = ax.size, family = "sans"),
+    axis.text.y = element_text(size = ax.size, family = "sans"),
+    title = element_text(size = title.size),
+    legend.text = element_text(size = legend.size),
+    strip.text.x = element_text(size = 14),
+    panel.spacing = unit(0.5, "cm", data = NULL)
+  ) +
+  labs(
+    title = paste0("Användning senaste 4 veckorna, oviktat index"),
+    subtitle = "Uppdelat på kön"
+  ) +
+  facet_grid(ARSKURS ~ Kön)
+#c("6","5","4","3","2","1","0")
+```
+
+### Blandbruk
+
+E-cigaretter ej med pga enbart data från 2020. Snusning finns ej med, kan läggas till om så önskas.
+
+```{r}
+
+df %>%
+  filter(Kön %in% c("Pojke", "Flicka"),
+         !ARSKURS == "<NA>") %>%
+  select(all_of(senaste4v), Senaste4v, ar, Kön, ARSKURS) %>%
+  mutate(
+    bruk4v = case_when(
+      Senaste4v == 0 ~ "Ej använt",
+      F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
+      F14r > 1 & F36new > 1 ~ "Tobak och alkohol mer än en gång",
+      F14r > 1 & F49new > 1 ~ "Tobak och narkotika mer än en gång",
+      F36new > 1 & F49new > 1 ~ "Alkohol och narkotika mer än en gång",
+      F14r > 1 & F36new > 1 & F49new > 1 ~ "Alla tre substanser mer än en gång",
+      TRUE ~ "Svar saknas"
+    )
+  ) %>% 
+  mutate(bruk4v = recode(bruk4v,"NA='Svar saknas'")) %>% 
+  mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser mer än en gång",
+                                            "Alkohol och narkotika mer än en gång",
+                                            "Tobak och narkotika mer än en gång",
+                                            "Tobak och alkohol mer än en gång",
+                                            "En substans en gång",
+                                            "Ej använt",
+                                            "Svar saknas")
+  )) %>% 
+  select(bruk4v,ar,Kön,ARSKURS) %>% 
+  group_by(ar, Kön, ARSKURS) %>%
+  count(bruk4v, .drop = FALSE) %>%
+  mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+  ggplot(aes(x = ar, y = Andel)) +
+  geom_area(aes(fill = bruk4v),
+            position = "stack",
+            alpha = 0.85
+  ) +
+  #scale_fill_manual(values = c("#D55E00", "orange", "#F0E442", "#009E73", "lightgrey")) +
+  scale_fill_viridis_d() +
+  scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
+  scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
+  xlab("Årtal") +
+  ylab("Andel i %") +
+  theme(
+    axis.text.x = element_text(size = ax.size, family = "sans"),
+    axis.text.y = element_text(size = ax.size, family = "sans"),
+    title = element_text(size = title.size),
+    legend.text = element_text(size = legend.size),
+    strip.text.x = element_text(size = 14),
+    panel.spacing = unit(0.5, "cm", data = NULL)
+  ) +
+  labs(
+    title = paste0(plotFaktor, " användning senaste 4 veckorna"),
+    subtitle = "Uppdelat på kön"
+  ) +
+  facet_grid(ARSKURS ~ Kön)
+
+
+```
+
+### Tabell
+```{r}
+library(gt)
+library(gtExtras)
+
+andtsTable <- function(year) {
+df %>%
+  filter(Kön %in% c("Pojke", "Flicka"),
+         !ARSKURS == "<NA>") %>%
+  filter(ar == year) %>% 
+  select(all_of(senaste4v), Senaste4v, ar, Kön, ARSKURS) %>%
+  mutate(
+    bruk4v = case_when(
+      Senaste4v == 0 ~ "Ej använt",
+      F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
+      F14r > 1 & F36new > 1 ~ "Rökning och alkohol mer än en gång",
+      F14r > 1 & F49new > 1 ~ "Rökning och narkotika mer än en gång",
+      F36new > 1 & F49new > 1 ~ "Alkohol och narkotika mer än en gång",
+      F14r > 1 & F36new > 1 & F49new > 1 ~ "Alla tre substanser mer än en gång",
+      TRUE ~ "Svar saknas"
+    )
+  ) %>% 
+  mutate(bruk4v = recode(bruk4v,"NA='Svar saknas'")) %>% 
+  mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser mer än en gång",
+                                            "Alkohol och narkotika mer än en gång",
+                                            "Rökning och narkotika mer än en gång",
+                                            "Rökning och alkohol mer än en gång",
+                                            "En substans en gång",
+                                            "Ej använt",
+                                            "Svar saknas")
+  )) %>% 
+  select(bruk4v,ar,Kön,ARSKURS) %>% 
+  group_by(ar, ARSKURS, Kön) %>%
+  count(bruk4v, .drop = FALSE) %>%
+  mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>% 
+  rename(År = ar,
+         Årskurs = ARSKURS,
+         Bruk = bruk4v) %>% 
+  gt(.,
+   groupname_col = c("Årskurs","Kön"),
+   rowname_col = "År") %>% 
+  gt_theme_espn() %>% 
+  tab_options(table.font.name = "Lato",
+              container.width = 500,
+              heading.align = "left") %>% 
+  cols_align(align = "right")
+}
+```
+
+::: panel-tabset
+#### 2006
+```{r}
+andtsTable(2006)
+
+```
+#### 2010
+```{r}
+andtsTable(2010)
+
+```
+#### 2014
+```{r}
+andtsTable(2014)
+
+```
+#### 2018
+```{r}
+andtsTable(2018)
+
+```
+#### 2020
+```{r}
+andtsTable(2020)
+
+```
+:::
+
+### Missing data över tid
+```{r}
+df %>% 
+  select(all_of(senaste4v),ar) %>% 
+  pivot_longer(senaste4v) %>% 
+  filter(is.na(value),
+         !name == "FNY12020r") %>% 
+  group_by(ar,name) %>% 
+  summarise(n = n()) %>% 
+  #mutate(Value = recode(value,"NA=1")) %>% 
+  ggplot(aes(x = factor(ar), y = n, color = name, group = name)) +
+  geom_point(size = 2) +
+  geom_line()
+
+  #facet_wrap(~factor(ar))
+
+```
 
 ## Programvara som använts
 
