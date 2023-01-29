@@ -10,3 +10,5 @@
 **/*_cache/**
 /.quarto/
 __*/**
+!docs/**
+docs/.DS_Store
