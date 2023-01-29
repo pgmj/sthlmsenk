@@ -950,25 +950,64 @@ df.debdist %>%
   facet_grid(Kön~År)
 ```
 
+### Debutålder över tid, Gy 2 enbart
+
+Eftersom frågan ställs till både åk 9 och årskurs 2 på gymnasiet verkar det mest relevant att enbart redovisa rapporteringen som görs när eleverna är äldre.
+
 ```{r}
-# df.debdist %>% 
-#   #filter(ar == 2020) %>%
-#   filter(ARSKURS == "Gy 2") %>% 
-#   filter(Kön %in% c("Pojke","Flicka")) %>% 
-#   select(any_of(c(itemsANDTSdebut,"ARSKURS","ar","Kön"))) %>% 
-#   group_by()
-#   pivot_longer(itemsANDTSdebut) %>%
-#   rename(Item = name,
-#          Ålder = value,
-#          Årskurs = ARSKURS) %>%
-#   mutate(År = factor(ar)) %>% 
-#   ggplot(aes(x = År, y = Ålder, group = Item, color = Item)) +
-#   geom_point(size = 2) +
-#   geom_line() +
-#   scale_fill_viridis_d() +
-#   scale_x_discrete(breaks = årtal,
-#                      guide = guide_axis(n.dodge = 2)) +
-#   facet_grid(~Kön)
+df.debdist %>%
+  #filter(ar == 2020) %>%
+  filter(ARSKURS %in% c("Gy 2")) %>%
+  filter(Kön %in% c("Pojke","Flicka")) %>%
+  select(any_of(c(itemsANDTSdebut,"ARSKURS","ar","Kön"))) %>%
+  pivot_longer(itemsANDTSdebut) %>%
+  rename(Item = name,
+         Ålder = value,
+         Årskurs = ARSKURS) %>%
+  filter(!is.na(Ålder)) %>% 
+  mutate(År = factor(ar)) %>% #group_by(År,Årskurs) %>% count(Kön)
+  group_by(År,Kön,Item) %>% 
+  summarise(
+    Medelvärde = mean(Ålder),
+    SD = sd(Ålder)
+  ) %>% 
+  ggplot(aes(x = År, y = Medelvärde, group = Item, color = Item)) +
+  geom_point(size = 2) +
+  geom_line() +
+  #geom_ribbon(aes(ymin = Medelvärde - SD, ymax = Medelvärde + SD, fill = Item, color = NULL), alpha = 0.1) +
+  #scale_color_viridis_d(begin = 0.1) +
+  scale_x_discrete(breaks = årtal,
+                     guide = guide_axis(n.dodge = 2)) +
+  labs(title = "Genomsnittslig debutålder per substans över tid") +
+  facet_grid(~Kön)
+```
+#### Komplement med båda åk
+```{r}
+df.debdist %>%
+  #filter(ar == 2020) %>%
+  filter(ARSKURS %in% c("Åk 9","Gy 2")) %>%
+  filter(Kön %in% c("Pojke","Flicka")) %>%
+  select(any_of(c(itemsANDTSdebut,"ARSKURS","ar","Kön"))) %>%
+  pivot_longer(itemsANDTSdebut) %>%
+  rename(Item = name,
+         Ålder = value,
+         Årskurs = ARSKURS) %>%
+  filter(!is.na(Ålder)) %>% 
+  mutate(År = factor(ar)) %>% #group_by(År,Årskurs) %>% count(Kön)
+  group_by(År,Kön,Årskurs,Item) %>% 
+  summarise(
+    Medelvärde = mean(Ålder),
+    SD = sd(Ålder)
+  ) %>% 
+  ggplot(aes(x = År, y = Medelvärde, group = Item, color = Item)) +
+  geom_point(size = 2) +
+  geom_line() +
+  #geom_ribbon(aes(ymin = Medelvärde - SD, ymax = Medelvärde + SD, fill = Item, color = NULL), alpha = 0.1) +
+  #scale_color_viridis_d(begin = 0.1) +
+  scale_x_discrete(breaks = årtal,
+                     guide = guide_axis(n.dodge = 2)) +
+  labs(title = "Genomsnittslig debutålder per substans över tid") +
+  facet_grid(Årskurs~Kön)
 ```
 
 
