@@ -23,7 +23,7 @@ format:
     code-tools: true
     code-fold: true
     number-sections: true
-    fig-dpi: 250
+    #fig-dpi: 250
     layout-align: left
     linestretch: 1.6
     theme: materia
