@@ -1088,7 +1088,7 @@ Enbart item F16 (rökning) uppvisar ordnade svarskategorier. Vi går ändå vida
 Det är dock svårt att få modellen att konvergera, vilket också bekräftar att debutålder inte är meningsfullt att bygga något index av.
 
 
-## Möjliga indexberäkningar och visualisering
+## Explorativa indexberäkningar och visualisering
 
 Smolkowski et al., 2006, p. 241, skriver "We created an index of substance use by summing the number of reported substances used in the last month: cigarettes, alcohol, marijuana, or any of the other drugs."
 
@@ -1422,8 +1422,7 @@ df %>%
             position = "stack",
             alpha = 0.85
   ) +
-  #scale_fill_manual(values = c("#D55E00", "orange", "#F0E442", "#009E73", "lightgrey")) +
-  scale_fill_viridis_d() +
+  scale_fill_viridis_d(labels = function(x) str_wrap(x, width = 14)) +
   scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
   scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
   xlab("Årtal") +
@@ -1455,7 +1454,9 @@ df %>%
   mutate(
     bruk4v = case_when(
       Senaste4v == 0 ~ "Ej använt",
-      F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
+      F14r == 1 ~ "Enbart rökning",
+      F36new == 1 ~ "Enbart alkohol",
+      F49new == 1 ~ "Enbart narkotika",
       F14r >= 1 & F36new >= 1 ~ "Rökning och alkohol en gång eller oftare",
       F14r >= 1 & F49new >= 1 ~ "Rökning och narkotika en gång eller oftare",
       F36new >= 1 & F49new >= 1 ~ "Alkohol och narkotika en gång eller oftare",
@@ -1468,7 +1469,9 @@ df %>%
                                             "Alkohol och narkotika en gång eller oftare",
                                             "Rökning och narkotika en gång eller oftare",
                                             "Rökning och alkohol en gång eller oftare",
-                                            "En substans en gång")
+                                            "Enbart narkotika",
+                                            "Enbart alkohol",
+                                            "Enbart rökning")
   )) %>% 
   filter(!is.na(bruk4v)) %>% 
   select(bruk4v,ar,Kön,ARSKURS) %>% 
@@ -1481,7 +1484,7 @@ df %>%
             alpha = 0.85
   ) +
   #scale_fill_manual(values = c("#D55E00", "orange", "#F0E442", "#009E73", "lightgrey")) +
-  scale_fill_viridis_d() +
+  scale_fill_viridis_d(labels = function(x) str_wrap(x, width = 14)) +
   scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
   scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
   xlab("Årtal") +
@@ -1537,7 +1540,9 @@ df %>%
   mutate(
     bruk4v = case_when(
       Senaste4v == 0 ~ "Ej använt",
-      F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
+      F14r == 1 ~ "Enbart rökning",
+      F36new == 1 ~ "Enbart alkohol",
+      F49new == 1 ~ "Enbart narkotika",
       F14r >= 1 & F36new >= 1 ~ "Rökning och alkohol en gång eller oftare",
       F14r >= 1 & F49new >= 1 ~ "Rökning och narkotika en gång eller oftare",
       F36new >= 1 & F49new >= 1 ~ "Alkohol och narkotika en gång eller oftare",
@@ -1545,14 +1550,14 @@ df %>%
       TRUE ~ "Svar saknas"
     )
   ) %>% 
-  mutate(bruk4v = recode(bruk4v,"NA='Svar saknas'")) %>% 
+  mutate(bruk4v = recode(bruk4v,"'Svar saknas'=NA;'Ej använt'=NA")) %>% 
   mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser en gång eller oftare",
                                             "Alkohol och narkotika en gång eller oftare",
                                             "Rökning och narkotika en gång eller oftare",
                                             "Rökning och alkohol en gång eller oftare",
-                                            "En substans en gång",
-                                            "Ej använt",
-                                            "Svar saknas")
+                                            "Enbart narkotika",
+                                            "Enbart alkohol",
+                                            "Enbart rökning")
   )) %>% 
   select(bruk4v,ar,Kön,ARSKURS) %>% 
   group_by(ar, ARSKURS, Kön) %>%
