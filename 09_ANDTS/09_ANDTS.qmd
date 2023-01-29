@@ -7,7 +7,7 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2023-01-27'
+date: last-modified
 format: 
   html:
     toc: true
@@ -115,6 +115,12 @@ dif_dif <- 0.5 # logits difference between groups in average item location (DIF)
 jz = 300 # number to include in dataset
 yz = 10 # number of random samples
 
+### for ggplot
+årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)
+ax.size <- 10
+title.size <- 12
+legend.size <- 10
+stript.size <- 10
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
@@ -1043,7 +1049,7 @@ Enbart item F16 (rökning) uppvisar ordnade svarskategorier. Vi går ändå vida
 Det är dock svårt att få modellen att konvergera, vilket också bekräftar att debutålder inte är meningsfullt att bygga något index av.
 
 
-## Möjliga indexberäkningar
+## Möjliga indexberäkningar och visualisering
 
 Smolkowski et al., 2006, p. 241, skriver "We created an index of substance use by summing the number of reported substances used in the last month: cigarettes, alcohol, marijuana, or any of the other drugs."
 
@@ -1123,11 +1129,7 @@ hist(df$F18r, col = RISEprimGreen)
 ### Separerade på respektive substans
 ```{r}
 # for FNY12020r and F14r (e-cig and smoking)
-årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)
-ax.size <- 10
-title.size <- 12
-legend.size <- 10
-stript.size <- 10
+
 itemlabelsPlotFaktor <- cbind(senaste4v,
                               c("Rökning","Snus","Alkohol","Narkotika (inkl. cannabis)","E-cigaretter")) %>% 
   as.data.frame() %>% 
@@ -1297,6 +1299,7 @@ df %>%
 Utifrån siffrorna i tabellen tidigare ter det sig rimligt att slå samman de som har värden på 6 eller mer. Vi ska också testa att gruppera de som har x antal bruk.
 
 ```{r}
+#| fig-height: 6
 plotFaktor = "Senaste4v"
 df %>%
   filter(Kön %in% c("Pojke", "Flicka"),
@@ -1343,6 +1346,9 @@ df %>%
 E-cigaretter ej med pga enbart data från 2020. Snusning finns ej med, kan läggas till om så önskas.
 
 ```{r}
+#| fig-height: 6
+
+plotFaktor = "Senaste4v"
 
 df %>%
   filter(Kön %in% c("Pojke", "Flicka"),
@@ -1352,18 +1358,18 @@ df %>%
     bruk4v = case_when(
       Senaste4v == 0 ~ "Ej använt",
       F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
-      F14r > 1 & F36new > 1 ~ "Tobak och alkohol mer än en gång",
-      F14r > 1 & F49new > 1 ~ "Tobak och narkotika mer än en gång",
-      F36new > 1 & F49new > 1 ~ "Alkohol och narkotika mer än en gång",
-      F14r > 1 & F36new > 1 & F49new > 1 ~ "Alla tre substanser mer än en gång",
+      F14r >= 1 & F36new >= 1 ~ "Rökning och alkohol en gång eller oftare",
+      F14r >= 1 & F49new >= 1 ~ "Rökning och narkotika en gång eller oftare",
+      F36new >= 1 & F49new >= 1 ~ "Alkohol och narkotika en gång eller oftare",
+      F14r >= 1 & F36new >= 1 & F49new >= 1 ~ "Alla tre substanser en gång eller oftare",
       TRUE ~ "Svar saknas"
     )
   ) %>% 
   mutate(bruk4v = recode(bruk4v,"NA='Svar saknas'")) %>% 
-  mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser mer än en gång",
-                                            "Alkohol och narkotika mer än en gång",
-                                            "Tobak och narkotika mer än en gång",
-                                            "Tobak och alkohol mer än en gång",
+  mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser en gång eller oftare",
+                                            "Alkohol och narkotika en gång eller oftare",
+                                            "Rökning och narkotika en gång eller oftare",
+                                            "Rökning och alkohol en gång eller oftare",
                                             "En substans en gång",
                                             "Ej använt",
                                             "Svar saknas")
@@ -1388,11 +1394,69 @@ df %>%
     axis.text.y = element_text(size = ax.size, family = "sans"),
     title = element_text(size = title.size),
     legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = 14),
+    strip.text = element_text(size = 12),
     panel.spacing = unit(0.5, "cm", data = NULL)
   ) +
   labs(
-    title = paste0(plotFaktor, " användning senaste 4 veckorna"),
+    title = paste0("Blandbruk, användning senaste 4 veckorna"),
+    subtitle = "Uppdelat på kön"
+  ) +
+  facet_grid(ARSKURS ~ Kön)
+
+
+```
+
+### Utan icke-brukare/saknade svar
+```{r}
+#| fig-height: 6
+df %>%
+  filter(Kön %in% c("Pojke", "Flicka"),
+         !ARSKURS == "<NA>") %>%
+  select(all_of(senaste4v), Senaste4v, ar, Kön, ARSKURS) %>%
+  mutate(
+    bruk4v = case_when(
+      Senaste4v == 0 ~ "Ej använt",
+      F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
+      F14r >= 1 & F36new >= 1 ~ "Rökning och alkohol en gång eller oftare",
+      F14r >= 1 & F49new >= 1 ~ "Rökning och narkotika en gång eller oftare",
+      F36new >= 1 & F49new >= 1 ~ "Alkohol och narkotika en gång eller oftare",
+      F14r >= 1 & F36new >= 1 & F49new >= 1 ~ "Alla tre substanser en gång eller oftare",
+      TRUE ~ "Svar saknas"
+    )
+  ) %>% 
+  mutate(bruk4v = recode(bruk4v,"'Svar saknas'=NA;'Ej använt'=NA")) %>% 
+  mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser en gång eller oftare",
+                                            "Alkohol och narkotika en gång eller oftare",
+                                            "Rökning och narkotika en gång eller oftare",
+                                            "Rökning och alkohol en gång eller oftare",
+                                            "En substans en gång")
+  )) %>% 
+  filter(!is.na(bruk4v)) %>% 
+  select(bruk4v,ar,Kön,ARSKURS) %>% 
+  group_by(ar, Kön, ARSKURS) %>%
+  count(bruk4v, .drop = FALSE) %>%
+  mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+  ggplot(aes(x = ar, y = Andel)) +
+  geom_area(aes(fill = bruk4v),
+            position = "stack",
+            alpha = 0.85
+  ) +
+  #scale_fill_manual(values = c("#D55E00", "orange", "#F0E442", "#009E73", "lightgrey")) +
+  scale_fill_viridis_d() +
+  scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
+  scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
+  xlab("Årtal") +
+  ylab("Andel i %") +
+  theme(
+    axis.text.x = element_text(size = ax.size, family = "sans"),
+    axis.text.y = element_text(size = ax.size, family = "sans"),
+    title = element_text(size = title.size),
+    legend.text = element_text(size = legend.size),
+    strip.text = element_text(size = 12),
+    panel.spacing = unit(0.5, "cm", data = NULL)
+  ) +
+  labs(
+    title = paste0("Blandbruk, användning senaste 4 veckorna"),
     subtitle = "Uppdelat på kön"
   ) +
   facet_grid(ARSKURS ~ Kön)
@@ -1411,22 +1475,42 @@ df %>%
          !ARSKURS == "<NA>") %>%
   filter(ar == year) %>% 
   select(all_of(senaste4v), Senaste4v, ar, Kön, ARSKURS) %>%
+  # mutate(
+  #   bruk4v = case_when(
+  #     Senaste4v == 0 ~ "Ej använt",
+  #     F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
+  #     F14r > 1 & F36new > 1 ~ "Rökning och alkohol mer än en gång",
+  #     F14r > 1 & F49new > 1 ~ "Rökning och narkotika mer än en gång",
+  #     F36new > 1 & F49new > 1 ~ "Alkohol och narkotika mer än en gång",
+  #     F14r > 1 & F36new > 1 & F49new > 1 ~ "Alla tre substanser mer än en gång",
+  #     TRUE ~ "Svar saknas"
+  #   )
+  # ) %>% 
+  # mutate(bruk4v = recode(bruk4v,"NA='Svar saknas'")) %>% 
+  # mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser mer än en gång",
+  #                                           "Alkohol och narkotika mer än en gång",
+  #                                           "Rökning och narkotika mer än en gång",
+  #                                           "Rökning och alkohol mer än en gång",
+  #                                           "En substans en gång",
+  #                                           "Ej använt",
+  #                                           "Svar saknas")
+  # )) %>% 
   mutate(
     bruk4v = case_when(
       Senaste4v == 0 ~ "Ej använt",
       F14r == 1 | F36new == 1 | F49new == 1 ~ "En substans en gång",
-      F14r > 1 & F36new > 1 ~ "Rökning och alkohol mer än en gång",
-      F14r > 1 & F49new > 1 ~ "Rökning och narkotika mer än en gång",
-      F36new > 1 & F49new > 1 ~ "Alkohol och narkotika mer än en gång",
-      F14r > 1 & F36new > 1 & F49new > 1 ~ "Alla tre substanser mer än en gång",
+      F14r >= 1 & F36new >= 1 ~ "Rökning och alkohol en gång eller oftare",
+      F14r >= 1 & F49new >= 1 ~ "Rökning och narkotika en gång eller oftare",
+      F36new >= 1 & F49new >= 1 ~ "Alkohol och narkotika en gång eller oftare",
+      F14r >= 1 & F36new >= 1 & F49new >= 1 ~ "Alla tre substanser en gång eller oftare",
       TRUE ~ "Svar saknas"
     )
   ) %>% 
   mutate(bruk4v = recode(bruk4v,"NA='Svar saknas'")) %>% 
-  mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser mer än en gång",
-                                            "Alkohol och narkotika mer än en gång",
-                                            "Rökning och narkotika mer än en gång",
-                                            "Rökning och alkohol mer än en gång",
+  mutate(bruk4v = factor(bruk4v, levels = c("Alla tre substanser en gång eller oftare",
+                                            "Alkohol och narkotika en gång eller oftare",
+                                            "Rökning och narkotika en gång eller oftare",
+                                            "Rökning och alkohol en gång eller oftare",
                                             "En substans en gång",
                                             "Ej använt",
                                             "Svar saknas")
@@ -1449,31 +1533,27 @@ df %>%
 }
 ```
 
+
 ::: panel-tabset
 #### 2006
 ```{r}
 andtsTable(2006)
-
 ```
 #### 2010
 ```{r}
 andtsTable(2010)
-
 ```
 #### 2014
 ```{r}
 andtsTable(2014)
-
 ```
 #### 2018
 ```{r}
 andtsTable(2018)
-
 ```
 #### 2020
 ```{r}
 andtsTable(2020)
-
 ```
 :::
 

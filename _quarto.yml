@@ -12,7 +12,7 @@ book:
     affiliation: 'RISE Research Institutes of Sweden'
     affiliation-url: 'https://ri.se/shic'
     orcid: '0000-0003-1669-592X'
-  date: '2023-01-12'
+  date: last-modified
   chapters:
   - index.qmd
   - 01_Intro/01_Intro.qmd
@@ -25,8 +25,7 @@ book:
   - Wellbeing/WellbeingSthlm.qmd
   - 08_Mobbning/08_Mobbning.qmd
   - 09_ANDTS/09_ANDTS.qmd
-  - 10_Brott/10_Brott.qmd
-  
+
 format:
   html:
     logo: rise_logo_quarto.png
@@ -39,3 +38,4 @@ format:
     css: styles.css
     link-external-newwindow: true
     fig-dpi: 96
+    license: CC BY
