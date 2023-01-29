@@ -23,7 +23,7 @@ format:
     code-tools: true
     code-fold: false
     number-sections: true
-    fig-dpi: 250
+    #fig-dpi: 250
     layout-align: left
     linestretch: 1.6
     theme: materia
@@ -186,6 +186,10 @@ items.nsam.final <- itemlabels.final %>%
 ```
 
 ## Introduktion
+
+## NOTERA: denna fil är ej uppdaterad
+
+*Senaste versionen av analyserna återspeglas ej av denna sammanfattning. Detta meddelande kommer raderas när sammanfattningen är uppdaterad.*
 
 Målsättningen med de analyser som gjorts har varit att:
 
