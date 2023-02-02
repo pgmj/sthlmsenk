@@ -340,6 +340,7 @@ df.omit.na <-df.omit.na %>%
 
 ```{r}
 #| column: margin
+#| echo: false
 RIlistItemsMargin(df.dif.years, 12)
 ```
 
@@ -375,8 +376,55 @@ RIitemHierarchy(df.omit.na)
 :::
 ::::
 
-F99 har något låg ZSTD, medan MSQ är ok. Det finns en residualkorrelation som är strax över gränsvärdet, men nära gränsvärdet, så vi låter båda items vara kvar.
+F99 har något låg ZSTD, medan MSQ är ok. Det finns en residualkorrelation som är strax över gränsvärdet, mellan skolrelaterade frågor. Item f54b *Jag trivs bra i skolan* är bred och ligger precis i mitten sett till targeting, vilket gör den till en bättre kandidat att ta bort. Item f54n motverkar golveffekten (som egentligen är en takeffekt p.g.a. reverseringen av items), vilket är viktigt att ha kvar.
 
+```{r}
+removed.items <- c(removed.items, "f54b")
+df.omit.na <-df.omit.na %>% 
+  select(!any_of(removed.items))
+
+```
+
+## Rasch-analys 3
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.dif.years, 12)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit
+```{r}
+RIitemfitPCM2(df.omit.na, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.omit.na)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.omit.na)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.omit.na, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| fig-height: 7
+RItargeting(df.omit.na)
+```
+### Itemhierarki
+```{r}
+#| fig-height: 7
+RIitemHierarchy(df.omit.na)
+```
+:::
+::::
+
+Inga problem kvarstår. Den rödmarkerade residualkorrelationen är på gränsvärdet.
 
 ## Invarians/DIF
 
@@ -396,6 +444,10 @@ RIdifTable(df.omit.na, dif.gender)
 #### Figur
 ```{r}
 RIdifFigure(df.omit.na, dif.gender)
+```
+#### Figur thresholds
+```{r}
+RIdifFigThresh(df.omit.na, dif.gender)
 ```
 :::
 ::::
@@ -420,6 +472,10 @@ RIdifTable(df.omit.na, dif.arskurs)
 ```{r}
 #| label: dif1.2
 RIdifFigure(df.omit.na, dif.arskurs)
+```
+#### Figur thresholds
+```{r}
+RIdifFigThresh(df.omit.na, dif.gender)
 ```
 :::
 ::::
@@ -464,7 +520,7 @@ Items fungerar stabilt över tid.
 RItif(df.omit.na)
 ```
 
-En viss golveffekt föreligger reliabilitetsmässigt, men överlag ser detta bra ut.
+En viss golveffekt (OBS omvänd skala) föreligger reliabilitetsmässigt, men överlag ser detta bra ut.
 
 ## Person fit
 
