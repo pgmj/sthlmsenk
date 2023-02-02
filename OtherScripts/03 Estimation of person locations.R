@@ -23,7 +23,7 @@ individ.id <- seq.int(nrow(df))
 # Minimum items responses that a participant should have to be included in the analysis?
 min.responses <- 5
 
-# use objects created in script 01:
+### use objects created in script 01:
 sthlm.index <- allItems %>% 
   distinct(Index) %>% 
   pull()
@@ -67,7 +67,7 @@ for (i in sthlm.index) {
   # https://bioinformatics.stackexchange.com/questions/4580/how-do-i-create-a-for-loop-to-filter-through-different-fdr-values
   for (j in 1:nrow(df.if)){
     p1 <- as.numeric(as.vector((df.if[j,])))
-    ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "ML") # "WL" or "ML"
+    ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "WL") # WL has less bias (see Warm, 1989)
     thetaEstScores <- c(thetaEstScores,ptheta)
   }
   
@@ -120,7 +120,7 @@ df$Wellbeing <- df$Wellbeing*-1
 # 
 # df.newest <- rbind(df.old,df.new)
 # 
-# write_parquet(df.newest, sink = "../DIDapp/data/2023-01-23_ScoredRev.parquet")
+# write_parquet(df.newest, sink = glue("../DIDapp/data/{Sys.Date()}_ScoredRev.parquet"))
 
 # Single index calculation ------------------------------------------------
 
@@ -158,7 +158,7 @@ for (i in "Wellbeing") {
   # https://bioinformatics.stackexchange.com/questions/4580/how-do-i-create-a-for-loop-to-filter-through-different-fdr-values
   for (j in 1:nrow(df.if)){
     p1 <- as.numeric(as.vector((df.if[j,])))
-    ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "ML") # "WL" or "ML"
+    ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "WL") # "WL" or "ML"
     thetaEstScores <- c(thetaEstScores,ptheta)
   }
   
@@ -212,6 +212,6 @@ x <- allItems %>%
 
 for (j in 1:nrow(df.if)){
   p1 <- as.numeric(as.vector((df.if[j,])))
-  ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "ML") # "WL" or "ML"
+  ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "WL") # "WL" or "ML"
   thetaEstScores <- c(thetaEstScores,ptheta)
 }

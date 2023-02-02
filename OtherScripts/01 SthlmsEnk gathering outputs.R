@@ -5,6 +5,7 @@
 library(arrow)
 library(tidyverse)
 library(xlsx)
+library(glue)
 # read all item data into dataframes
 IFitemParams <- read_csv_arrow("02_IF/IFnegativaItems.csv")
 IFitems <- read_csv_arrow("02_IF/IFnegItemnr.csv")
@@ -76,7 +77,7 @@ for (i in 2:length(itemParams)){
 
 # join params and descriptions
 allItemInfo <- cbind(allItems,allItemParams)
-#write.xlsx(allItemInfo, "../data/2022-12-06 allItemInfo.xls", row.names = F)
+#write.xlsx(allItemInfo, glue("../data/{Sys.Date()}_allItemInfo.xls"), row.names = F)
 
 # add itemnr identifyer to params df
 allItemParams <- allItemParams %>% 
