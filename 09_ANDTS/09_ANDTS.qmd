@@ -11,7 +11,7 @@ date: last-modified
 format: 
   html:
     toc: true
-    toc-depth: 3
+    toc-depth: 4
     toc-title: "Innehållsförteckning"
     embed-resources: true
     standalone: true

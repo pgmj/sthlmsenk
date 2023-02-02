@@ -1236,6 +1236,7 @@ ggplot(df.kolada,aes(x = År, y = Andel, group = Kommun, color = Kommun)) +
              labeller = labeller(KPI = label_wrap_gen(22)))
 ```
 :::
+
 ## Jämförelser med andra kommuner
 
 ### Antal svar över tid

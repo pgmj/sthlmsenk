@@ -219,6 +219,8 @@ itemlabels %>%
 
 Eftersom de flesta av dessa items analyserats i andra index har vi redan åtgärdat svarskategorierna för de som uppvisat problem.
 
+OBS att alla item är kodade så att låga värden = högre välbefinnande.
+
 ```{r}
 itemlabels$Index <- NULL
 ```
@@ -373,7 +375,7 @@ RIitemHierarchy(df.omit.na)
 :::
 ::::
 
-F99 har något låg ZSTD, medan MSQ är ok. Det finns två residualkorrelationer som är över gränsvärdet, men båda är mycket nära gränsvärdet, så vi lämnar dem.
+F99 har något låg ZSTD, medan MSQ är ok. Det finns en residualkorrelation som är strax över gränsvärdet, men nära gränsvärdet, så vi låter båda items vara kvar.
 
 
 ## Invarians/DIF
