@@ -12,3 +12,4 @@
 __*/**
 !docs/**
 docs/.DS_Store
+**/*.zip
