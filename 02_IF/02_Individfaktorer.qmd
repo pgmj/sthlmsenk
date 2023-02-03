@@ -7,7 +7,7 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-11-21'
+date: last-modified
 format: 
   html:
     toc-title: "Innehållsförteckning"
@@ -42,7 +42,7 @@ format:
     scrollable: true
     smaller: false
 execute:
-  echo: false
+  echo: true
   warning: false
   message: false
   cache: true
@@ -91,7 +91,6 @@ bibliography: grateful-refs.bib
 
 ```{r}
 #| label: setup
-#| code-fold: false
 #| include: false
 
 # two packages below require that you use devtools to install them manually:
@@ -226,7 +225,6 @@ itemlabels %>%
                     full_width = F,
                     font_size = 14,
                     fixed_thead = T) %>% # when there is a long list in the table
-      #  column_spec(c(2:3), color = "red") %>% 
       row_spec(reverserade, bold = F, color = "white", background = RISEprimGreen) %>% 
       column_spec(1, bold = T) %>% 
       kable_classic(html_font = "Lato")
@@ -269,6 +267,7 @@ RIbarplot(df.omit.na)
 
 ```{r}
 #| column: margin
+#| echo: false
 RIlistItemsMargin(df.omit.na)
 ```
 
@@ -293,12 +292,12 @@ RIresidcorr(df.omit.na, cutoff = 0.2)
 ```
 ### Targeting
 ```{r}
-#| fig-height: 7
+#| fig-height: 9
 RItargeting(df.omit.na)
 ```
 ### Itemhierarki
 ```{r}
-#| fig-height: 7
+#| fig-height: 9
 RIitemHierarchy(df.omit.na)
 ```
 ### Svarskategorier
@@ -308,10 +307,6 @@ mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch
 ```
 ```{r}
 plot(mirt.rasch, type="trace")
-```
-### Items
-```{r}
-RIlistitems(df.omit.na)
 ```
 :::
 ::::
@@ -335,6 +330,8 @@ df.neg <- df.omit.na %>%
 
 ```{r}
 #| column: margin
+#| echo: false
+
 RIlistItemsMargin(df.neg)
 ```
 
@@ -375,10 +372,6 @@ mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch mod
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
-### Items
-```{r}
-RIlistitems(df.neg)
-```
 :::
 ::::
 
@@ -396,6 +389,7 @@ plotICC(df.erm, item.subset = "f66e")
 
 ```{r}
 #| column: margin
+#| echo: false
 RIlistItemsMargin(df.neg)
 ```
 
@@ -430,18 +424,6 @@ RItargeting(df.neg)
 #| fig-height: 7
 RIitemHierarchy(df.neg)
 ```
-### Svarskategorier
-```{r}
-#| include: false
-mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch model
-```
-```{r}
-plot(mirt.rasch, type="trace")
-```
-### Items
-```{r}
-RIlistitems(df.neg)
-```
 :::
 ::::
 
@@ -465,6 +447,7 @@ df.neg <- df.neg %>%
 
 ```{r}
 #| column: margin
+#| echo: false
 RIlistItemsMargin(df.neg)
 ```
 
@@ -496,18 +479,6 @@ RItargeting(df.neg)
 ```{r}
 #| fig-height: 7
 RIitemHierarchy(df.neg)
-```
-### Svarskategorier
-```{r}
-#| include: false
-mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch model
-```
-```{r}
-plot(mirt.rasch, type="trace")
-```
-### Items
-```{r}
-RIlistitems(df.neg)
 ```
 :::
 ::::
@@ -546,6 +517,7 @@ df.neg <- df.neg %>%
 
 ```{r}
 #| column: margin
+#| echo: false
 RIlistItemsMargin(df.neg)
 ```
 
@@ -607,6 +579,7 @@ Vi kan gå vidare och undersöka ytterligare item-reduktion, men först tittar v
 
 ```{r}
 #| column: margin
+#| echo: false
 RIlistItemsMargin(df.neg)
 ```
 
@@ -633,7 +606,7 @@ Inga större problem. Två item går över 0.3 - f66r och f66i, men ingen över 
 
 ```{r}
 #| column: margin
-
+#| echo: false
 RIlistItemsMargin(df.neg)
 ```
 
