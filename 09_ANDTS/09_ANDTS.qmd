@@ -367,36 +367,51 @@ df.debutAge <- df %>%
 
 Vi har tagit data från 2020, eftersom två frågor tillkommit 2020.
 
-Frågorna har delats in i tre tänkta områden, som markerats med bakgrundsfärg i tabellen med items längre ner:
+Frågorna har delats in i tre tänkta områden, som markerats med
+bakgrundsfärg i tabellen med items längre ner:
 
-- eget bruk
-- debutålder
-- föräldrarna/familjen
+-   eget bruk
+-   debutålder
+-   föräldrarna/familjen
 
-Frågorna har stor variation i svarskategorierna, vilket beskrivs i PDF-filen med frågor, och även framgår om man klickar på </CODE> vid denna sidas rubrik högst upp och tittar på källkoden till analysen där omkodning ("recode") av svarskategorierna finns med tidigt i koden (innan denna text).
+Frågorna har stor variation i svarskategorierna, vilket beskrivs i
+PDF-filen med frågor, och även framgår om man klickar på </CODE> vid
+denna sidas rubrik högst upp och tittar på källkoden till analysen där
+omkodning ("recode") av svarskategorierna finns med tidigt i koden
+(innan denna text).
 
 Exempel på vanliga typer av svarskategorier och deras omkodning:
 
-- 'Nej, jag har aldrig rökt'=0;
-- 'Nej, bara provat hur det smakar'=1;
-- 'Nej, jag har rökt men slutat'=2;
-- 'Ja, ibland men inte varje dag'=3;
-- 'Ja, dagligen'=4;
+-   'Nej, jag har aldrig rökt'=0;
+-   'Nej, bara provat hur det smakar'=1;
+-   'Nej, jag har rökt men slutat'=2;
+-   'Ja, ibland men inte varje dag'=3;
+-   'Ja, dagligen'=4;
 
 och:
 
-- 'Nej, ingen gång'=0;
-- 'Ja, 1 gång'=1;
-- 'Ja, 2-4 gånger'=2;
-- 'Ja, 5-10 gånger'=3;
-- 'Ja, 11-20 gånger'=4;
-- 'Ja, 21-50 gånger'=5;
-- 'Ja, mer än 50 gånger'=6;
+-   'Nej, ingen gång'=0;
+-   'Ja, 1 gång'=1;
+-   'Ja, 2-4 gånger'=2;
+-   'Ja, 5-10 gånger'=3;
+-   'Ja, 11-20 gånger'=4;
+-   'Ja, 21-50 gånger'=5;
+-   'Ja, mer än 50 gånger'=6;
 
-Denna typ av frekvensskattningar med så många svarsalternativ brukar sällan ge psykometriskt meningsfull information, d.v.s. det är inte tillräckligt stor skillnad på de olika svarsalternativen för att var och en av kategorierna ska bidra med mera information om respondenten. Vi kommer med största sannolikhet behöva slå samman flera av dem för att kunna göra en rimlig analys.
+Denna typ av frekvensskattningar med så många svarsalternativ brukar
+sällan ge psykometriskt meningsfull information, d.v.s. det är inte
+tillräckligt stor skillnad på de olika svarsalternativen för att var och
+en av kategorierna ska bidra med mera information om respondenten. Vi
+kommer med största sannolikhet behöva slå samman flera av dem för att
+kunna göra en rimlig analys.
 
-För denna analys är målsättningen inte att undersöka möjligheten att ta fram ett eller flera indexvärden utifrån sammansättningar av items/frågor som sedan kan användas på samtliga deltagare. Detta beror på att de flesta deltagare har såpass liten användning av substanser eller ens har svarat på frågorna. Däremot vill vi se hur frågorna fungerar relativt varandra (item-hierarki) och om det skiljer sig mellan kön, årskurs och över tid.
-
+För denna analys är målsättningen inte att undersöka möjligheten att ta
+fram ett eller flera indexvärden utifrån sammansättningar av
+items/frågor som sedan kan användas på samtliga deltagare. Detta beror
+på att de flesta deltagare har såpass liten användning av substanser
+eller ens har svarat på frågorna. Däremot vill vi se hur frågorna
+fungerar relativt varandra (item-hierarki) och om det skiljer sig mellan
+kön, årskurs och över tid.
 
 ```{r}
 itemlabels %>% 
@@ -417,14 +432,14 @@ itemlabels %>%
 
 ## Bortfall i data
 
-Eftersom ANDTS-frågorna har större bortfall i svar kommer vi inte helt filtrera bort respondenter med saknade svar.
+Eftersom ANDTS-frågorna har större bortfall i svar kommer vi inte helt
+filtrera bort respondenter med saknade svar.
 
 ```{r}
 #| column: margin
 
 RIlistItemsMargin(df.omit.na, 11)
 ```
-
 
 ```{r}
 #---- Create a figure showing % of missing data for each item, based on the complete dataset----
@@ -448,7 +463,8 @@ df.omit.na %>%
 
 ```
 
-Efter att ha tagit bort respondenter med färre än 12 items besvarade ser bortfallet ut enligt nedan.
+Efter att ha tagit bort respondenter med färre än 12 items besvarade ser
+bortfallet ut enligt nedan.
 
 ```{r}
 
@@ -488,11 +504,15 @@ df.omit.na %>%
 n2020 <- df %>% filter(ar == "2020") %>% nrow()
 ```
 
-Vi har `r nrow(df.omit.na)` respondenter i data, av totalt `r n2020` respondenter för år 2020. Det innebär att samplet vi analyserar består av den delen som använder olika typer av substanser. Vi kan senare jämföra dem med de som filtrerats ut.
+Vi har `r nrow(df.omit.na)` respondenter i data, av totalt `r n2020`
+respondenter för år 2020. Det innebär att samplet vi analyserar består
+av den delen som använder olika typer av substanser. Vi kan senare
+jämföra dem med de som filtrerats ut.
 
 ## Deskriptiva data
 
 ### Demografi
+
 ```{r}
 #| label: descriptives1
 #| layout-ncol: 3
@@ -500,13 +520,16 @@ RIdemographics(dif.gender, "Kön")
 RIdemographics(dif.arskurs, "Årskurs")
 #RIdemographics(dif.stadsdel, "Stadsdel")
 ```
+
 ### Item-data
 
-Vi tar bort items om debutålder från tile-plotten, eftersom de skulle göra övriga frågor svårlästa.
+Vi tar bort items om debutålder från tile-plotten, eftersom de skulle
+göra övriga frågor svårlästa.
 
-:::: column-page-inset-left
+::: column-page-inset-left
 ::: panel-tabset
 #### Tile plot
+
 ```{r}
 #| label: descriptives2
 
@@ -517,6 +540,7 @@ df.omit.na %>%
 ```
 
 #### Barplots {.scrollable}
+
 ```{r}
 #| label: alt-descriptives
 #| layout-ncol: 2
@@ -524,9 +548,10 @@ RIbarplot(df.omit.na)
 
 ```
 :::
-::::
+:::
 
-Vi kan se att det är mycket få respondenter i en del kategorier, och flera olika strukturer på svarsfördelningar.
+Vi kan se att det är mycket få respondenter i en del kategorier, och
+flera olika strukturer på svarsfördelningar.
 
 ## Eget bruk
 
@@ -539,24 +564,30 @@ df.eget <- df.omit.na %>%
 
 ### Svarskategorier
 
-Eftersom frekvensbaserade svarskategorier använts, som ofta har mindre psykometriskt meningsfulla skillnader mellan de högre kategorierna, behöver vi först titta på om de behöver slås samman.
+Eftersom frekvensbaserade svarskategorier använts, som ofta har mindre
+psykometriskt meningsfulla skillnader mellan de högre kategorierna,
+behöver vi först titta på om de behöver slås samman.
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.eget, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
+
 Vi ser många problem här som behöver åtgärdas:
 
-- F14 - kategori 2 slås samman med kategori 3
-- FNY12020 - slår samman de tre högsta
-- F18 - slår samman 2+1 och 3+4
-- F34 - slår samman 1+2
-- F41 - tas bort - mycket få svar över 0
-- F47 - vi slår samman 3+4 och 5+6
-- F48 - dikotomiseras mellan 0 och övriga kategorier
-- F73 - vi slår samman mittenkategorierna 1-5, och låter 0 och 6 vara kvar.
+-   F14 - kategori 2 slås samman med kategori 3
+-   FNY12020 - slår samman de tre högsta
+-   F18 - slår samman 2+1 och 3+4
+-   F34 - slår samman 1+2
+-   F41 - tas bort - mycket få svar över 0
+-   F47 - vi slår samman 3+4 och 5+6
+-   F48 - dikotomiseras mellan 0 och övriga kategorier
+-   F73 - vi slår samman mittenkategorierna 1-5, och låter 0 och 6 vara
+    kvar.
 
 Det innebär att boffning/sniffning tas bort.
 
@@ -564,6 +595,7 @@ Det innebär att boffning/sniffning tas bort.
 
 ::: tab-panel
 #### Tileplot
+
 ```{r}
 df.eget$F14 <- recode(df.eget$F14,"3=2;4=3")
 df.eget$FNY12020 <- recode(df.eget$FNY12020,"3:4=2")
@@ -577,11 +609,14 @@ df.eget$F73 <- recode(df.eget$F73,"2:5=1;6=2")
 
 RItileplot(df.eget)
 ```
+
 #### Analys av svarskategorier
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.eget, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
@@ -602,46 +637,58 @@ Ser bättre ut.
 RIlistItemsMargin(df.eget, fontsize = 11)
 ```
 
-:::: column-page-inset-left
+::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.eget, 500, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
 
 RIpcmPCA(df.eget)
 ```
+
 ### Loadings 1st contrast
+
 ```{r}
 RIloadLoc(na.omit(df.eget))
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 RIresidcorr(df.eget, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| fig-height: 5
 RItargeting(df.eget)
 ```
+
 ### Itemhierarki
+
 ```{r}
 #| fig-height: 5
 RIitemHierarchy(df.eget)
 ```
 :::
-::::
+:::
 
-Vi kan se att de två högsta svarskategorierna för F47 behöver slås samman, de är oordnade. Det är också tydligt att F73 har hög item fit och behöver tas bort.
+Vi kan se att de två högsta svarskategorierna för F47 behöver slås
+samman, de är oordnade. Det är också tydligt att F73 har hög item fit
+och behöver tas bort.
 
 ```{r}
 df.eget$F47 <- recode(df.eget$F47,"4=3")
 df.eget$F73 <- NULL
 ```
-
 
 ## Eget bruk 2
 
@@ -650,39 +697,49 @@ df.eget$F73 <- NULL
 RIlistItemsMargin(df.eget, fontsize = 11)
 ```
 
-:::: column-page-inset-left
+::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.eget, 500, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
 
 RIpcmPCA(df.eget)
 ```
+
 ### Loadings 1st contrast
+
 ```{r}
 RIloadLoc(na.omit(df.eget))
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 RIresidcorr(df.eget, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| fig-height: 5
 RItargeting(df.eget)
 ```
+
 ### Itemhierarki
+
 ```{r}
 #| fig-height: 5
 RIitemHierarchy(df.eget)
 ```
 :::
-::::
-
+:::
 
 ### Summering av åtgärder för svarskategorier
 
@@ -705,7 +762,6 @@ df.eget$F48 <- recode(df.omit.na$F48,"1=0;2:3=1;4:6=2")
 
 ```
 
-
 ## Invarians/DIF
 
 ### Kön
@@ -715,27 +771,32 @@ df.eget$F48 <- recode(df.omit.na$F48,"1=0;2:3=1;4:6=2")
 RIlistItemsMargin(df.eget, 13)
 ```
 
-:::: column-page-inset-left
+::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 #| fig-height: 3
 RIdifTable(df.eget, dif.gender)
 ```
-#### Figur item 
+
+#### Figur item
+
 ```{r}
 
 RIdifFigure(df.eget, dif.gender)
 ```
+
 #### Figur svarströsklar
+
 ```{r}
 RIdifFigThresh(df.eget, dif.gender)
 ```
 :::
-::::
+:::
 
-Det är röker och snusar som skiljer sig mellan könen. Figuren med itemtrösklar visar på mera detaljinformation.
-
+Det är röker och snusar som skiljer sig mellan könen. Figuren med
+itemtrösklar visar på mera detaljinformation.
 
 ### Årskurs
 
@@ -745,26 +806,32 @@ Det är röker och snusar som skiljer sig mellan könen. Figuren med itemtröskl
 RIlistItemsMargin(df.eget, 13)
 ```
 
-:::: column-page-inset-left
+::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 #| fig-height: 3
 RIdifTable(df.eget, dif.arskurs)
 ```
-#### Figur item 
+
+#### Figur item
+
 ```{r}
 
 RIdifFigure(df.eget, dif.arskurs)
 ```
+
 #### Figur svarströsklar
+
 ```{r}
 RIdifFigThresh(df.eget, dif.arskurs)
 ```
 :::
-::::
+:::
 
-FNY12020 går över gränsvärdet, medan F47 är mycket nära. Det verkar huvudsakligen vara den lägsta tröskeln som förändrats för F47.
+FNY12020 går över gränsvärdet, medan F47 är mycket nära. Det verkar
+huvudsakligen vara den lägsta tröskeln som förändrats för F47.
 
 ### Årtal
 
@@ -792,43 +859,51 @@ df.dif.years$F47 <- recode(df.dif.years$F47,"4=3") # i praktiken 4:6=3
 df.dif.years$F48 <- recode(df.dif.years$F48,"1=0;2:3=1;4:6=2")
 ```
 
-
 ```{r}
 #| column: margin
 RIlistItemsMargin(df.dif.years, 13)
 ```
 
-:::: column-page-inset-left
+::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 #| fig-width: 10
 
 RIdifTable(df.dif.years, dif.year)
 ```
+
 #### Figur item
+
 ```{r}
 RIdifFigure(df.dif.years, dif.year)
 ```
+
 #### Figur tid
+
 ```{r}
 RIdifFigTime(df.dif.years, dif.year)
 ```
+
 #### Figur svarströsklar
+
 ```{r}
 RIdifFigThresh(df.dif.years, dif.year)
 ```
 :::
-::::
+:::
 
 Här sker en del intressanta förändringar över tid hos samtliga items.
 
 ## Debutålder
 
-Här är det förmodligen mest intressant att ta fram medelvärde, median, och spridningsmått, samt visualiseringar.
+Här är det förmodligen mest intressant att ta fram medelvärde, median,
+och spridningsmått, samt visualiseringar.
 
-Det finns dock låga svar som är tvivelaktiga att ta med. När frågor om debutålder besvaras med exempelvis intervallet 0-4 år förefaller det osannolikt att svaret är uppriktigt. 
-
+Det finns dock låga svar som är tvivelaktiga att ta med. När frågor om
+debutålder besvaras med exempelvis intervallet 0-4 år förefaller det
+osannolikt att svaret är uppriktigt.
 
 ```{r}
 
@@ -848,7 +923,8 @@ df.debutAge %>%
   RIallresp()
 ```
 
-Förslagsvis kodas alla svar under 9 års ålder som missing/NA innan andra beräkningar genomförs.
+Förslagsvis kodas alla svar under 9 års ålder som missing/NA innan andra
+beräkningar genomförs.
 
 ### Omkodning av låga svar
 
@@ -884,7 +960,8 @@ df.debdist %>%
   scale_x_continuous(breaks = c(9:21))
 ```
 
-Ovan finns alla svar samlade från både Åk 9 och Gy 2, och båda kön tillsammans.
+Ovan finns alla svar samlade från både Åk 9 och Gy 2, och båda kön
+tillsammans.
 
 Nedan finns svaren uppdelade på årskurs.
 
@@ -928,7 +1005,9 @@ df.debdist %>%
   scale_x_continuous(breaks = c(9:21)) +
   facet_grid(Kön~Årskurs)
 ```
+
 Nedan enbart åk2.
+
 ```{r}
 df.debdist %>% 
   #filter(ar == 2020) %>%
@@ -952,7 +1031,9 @@ df.debdist %>%
 
 ### Debutålder över tid, Gy 2 enbart
 
-Eftersom frågan ställs till både åk 9 och årskurs 2 på gymnasiet verkar det mest relevant att enbart redovisa rapporteringen som görs när eleverna är äldre.
+Eftersom frågan ställs till både åk 9 och årskurs 2 på gymnasiet verkar
+det mest relevant att enbart redovisa rapporteringen som görs när
+eleverna är äldre.
 
 ```{r}
 df.debdist %>%
@@ -981,7 +1062,9 @@ df.debdist %>%
   labs(title = "Genomsnittslig debutålder per substans över tid") +
   facet_grid(~Kön)
 ```
+
 #### Komplement med båda åk
+
 ```{r}
 df.debdist %>%
   #filter(ar == 2020) %>%
@@ -1010,7 +1093,6 @@ df.debdist %>%
   facet_grid(Årskurs~Kön)
 ```
 
-
 ### Bortfall av svar
 
 ```{r}
@@ -1038,7 +1120,8 @@ df.debut %>%
 
 ```
 
-Enbart de som besvarat åtminstone tre av de fem frågorna kan vara med i analysen.
+Enbart de som besvarat åtminstone tre av de fem frågorna kan vara med i
+analysen.
 
 ```{r}
 # If you want to include participants with missing data, input the minimum number of items responses that a participant should have to be included in the analysis:
@@ -1051,7 +1134,8 @@ df.deb2 <- df.debdist %>%
 
 ```
 
-Detta reducerar sampelstorleken från `r nrow(df.omit.na)` till `r nrow(df.deb2)` respondenter.
+Detta reducerar sampelstorleken från `r nrow(df.omit.na)` till
+`r nrow(df.deb2)` respondenter.
 
 ### Svarskategorier
 
@@ -1059,8 +1143,9 @@ Detta reducerar sampelstorleken från `r nrow(df.omit.na)` till `r nrow(df.deb2)
 RIallresp(df.deb2)
 ```
 
-
-Vi slår samman alla upp till 11 år i samma kategori, som betecknas med siffran 0, därefter blir 12 år = kategori 1, 13 år = 2, och så vidare upp till 18-20 år = 7.
+Vi slår samman alla upp till 11 år i samma kategori, som betecknas med
+siffran 0, därefter blir 12 år = kategori 1, 13 år = 2, och så vidare
+upp till 18-20 år = 7.
 
 ```{r}
 
@@ -1073,31 +1158,43 @@ df.deb2 <- df.deb2 %>%
 RItileplot(df.deb2)
 ```
 
-
-
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.deb2, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
 
-Enbart item F16 (rökning) uppvisar ordnade svarskategorier. Vi går ändå vidare och tittar på andra parametrar innan några eventuella åtgärder görs.
+Enbart item F16 (rökning) uppvisar ordnade svarskategorier. Vi går ändå
+vidare och tittar på andra parametrar innan några eventuella åtgärder
+görs.
 
-Det är dock svårt att få modellen att konvergera, vilket också bekräftar att debutålder inte är meningsfullt att bygga något index av.
-
+Det är dock svårt att få modellen att konvergera, vilket också bekräftar
+att debutålder inte är meningsfullt att bygga något index av.
 
 ## Explorativa indexberäkningar och visualisering
 
-Smolkowski et al., 2006, p. 241, skriver "We created an index of substance use by summing the number of reported substances used in the last month: cigarettes, alcohol, marijuana, or any of the other drugs."
+Smolkowski och kollegor [@smolkowski2006] skriver på sidan 241: "We
+created an index of substance use by summing the number of reported
+substances used in the last month: cigarettes, alcohol, marijuana, or
+any of the other drugs."
 
-Det ter sig lite märkligt att inte alls vikta substanserna, men vi kan prova ett liknande upplägg.
+Det ter sig lite märkligt att inte alls vikta substanserna, men vi kan
+prova ett liknande upplägg.
 
-Vi har fem items som kan användas, som avser tobaksrökning, snus, alkohol, narkotika (inkl cannabis), samt e-cigaretter. Dock har den sistnämna enbart funnits sedan 2020, så den utelämnas tills vi har hittat ett sätt att se till att den inte förvränger jämförbarheten över tid. Det kan ev. vara lämpligt att på något vis integrera tobaksanvändning, oavsett form.
+Vi har fem items som kan användas, som avser tobaksrökning, snus,
+alkohol, narkotika (inkl cannabis), samt e-cigaretter. Dock har den
+sistnämna enbart funnits sedan 2020, så den utelämnas tills vi har
+hittat ett sätt att se till att den inte förvränger jämförbarheten över
+tid. Det kan ev. vara lämpligt att på något vis integrera
+tobaksanvändning, oavsett form.
 
-- Fråga 37 (f36 i data), *Hur många gånger har du druckit så mycket alkohol att du känt dig berusad under den senaste 4-veckorsperioden?*
-Fördelningen av svaren är märklig, se histogram nedan
+-   Fråga 37 (f36 i data), *Hur många gånger har du druckit så mycket
+    alkohol att du känt dig berusad under den senaste
+    4-veckorsperioden?* Fördelningen av svaren är märklig, se histogram
+    nedan
 
 ```{r}
 hist(as.numeric(df$f36), col = RISEprimGreen)
@@ -1109,48 +1206,45 @@ Vi kodar om enligt: "4:12=3;13:31=NA"
 hist(df$f36r, col = RISEprimGreen)
 
 ```
+
 Samma sak gäller frågan om narkotika-användning.
 
-- 50. Hur många gånger har du använt narkotika (cannabis eller annan narkotika) den senaste 4-veckors perioden?
+-   
+
+    50. Hur många gånger har du använt narkotika (cannabis eller annan
+        narkotika) den senaste 4-veckors perioden?
+
 ```{r}
 hist(as.numeric(df$F49), col = RISEprimGreen)
 
 ```
+
 Omkodning: "4:12=3;13:100=NA"
 
 ```{r}
 hist(df$F49r, col = RISEprimGreen)
 ```
 
-Item F14 är inte formulerad enligt samma tydliga frekvensfråga som de två tidigare frågorna.
-Den har sedan tidigare kodats enligt nedan:
+Item F14 är inte formulerad enligt samma tydliga frekvensfråga som de
+två tidigare frågorna. Den har sedan tidigare kodats enligt nedan:
 
-recode(df$F14,"'Nej, jag har aldrig rökt'=0;
-                 'Nej, bara provat hur det smakar'=1;
-                 'Nej, jag har rökt men slutat'=2;
-                 'Ja, ibland men inte varje dag'=3;
-                 'Ja, dagligen'=4;
-                 '<NA>'=NA", 
-                 as.factor = F)
+recode(df\$F14,"'Nej, jag har aldrig rökt'=0; 'Nej, bara provat hur det
+smakar'=1; 'Nej, jag har rökt men slutat'=2; 'Ja, ibland men inte varje
+dag'=3; 'Ja, dagligen'=4; '<NA>'=NA", as.factor = F)
 
-Och inför test av index kodas den
-"0:2=0;3=1;4=2"
+Och inför test av index kodas den "0:2=0;3=1;4=2"
 
 ```{r}
 hist(df$F14r, col = RISEprimGreen)
 
 ```
 
-
 Samma gäller FNY12020 (e-cigaretter)
 
-recode(df$FNY12020,"'Nej, jag har aldrig rökt e-cigaretter'=0;
-                 'Nej, bara provat hur det smakar'=1;
-                 'Nej, jag har rökt e-cigaretter men slutat'=2;
-                 'Ja, ibland men inte varje dag'=3;
-                 'Ja, dagligen'=4;
-                 '<NA>'=NA", 
-                 as.factor = F)
+recode(df\$FNY12020,"'Nej, jag har aldrig rökt e-cigaretter'=0; 'Nej,
+bara provat hur det smakar'=1; 'Nej, jag har rökt e-cigaretter men
+slutat'=2; 'Ja, ibland men inte varje dag'=3; 'Ja, dagligen'=4;
+'<NA>'=NA", as.factor = F)
 
 Som blir "0:2=0;3=1;4=2"
 
@@ -1158,6 +1252,7 @@ Som blir "0:2=0;3=1;4=2"
 hist(df$FNY12020r, col = RISEprimGreen)
 
 ```
+
 Och även F18 för snus.
 
 ```{r}
@@ -1166,6 +1261,7 @@ hist(df$F18r, col = RISEprimGreen)
 ```
 
 ### Separerade på respektive substans
+
 ```{r}
 # for FNY12020r and F14r (e-cig and smoking)
 
@@ -1287,7 +1383,8 @@ andtsUseShare2("F49new")
 
 ### Indexvärde för bruk under senaste 4v
 
-Om vi slår samman "F14r","F18r","F36new","F49new","FNY12020r" kan man max ha 2+2+3+3+3 = 12
+Om vi slår samman "F14r","F18r","F36new","F49new","FNY12020r" kan man
+max ha 2+2+3+3+3 = 12
 
 ```{r}
 
@@ -1295,9 +1392,9 @@ hist(df$Senaste4v, col = RISEprimGreen)
 df %>% count(Senaste4v) %>% formattable()
 ```
 
-Dock finns ingen viktning i ovanstående, så allt bruk likställs, utöver att det går att rapportera högre nivå av alkohol och narkotika, där det är viktigt att notera att den sistnämna inkluderar cannabis.
-
-
+Dock finns ingen viktning i ovanstående, så allt bruk likställs, utöver
+att det går att rapportera högre nivå av alkohol och narkotika, där det
+är viktigt att notera att den sistnämna inkluderar cannabis.
 
 ```{r}
 df %>% 
@@ -1307,11 +1404,8 @@ df %>%
   geom_histogram()
 ```
 
-F14r = rökning
-F18r = snus
-f36r = alkohol
-F49r = narkotika (cannabis eller annan narkotika)
-GNY12020r = e-cigaretter
+F14r = rökning F18r = snus f36r = alkohol F49r = narkotika (cannabis
+eller annan narkotika) GNY12020r = e-cigaretter
 
 Ovanstående är alla år sammanslaget. Nedan fördelat på årtal.
 
@@ -1335,7 +1429,9 @@ df %>%
 
 #### Test visualisering oviktat index "Bruk senaste 4v"
 
-Utifrån siffrorna i tabellen tidigare ter det sig rimligt att slå samman de som har värden på 6 eller mer. Vi ska också testa att gruppera de som har x antal bruk.
+Utifrån siffrorna i tabellen tidigare ter det sig rimligt att slå samman
+de som har värden på 6 eller mer. Vi ska också testa att gruppera de som
+har x antal bruk.
 
 ```{r}
 #| fig-height: 6
@@ -1382,7 +1478,8 @@ df %>%
 
 ### Blandbruk
 
-E-cigaretter ej med pga enbart data från 2020. Snusning finns ej med, kan läggas till om så önskas.
+E-cigaretter ej med pga enbart data från 2020. Snusning finns ej med,
+kan läggas till om så önskas.
 
 ```{r}
 #| fig-height: 6
@@ -1445,6 +1542,7 @@ df %>%
 ```
 
 ### Utan icke-brukare/saknade svar
+
 ```{r}
 #| fig-height: 6
 df %>%
@@ -1507,6 +1605,7 @@ df %>%
 ```
 
 ### Tabell
+
 ```{r}
 library(gt)
 library(gtExtras)
@@ -1577,29 +1676,37 @@ df %>%
 }
 ```
 
-
 ::: panel-tabset
 #### 2006
+
 ```{r}
 andtsTable(2006)
 
 ```
+
 #### 2010
+
 ```{r}
 andtsTable(2010)
 
 ```
+
 #### 2014
+
 ```{r}
 andtsTable(2014)
 
 ```
+
 #### 2018
+
 ```{r}
 andtsTable(2018)
 
 ```
+
 #### 2020
+
 ```{r}
 andtsTable(2020)
 
@@ -1607,6 +1714,7 @@ andtsTable(2020)
 :::
 
 ### Missing data över tid
+
 ```{r}
 df %>% 
   select(all_of(senaste4v),ar) %>% 

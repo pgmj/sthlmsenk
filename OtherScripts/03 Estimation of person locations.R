@@ -1,6 +1,8 @@
 library(catR) # for thetaEst()
 library(arrow)
 library(tidyverse)
+library(catR)
+library(furrr)
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
@@ -63,13 +65,14 @@ for (i in sthlm.index) {
     as.numeric()
   # this loop should probably be rewritten using sapply instead, or furrr::map2_dbl
   # https://bioinformatics.stackexchange.com/questions/4580/how-do-i-create-a-for-loop-to-filter-through-different-fdr-values
-  for (j in 1:nrow(df.if)) {
-    p1 <- as.numeric(as.vector((df.if[j, ])))
-    ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "WL") # WL has less bias (see Warm, 1989)
-    thetaEstScores <- c(thetaEstScores, ptheta)
-  }
+  # for (j in 1:nrow(df.if)) {
+  #   p1 <- as.numeric(as.vector((df.if[j, ])))
+  #   ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "WL") # WL has less bias (see Warm, 1989)
+  #   thetaEstScores <- c(thetaEstScores, ptheta)
+  # }
 
-  thetas <- as.data.frame(thetaEstScores) # insert interval scores to new df
+  #thetas <- as.data.frame(thetaEstScores) # insert interval scores to new df
+  thetas <- RIestThetas2(df.if, itemParams = x, cpu = 8)
   thetas$individ <- df.if.id # insert id variable to new df
   names(thetas) <- c(i, "individ")
   thetas[1] <- round(thetas[1], 3)

@@ -73,7 +73,6 @@ library(knitr)
 library(cowplot)
 library(formattable) 
 library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
-library(HH)
 library(glue)
 library(foreach)
 
@@ -466,20 +465,17 @@ RIlistItemsMargin(df.f75, 13)
 #### Tabell
 ```{r}
 #| fig-height: 3
-RIdifTable(df.f75, dif.gender)
+RIdifTableRM(df.f75, dif.gender)
 ```
 #### Figur item 
 ```{r}
 
-RIdifFigure(df.f75, dif.gender)
-```
-#### Figur svarströsklar
-```{r}
-RIdifFigThresh(df.f75, dif.gender)
+RIdifFigureRM(df.f75, dif.gender)
 ```
 :::
 ::::
 
+Höga nivåer av DIF mellan kön för de flesta items.
 
 ### Årskurs
 
@@ -494,16 +490,29 @@ RIlistItemsMargin(df.f75, 13)
 #### Tabell
 ```{r}
 #| fig-height: 3
-RIdifTable(df.f75, dif.arskurs)
+RIdifTableRM(df.f75, dif.arskurs)
 ```
 #### Figur item 
 ```{r}
 
-RIdifFigure(df.f75, dif.arskurs)
-```
-#### Figur svarströsklar
-```{r}
-RIdifFigThresh(df.f75, dif.arskurs)
+RIdifFigureRM(df.f75, dif.arskurs)
 ```
 :::
 ::::
+
+"Använt annans/falsk legitimation" och "Stulit en bil" skiljer sig mellan årskurserna.
+
+
+## Programvara som använts
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(cite.tidyverse = TRUE, 
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE)
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+```
+
+## Referenser

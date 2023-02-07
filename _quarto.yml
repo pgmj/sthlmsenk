@@ -7,6 +7,7 @@ book:
   repo-url: "https://github.com/pgmj/sthlmsenk"
   sidebar:
     style: floating
+    search: true
   author: 
     name: 'Magnus Johansson'
     affiliation: 'RISE Research Institutes of Sweden'
@@ -25,7 +26,8 @@ book:
   - Wellbeing/WellbeingSthlm.qmd
   - 08_Mobbning/08_Mobbning.qmd
   - 09_ANDTS/09_ANDTS.qmd
-
+  - 10_Brott/10_Brott.qmd
+  
 format:
   html:
     logo: rise_logo_quarto.png
