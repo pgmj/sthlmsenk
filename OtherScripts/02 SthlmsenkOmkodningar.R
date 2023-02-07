@@ -39,7 +39,7 @@ df.sthlm <- df.sthlm %>%
 
 # to match Vaxholms variables
 df.sthlm <- df.sthlm %>% 
-  add_column(SkolID_gammal = NA) %>% 
+  add_column(SkolID_gammal = NA, .before = "SkolSDO") %>% 
   add_column(DIDkommun = 'Stockholm')
 
 ## Vallentuna ----------------------------------------------------------
@@ -58,30 +58,39 @@ df.vtuna1618 <- df.vtuna1618 %>%
 
 ## subset variables
 df.vtuna1 <- df.vtuna1618 %>% 
-  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr)))
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
 df.vtuna2 <- df.vtuna20 %>% 
-  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr)))
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
 
 # Columns `F67`, and `F68` don't exist.
-df.vtuna1<-df.vtuna1 %>% 
-  add_column(F67 = NA, F68 = NA, F3_Omkodad = NA)
+df.vtuna1 <- df.vtuna1 %>% 
+  add_column(F67 = NA, .after = "f101l") %>% 
+  add_column(F68 = NA, .before = "F14") %>%
+  add_column(F3_Omkodad = NA, .after = "Kön") %>% 
+  add_column(FNY12020 = NA, .after = "F14") %>% 
+  add_column(F41= NA, .after = "F34") %>% 
+  add_column(F44 = NA, .before = "F51") %>% 
+  add_column(F37 = NA, .after = "F20") %>% 
+  add_column(F45 = NA, .after = "F35") %>% 
+  add_column(FNY22020 = NA, .after = "F40") 
 
-df.vtuna <- rbind(df.vtuna1,df.vtuna2)
+# Then Vallentuna 2022
+df.vtuna22 <- read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Vallentuna/Sthlmsenk/Stockholmsenkäten 2022 Vallentuna.sav",
+                        to.data.frame = TRUE) %>% 
+  rename(Kön = F2) %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
+
+#setdiff(names(df.vtuna1),names(df.vtuna22))
+  
+df.vtuna <- rbind(df.vtuna1,df.vtuna2,df.vtuna22)
 
 # to match Vaxholms variables
 df.vtuna <- df.vtuna %>% 
   add_column(SkolID_gammal = NA, SkolSDO = NA) %>% 
   add_column(DIDkommun = 'Vallentuna')
 
+#setdiff(names(df.sthlm),names(df.vtuna))
 
-### Vallentuna 2022 ---------------------------------------------------------
-
-df <- read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Vallentuna/Sthlmsenk/Stockholmsenkäten 2022 Vallentuna.sav",
-          to.data.frame = TRUE) %>% 
-  add_column(DIDkommun = 'Vallentuna',
-             SkolID_gammal = NA,
-             SkolSDO = NA) %>% 
-  rename(Kön = F2)
 
 ## Vaxholm ----------------------------------------------------------
 
@@ -108,8 +117,6 @@ df.täby <- df.täby %>%
   select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
   add_column(DIDkommun = 'Täby')
 
-
-
 ## Södertälje --------------------------------------------------------------
 
 df.södertälje <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Södertälje/Stockholmsenkäten 2002-2022 Södertälje_granskad.sav"))
@@ -117,10 +124,11 @@ df.södertälje <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-Shar
 df.södertälje <- df.södertälje %>% 
   rename(Kön = F2) %>% 
   select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(Skolenhetskod = NA, .after = "Skolkommun") %>% 
+  add_column(Skolnamn = NA, .before = "ARSKURS") %>% 
   add_column(SkolID_gammal = NA, 
              SkolSDO = NA,
-             riskPSF = NA) %>% 
-  add_column(DIDkommun = 'Södertälje')
+             DIDkommun = 'Södertälje')
 
 # df <- df.södertälje
 # 
@@ -151,9 +159,9 @@ df.södertälje <- df.södertälje %>%
 # df <- df %>%
 #   relocate(riskPSF, .after = Wellbeing)
 
-df.new <- rbind(df.old,df)
-
-write_parquet(df.new, sink = glue("../data/{Sys.Date()}_ScoredRev.parquet"))
+# df.new <- rbind(df.old,df)
+# 
+# write_parquet(df.new, sink = glue("../data/{Sys.Date()}_ScoredRev.parquet"))
 
 # Combine all data --------------------------------------------------------
 
@@ -165,7 +173,8 @@ df <- rbind(df.sthlm,
             df.vtuna,
             df.vaxholm,
             df.danderyd,
-            df.täby)
+            df.täby,
+            df.södertälje)
 
 # df <- rbind(df.vtuna, 
 #             df.vaxholm,
@@ -643,6 +652,38 @@ df <- df %>%
   mutate(across(itemsANDTSdebut, as.numeric))
 
 
+## 10 Brott/kriminalitet ---------------------------------------------------
+
+# brott, items f75a till s, samt fråga 77 i PDF
+# "Hur många gånger har du gjort följande saker under de senaste 12 månaderna?"
+
+items.brott <- df %>% 
+  select(starts_with("f75")) %>% 
+  names()
+
+for (i in items.brott) {
+  df[[i]] <- recode(df[[i]],"'Ingen gång'=0;
+                    '1-2 gånger'=1;
+                    '3-5 gånger'=2;
+                    '6-10 gånger'=3;
+                    'Mer än 10 gånger'=4",
+                    as.factor = FALSE)
+}
+
+# utsatt för brott, 80 i PDF, f78aa till f78ea
+
+items.brott2 <- df %>% 
+  select(starts_with("f78")) %>% 
+  select(ends_with("a")) %>% 
+  names()
+
+for (i in items.brott2) {
+  df[[i]] <- recode(df[[i]],"'Nej'=0;
+                    'Ja, antal gånger'=1",
+                    as.factor = FALSE)
+}
+
+
 # Re-recoding based on psychometric evaluations  ----------------------------------
 # fixa svarskategorier, item-eliminering och slutgiltiga item-uppsättningar
 
@@ -744,6 +785,16 @@ df$F48 <- recode(df$F48,"1=0;2:3=1;4:6=2")
 
 df <- df %>%
   mutate(across(itemsANDTSdebut, ~ recode(.x, "0:8=NA;9:11=0;12=1;13=2;13.5=2;14=3;15=4;16=5;16.5=6;17=6;18:20=7")))
+
+
+## 10 Brott ----------------------------------------------------------------
+
+for (i in items.brott){
+  df.omit.na[[i]] <- recode(df.omit.na[[i]],"3:4=2")
+}
+for (i in items.brott){
+  df.f75[[i]] <- recode(df.omit.na[[i]],"2:4=1")
+}
 
 # Write new datafile ------------------------------------------------------
 
