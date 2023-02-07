@@ -21,7 +21,7 @@ format:
     monofont: 'Roboto Mono'
     code-overflow: wrap
     code-tools: true
-    code-fold: false
+    code-fold: true
     number-sections: true
     #fig-dpi: 250
     layout-align: left
@@ -42,7 +42,7 @@ format:
     scrollable: true
     smaller: false
 execute:
-  echo: false
+  echo: true
   warning: false
   message: false
   cache: true
@@ -1065,7 +1065,7 @@ Vi slår samman alla upp till 11 år i samma kategori, som betecknas med siffran
 ```{r}
 
 df.deb2 <- df.deb2 %>%
-  mutate(across(everything(), ~ recode(.x, "1:11=0;12=1;13=2;14=3;15=4;16=5;17=6;18:20=7")))
+  mutate(across(everything(), ~ recode(.x, "1:11=0;12=1;13=2;13.5=2;14=3;15=4;16=5;16.5=6;17=6;18:20=7")))
 
 ```
 

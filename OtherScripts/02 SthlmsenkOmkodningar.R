@@ -448,6 +448,14 @@ for (i in ns.negativa.items) {
 
 
 ## 09 ANDTS ----------------------------------------------------------------
+itemsANDTSegen <- c("F14","FNY12020","F18","F34","F41","F47","F48","f53a","F73")
+itemsANDTSdebut <- c("F16","F20","F37","F44","F51")
+itemsANDTSfldr <- c("F17","F21","f22a","F40","FNY22020")
+
+# subset items before recoding if we need the uncoded data later on
+df.andts <- df %>% 
+  select(all_of(c(itemsANDTSdebut,itemsANDTSegen,itemsANDTSfldr)))
+
 df$F14 <- recode(df$F14,"'Nej, jag har aldrig rökt'=0;
                  'Nej, bara provat hur det smakar'=1;
                  'Nej, jag har rökt men slutat'=2;
@@ -623,6 +631,16 @@ senaste4v <- c("F14r","F18r","F36new","F49new","FNY12020r")
 df <- df %>% 
   mutate(Senaste4v = rowSums(df %>% select(all_of(senaste4v)), na.rm = T))
 
+# Debutålder under 6 år förefaller orimlig eller åtminstone ovanlig, så den kodas om till missing/NA
+
+# for (i in itemsANDTSdebut){
+#   df[[i]] <- recode(df[[i]],"0:5=NA", as.factor = F)
+# }
+df <- df %>% 
+  mutate(across(itemsANDTSdebut, as.character))
+
+df <- df %>% 
+  mutate(across(itemsANDTSdebut, as.numeric))
 
 
 # Re-recoding based on psychometric evaluations  ----------------------------------
@@ -719,10 +737,13 @@ df$F34 <- recode(df$F34,"2=1;3=2;4=3;5=4")
 
 #df$F41 <- NULL
 df$F47 <- recode(df$F47,"4=3;5:6=4")
-df$F47 <- recode(df$F47,"4=3")
-df$F48 <- recode(df$F48,"1=0;2:3=1;4:6=2")
-df$F73 <- recode(df$F73,"2:5=1;6=2")
+df$F47 <- recode(df$F47,"4=3") # i praktiken 4:6=3 
 
+df$F73 <- recode(df$F73,"2:5=1;6=2")
+df$F48 <- recode(df$F48,"1=0;2:3=1;4:6=2")
+
+df <- df %>%
+  mutate(across(itemsANDTSdebut, ~ recode(.x, "0:8=NA;9:11=0;12=1;13=2;13.5=2;14=3;15=4;16=5;16.5=6;17=6;18:20=7")))
 
 # Write new datafile ------------------------------------------------------
 
