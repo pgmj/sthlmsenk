@@ -461,10 +461,6 @@ itemsANDTSegen <- c("F14","FNY12020","F18","F34","F41","F47","F48","f53a","F73")
 itemsANDTSdebut <- c("F16","F20","F37","F44","F51")
 itemsANDTSfldr <- c("F17","F21","f22a","F40","FNY22020")
 
-# subset items before recoding if we need the uncoded data later on
-df.andts <- df %>% 
-  select(all_of(c(itemsANDTSdebut,itemsANDTSegen,itemsANDTSfldr)))
-
 df$F14 <- recode(df$F14,"'Nej, jag har aldrig rökt'=0;
                  'Nej, bara provat hur det smakar'=1;
                  'Nej, jag har rökt men slutat'=2;
@@ -472,27 +468,28 @@ df$F14 <- recode(df$F14,"'Nej, jag har aldrig rökt'=0;
                  'Ja, dagligen'=4;
                  '<NA>'=NA", 
                  as.factor = F)
-df$F14r <- recode(df$F14,"0:2=0;3=1;4=2") # possible part of frequency based index
+df$F14r <- recode(df$F14,"0:2=0;3=1;4=2", as.factor = F) # possible part of frequency based index
 
 df$FNY12020 <- recode(df$FNY12020,"'Nej, jag har aldrig rökt e-cigaretter'=0;
                  'Nej, bara provat hur det smakar'=1;
                  'Nej, jag har rökt e-cigaretter men slutat'=2;
                  'Ja, ibland men inte varje dag'=3;
                  'Ja, dagligen'=4;
-                 '<NA>'=NA", 
-                      as.factor = F)
+                 'Ska ej besvaras'=NA;
+                 '<NA>'=NA", as.factor = F)
 
-df$FNY12020r <- recode(df$FNY12020,"0:2=0;3=1;4=2")
+df$FNY12020r <- recode(df$FNY12020,"0:2=0;3=1;4=2", as.factor = F)
 
 df$F18 <- recode(df$F18,"'Nej, jag har aldrig snusat'=0;
                  'Nej, bara provat hur det smakar'=1;
                  'Nej, jag har snusat men slutat'=2;
+                 'Nej, jag har slutat'=2;
                  'Ja, ibland men inte varje dag'=3;
                  'Ja, dagligen'=4;
                  '<NA>'=NA", 
                  as.factor = F)
 
-df$F18r <- recode(df$F18,"0:2=0;3=1;4=2")
+df$F18r <- recode(df$F18,"0:2=0;3=1;4=2", as.factor = F)
 
 df$F34 <- recode(df$F34,"'Dricker inte alkohol'=0;
                  'Aldrig'=0;
@@ -640,11 +637,6 @@ senaste4v <- c("F14r","F18r","F36new","F49new","FNY12020r")
 df <- df %>% 
   mutate(Senaste4v = rowSums(df %>% select(all_of(senaste4v)), na.rm = T))
 
-# Debutålder under 6 år förefaller orimlig eller åtminstone ovanlig, så den kodas om till missing/NA
-
-# for (i in itemsANDTSdebut){
-#   df[[i]] <- recode(df[[i]],"0:5=NA", as.factor = F)
-# }
 df <- df %>% 
   mutate(across(itemsANDTSdebut, as.character))
 
@@ -679,7 +671,8 @@ items.brott2 <- df %>%
 
 for (i in items.brott2) {
   df[[i]] <- recode(df[[i]],"'Nej'=0;
-                    'Ja, antal gånger'=1",
+                    'Ja, antal gånger'=1;
+                    'Ja'=1",
                     as.factor = FALSE)
 }
 
@@ -790,10 +783,10 @@ df <- df %>%
 ## 10 Brott ----------------------------------------------------------------
 
 for (i in items.brott){
-  df.omit.na[[i]] <- recode(df.omit.na[[i]],"3:4=2")
+  df[[i]] <- recode(df[[i]],"3:4=2")
 }
 for (i in items.brott){
-  df.f75[[i]] <- recode(df.omit.na[[i]],"2:4=1")
+  df[[i]] <- recode(df[[i]],"2:4=1")
 }
 
 # Write new datafile ------------------------------------------------------

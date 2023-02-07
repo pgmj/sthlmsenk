@@ -1,8 +1,8 @@
 library(catR) # for thetaEst()
 library(arrow)
 library(tidyverse)
-library(catR)
 library(furrr)
+library(RISEkbmRasch)
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
@@ -72,7 +72,7 @@ for (i in sthlm.index) {
   # }
 
   #thetas <- as.data.frame(thetaEstScores) # insert interval scores to new df
-  thetas <- RIestThetas2(df.if, itemParams = x, cpu = 8)
+  thetas <- as.data.frame(RIestThetas2(df.if, itemParams = itemParams[[x]], cpu = 8))
   thetas$individ <- df.if.id # insert id variable to new df
   names(thetas) <- c(i, "individ")
   thetas[1] <- round(thetas[1], 3)
@@ -92,36 +92,7 @@ df$Wellbeing <- df$Wellbeing*-1
 
 # Save to file ------------------------------------------------------------
 
-# code below for adding Vallentuna 2022 data, messily
-# df.old <- read_parquet("../DIDapp/data/2023-01-10_ScoredRev.parquet")
-# #df <- df %>% 
-# #  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO")))
-# 
-# df.new <- df %>% 
-#   select(!any_of(c("Skolenhetskod","Skolnamn","F3_Omkodad","SkolID_gammal")))
-#   
-# df.old$individ <- NULL
-# df.new$individ <- NULL
-# 
-# setdiff(names(df.old),names(df.new))
-# setdiff(names(df.new),names(df.old))
-# 
-# df.new <- df.new %>%
-#   rename(`Hur länge har du bott i Sverige?` = F5,
-#          `Vilken högsta utbildning har din mamma?` = f6a,
-#          `Vilken högsta utbildning har din pappa?` = f6b,
-#          `Vad bor du i för typ av bostad?` = F7)
-# 
-# df.new <- df.new %>% 
-#   add_column(DIDkommun = "Vallentuna",
-#              riskPSF = NA)
-# 
-# df.new <- df.new %>% 
-#   relocate(DIDkommun, .after = "SkolSDO")
-# 
-# df.newest <- rbind(df.old,df.new)
-# 
-# write_parquet(df.newest, sink = glue("../DIDapp/data/{Sys.Date()}_ScoredRev.parquet"))
+write_parquet(df, sink = glue("../DIDapp/data/{Sys.Date()}_ScoredRev.parquet"))
 
 # Single index calculation ------------------------------------------------
 
