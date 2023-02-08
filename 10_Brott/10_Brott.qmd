@@ -233,8 +233,6 @@ df.omit.na$SkolSDO <- NULL
 df.dif.years <- df.all.years %>% 
   select(!Kön,!ARSKURS,!SkolSDO) %>%
   na.omit()
-
-
 ```
 
 ## Beskrivning frågor

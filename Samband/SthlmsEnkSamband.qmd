@@ -1,0 +1,472 @@
+---
+title: "Samband mellan variabler"
+subtitle: "Tvärsnittsdata från Stockholmsenkäten"
+title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://www.ri.se/sv/vad-vi-gor/expertiser/kategoriskt-baserade-matningar
+  orcid: 0000-0003-1669-592X
+date: last-modified
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Innehållsförteckning"
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 150
+    layout-align: left
+    linestretch: 1.6
+    theme: materia
+    link-external-newwindow: true
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+  docx:
+    toc: true
+    number-sections: true
+    title: "Rasch in Quarto"
+    subtitle: "Template file"
+    author: "Magnus Johansson"
+#    reference-doc: RISEmallMJv6.dotx
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: console
+bibliography: grateful-refs.bib
+---
+
+```{r}
+library(tidyverse)
+library(arrow)
+library(lme4)
+library(broom)
+library(formattable)
+library(grateful)
+library(GGally)
+library(ggiraph)
+library(ggdist)
+library(pscl)
+library(car)
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+
+# create a wide palette based on RISE colors
+RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
+# "#009CA6" "#5C758B" "#B94F70" "#EC5D4F" "#F5A127" "#FFE500"
+RISEpalette2 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(10)
+
+# read data
+df <- read_parquet("../../DIDapp/data/2023-02-07_ScoredRev.parquet")
+
+årtal <- c(2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020)
+sthlm.index.all <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv","Wellbeing")
+```
+
+## Deskriptiva data
+
+Vi har tagit fram indexvärden för flera faktorer, och börjar med att titta på hur det ser ut med antal svar per år och index, samt andel missing data. Det krävs svar på minst fem ingående frågor för att ett indexvärde ska beräknas med tillförlitlighet, så de som svarat på färre än fem saknar indexvärde.
+
+Vi tittar först enbart på årskurs 9, eftersom de är yngre.
+
+::: panel-tabset
+### Antal svar
+```{r}
+df2 <- df %>%
+  filter(ar > 2004 & ar < 2022) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  filter(Kön %in% c("Pojke","Flicka"))
+
+# check number of respondents per year
+df2 %>%
+  count(ar) %>%
+  rename(
+    År = ar,
+    Antal = n
+  ) %>%
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+```
+### Fördelat på kön
+```{r}
+
+responsesGender <- df2 %>% 
+  rename(År = ar,
+         Årskurs = ARSKURS) %>% 
+  select(all_of(sthlm.index.all),År,Kön) %>% 
+  pivot_longer(sthlm.index.all, names_to = "Index", values_to = "Indexvärde") %>% 
+  group_by(År,Index,Kön) %>% 
+  summarise(Antal = n()) %>% 
+  ggplot(aes(x = År, y = Antal, color = Kön)) + 
+  geom_line(linewidth = 1) +
+  geom_point_interactive(aes(tooltip = Antal),
+                         size = 2.5) +
+  scale_color_brewer(type = "qual", palette = "Dark2") +
+  scale_x_continuous(guide = guide_axis(n.dodge = 1), breaks = årtal) +
+  scale_y_continuous(limits = c(0,NA)) +
+  labs(title = "Antal respondenter per år",
+       subtitle = "Fördelat på kön")
+
+girafe(ggobj = responsesGender)
+
+```
+
+### Antal med missing data
+```{r}
+missingIndex <- df2 %>% 
+  rename(År = ar,
+         Årskurs = ARSKURS) %>% 
+  select(all_of(sthlm.index.all),År) %>% 
+  pivot_longer(sthlm.index.all, 
+               names_to = "Index", 
+               values_to = "Indexvärde") %>% 
+  group_by(År,Index) %>%
+  count(Indexvärde) %>% 
+  filter(is.na(Indexvärde)) %>% 
+  # summarise(Svar = count(Index))
+  # filter(is.na(Index)) %>% 
+  # summarise(`För få svar` = n()) %>% 
+  ggplot(aes(x = År, y = n, color = Index, group = Index)) + 
+  geom_line(linewidth = 1) +
+  geom_point_interactive(aes(tooltip = n),
+                         size = 2.5) +
+  scale_color_brewer(type = "qual", palette = "Dark2") +
+  scale_x_continuous(guide = guide_axis(n.dodge = 1), breaks = årtal) +
+  scale_y_continuous(limits = c(0,NA)) +
+  labs(title = "Antal saknade svar per år",
+       subtitle = "Fördelat på index") +
+  ylab("Antal")
+
+girafe(ggobj = missingIndex)
+```
+### Andel med missing data
+```{r}
+
+df2 %>% 
+  rename(År = ar) %>% 
+  select(all_of(sthlm.index.all),År) %>% 
+  pivot_longer(sthlm.index.all, 
+               names_to = "Index", 
+               values_to = "Indexvärde") %>% 
+  group_by(År,Index) %>%
+  mutate(Svar = case_when(
+    is.na(Indexvärde) ~ "För få svar",
+    TRUE ~ "Har svar"
+  )) %>% 
+  count(Svar) %>% 
+  mutate(Procent = round(100 * n / sum(n),1)) %>% 
+  filter(Svar == "För få svar") %>% 
+  ggplot(aes(x = År, y = Procent, color = Index, group = Index)) + 
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  scale_color_brewer(type = "qual", palette = "Dark2") +
+  scale_x_continuous(guide = guide_axis(n.dodge = 1), breaks = årtal) +
+  scale_y_continuous(limits = c(0,NA)) +
+  labs(title = "Andel saknade svar per år",
+       subtitle = "Fördelat på index") +
+  ylab("Andel i procent")
+
+```
+:::
+
+## Fördelningar av indexvärden
+
+Samtliga år tillsammans.
+
+Höga värden av riskfaktorer = hög risk.
+
+Höga värden av skyddsfaktor "Positiv skolanknytning" (SkolaPositiv) = högt skydd.
+
+Höga värden av Välbefinnande/Wellbeing = högt välbefinnande.
+
+```{r}
+df2 %>% 
+  rename(År = ar) %>% 
+  select(all_of(sthlm.index.all),År) %>% 
+  pivot_longer(sthlm.index.all, 
+               names_to = "Index", 
+               values_to = "Indexvärde") %>% 
+  ggplot(aes(x = Indexvärde, y = Index, fill = Index)) +
+  stat_slab(
+    slab_type = "histogram",
+    side = "right", show.legend = F,
+    scale = 0.85, # defines the height that a slab can reach
+    position = position_dodge(width = .7), # distance between elements for dodging
+    aes(fill_ramp = after_stat(level), fill = Index),
+    .width = c(.50, .75, 1)
+  ) +
+  #scale_fill_manual(values = RISEpalette2)
+  scale_fill_brewer(type = "qual", palette = "Dark2")
+```
+
+```{r}
+df2 %>% 
+  rename(År = ar) %>% 
+  select(all_of(sthlm.index.all),År) %>% 
+  pivot_longer(sthlm.index.all, 
+               names_to = "Index", 
+               values_to = "Indexvärde") %>% 
+  mutate(Index = factor(Index, levels = sthlm.index.all)) %>% 
+  ggplot(aes(y = Indexvärde, x = Index, fill = Index)) +
+  geom_boxplot(outlier.shape = NA) +
+  #scale_fill_manual(values = RISEpalette2)
+  scale_fill_brewer(type = "qual", palette = "Dark2")
+```
+
+
+## Stabilitet i sambandsmodeller
+
+Data splittas på årsbasis för att undersöka om sambanden är likartade över tid (2006-2020).
+
+## Korrelationsmatris
+
+Alla variabler utom välbefinnande. Enbart utifrån år 2020.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 6
+
+sthlm.index <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv")
+
+df2 %>% 
+  filter(ar == 2020) %>% 
+  select(all_of(sthlm.index),Kön) %>% 
+  ggpairs(aes(color = Kön), alpha = 0.8) +
+  scale_color_manual(values = RISEpalette1[c(2,5)],
+                     aesthetics = c("color", "fill"))
+```
+
+### Värden från alla år
+```{r}
+corrModels <- df2 %>%
+  select(all_of(sthlm.index.all),ar) %>% 
+  split(.$ar) %>%
+  map(~ cor(., use = "pairwise.complete.obs"))
+# 
+# df2 %>% 
+#   select(all_of(sthlm.index.all)) %>% 
+#   cor(. , use = "pairwise.complete.obs")
+
+corrTable <- corrModels %>% 
+  map(as_tibble) %>% 
+  bind_rows() %>% 
+  add_column(År = rep(årtal, each = 8)) %>% 
+  select(!ar) %>% 
+  na.omit()
+```
+
+
+## Utagerande och andra variabler
+
+### Utagerande och Parenting
+
+```{r}
+df2 %>% 
+  filter(ar == 2020) %>% 
+  select(Utagerande, Parenting, Kön) %>% 
+  ggplot(aes(x = Parenting, y = Utagerande, color = Kön)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth() +
+  scale_color_manual(values = RISEpalette1[c(2,5)],
+                     aesthetics = c("color", "fill"))
+```
+
+### LMM Utagerande 1
+```{r}
+models1 <- df2 %>%
+  split(.$ar) %>%
+  map(~ lm(Utagerande ~ Parenting + Kön, data = .))
+
+# models1 %>%
+#   map(summary) %>%
+#   map("coefficients") %>%
+#   map_df(as_tibble)
+
+compEstimates <- function(m,n) {
+  m %>%
+  map(tidy) %>% # makes multiple tibbles
+  bind_rows() %>% # stack them
+  select(term, estimate, std.error) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  add_column(Year = rep(årtal, each = n), .before = "term") %>%
+  pivot_wider(values_from = c("estimate", "std.error"), names_from = term) %>%
+  formattable(.,
+    table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+}
+
+compEstimates(models1,3)
+
+sumEstimates <- function(m) {
+  m %>%
+  map(tidy) %>% # makes multiple tibbles
+  bind_rows() %>% # stack them
+  select(term, estimate, std.error) %>%
+  group_by(term) %>%
+  summarise(
+    Medel = mean(estimate),
+    SD = sd(estimate),
+    Max = max(estimate),
+    Min = min(estimate),
+    MaxDiff = Max - Min
+  ) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable(.,
+    table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"'
+  )
+}
+
+sumEstimates(models1)
+
+compRsq <- function(m) {
+  m %>% 
+  map(summary) %>% 
+  map_dbl("r.squared") %>% 
+  as.data.frame() %>%
+  rownames_to_column() %>% 
+  setNames(c("År","R-squared")) %>% 
+  mutate(across(where(is.numeric), round, 3)) %>%
+  formattable(.,
+    table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"'
+  )
+}
+
+compRsq(models1)
+```
+
+### LMM Utagerande 2
+```{r}
+models2 <- df2 %>%
+  split(.$ar) %>%
+  map(~ lm(Utagerande ~ Parenting + SkolaNegativ + Community + Kön, data = .))
+
+compEstimates(models2,5)
+sumEstimates(models2)
+compRsq(models2)
+```
+
+### Utagerande och kriminalitet
+
+#### Antal brott
+```{r}
+items.brott <- df %>% 
+  select(starts_with("f75")) %>% 
+  names()
+
+df2 <- df2 %>% 
+  mutate(AntalBrott = rowSums(across(all_of(items.brott))))
+
+df2 %>% 
+  ggplot(aes(x = AntalBrott)) +
+  geom_bar(fill = RISEprimGreen)
+```
+
+#### Test av olika modeller
+
+##### Vanlig poisson regression
+```{r}
+brott0 <- glm(AntalBrott ~ Utagerande + Kön, 
+            data = df2 %>% filter(ar == 2020),
+            family = poisson)
+summary(brott0)
+```
+
+##### Zero-inflated poisson regression
+```{r}
+brott1 <- pscl::zeroinfl(AntalBrott ~ Utagerande + Kön, 
+            data = df2 %>% filter(ar == 2020))
+summary(brott1)
+```
+
+##### Hurdle negative binomial
+```{r}
+brott2 <- pscl::hurdle(AntalBrott ~ Utagerande + Kön,
+                 dist="negbin", 
+                 data = df2 %>% filter(ar == 2020))
+summary(brott2)
+```
+
+##### AIC jämförelse
+```{r}
+AIC(brott0,brott1,brott2)
+```
+Hurdle model har lägst AIC.
+
+#### Dikotomiserat utfall
+Vi kodar en variabel där antal brott 0-2 = 0, och 3 eller fler blir 1.
+```{r}
+df2 <- df2 %>% 
+  mutate(BrottDik = car::recode(AntalBrott,"0:2=0;3:19=1"))
+
+brott0b <- glm(BrottDik ~ Utagerande + Kön, 
+            data = df2 %>% filter(ar == 2020),
+            family = binomial)
+summary(brott0b)
+
+
+```
+
+```{r}
+library(parameters)
+library(see)
+library(performance)
+
+plot(parameters(brott0b))
+
+### only for linear models:
+# check <- check_normality(brott0)
+# plot(check, type = "qq")
+```
+
+
+## Programvara som använts
+
+```{r}
+#| label: packagesv
+pkgs <- cite_packages(
+  cite.tidyverse = TRUE,
+  output = "table",
+  bib.file = "grateful-refs.bib",
+  include.RStudio = TRUE
+)
+formattable(pkgs,
+  table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"'
+)
+```
+
+## Referenser

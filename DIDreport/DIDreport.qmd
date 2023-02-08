@@ -1,0 +1,566 @@
+---
+title: "Data i dialog"
+subtitle: "utkast kommunrapport"
+title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://www.ri.se/sv/vad-vi-gor/expertiser/kategoriskt-baserade-matningar
+  orcid: 0000-0003-1669-592X
+date: '2022-12-13'
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Innehållsförteckning"
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    logo: rise_logo_quarto.png
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 250
+    layout-align: left
+    linestretch: 1.6
+    theme: 
+      - materia
+      - custom.scss
+    link-external-newwindow: true
+  pdf:
+    papersize: a4
+    documentclass: article #article, report or book
+    classoption: [twocolumn, portrait]
+  revealjs:
+    theme: default
+    logo: rise_logo_quarto.png
+    chalkboard: false
+    self-contained: true
+    footer: 'Material skapat av magnus.p.johansson@ri.se'
+    mainfont: 'Lato'
+    slide-level: 4
+    scrollable: true
+    smaller: false
+  docx:
+    toc: true
+    number-sections: true
+    title: "Rasch in Quarto"
+    subtitle: "Template file"
+    author: "Magnus Johansson"
+#    reference-doc: RISEmallMJv6.dotx
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+bibliography: grateful-refs.bib  
+---
+
+```{r}
+
+# setup -------------------------------------------------------------------
+library(ggeffects)
+library(ggplot2)
+library(tidyverse)
+library(shiny)
+library(arrow)
+library(xlsx)
+
+library(ggdist) # for shadeable density slabs
+library(gghalves) # for half-half geoms
+library(ggpp) # for position_dodge2nudge %>% 
+library(colorspace) # for lightening color palettes
+library(extrafont) # for Lato, RISE font
+library(stringr)
+library(EnvStats)
+library(bslib)
+library(formattable)
+library(thematic)
+library(catR)
+library(Hmisc)
+
+library(geomtextpath)
+library(readxl)
+library(rlang)
+library(visNetwork)
+library(networkD3)
+library(RColorBrewer)
+library(vctrs)
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### text sizes
+ax.size <- 14
+title.size <- 16
+legend.size <- 14
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+RISEgrey1 <- "#f0f0f0"
+RISEgrey2 <- "#c8c8c8"
+RISEgrey3 <- "#828282"
+RISEgrey4 <- "#555555"
+
+### colors specifically for DID application
+DIDcolorsOriginal <- c('#D55E00','#F0E442','#009E73','#999999')
+DIDcolors <- lighten(DIDcolorsOriginal, amount = 0.1, space = "HLS")
+DIDred <- "#D55E00"
+DIDorange <- "#E69F00"
+DIDgreen <- "#009E73"
+DIDyellow <- "#F0E442"
+
+RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
+#scales::show_col(RISEpalette1)
+
+RISEpalette2 <- colorRampPalette(colors = c("#009ca6", "#482d55", "#e83c63", "#ffe500"))(8)
+#scales::show_col(RISEpalette2)
+
+```
+
+```{r}
+# read data
+
+# Import data -------------------------------------------------------------
+
+## Stockholmsenkäten --------------------------------------
+df <- read_parquet("../../DIDapp/data/SthlmsEnkScored_2022-12-06.parquet")
+df <- df %>% 
+  rename(Kommun = DIDkommun)
+
+# define demographic variables of interest
+demogr.vars<-read.csv("../../DIDapp/data/SthlmsEnk_demographicVariables.csv")
+demogr.vars <- demogr.vars$demogr.vars
+
+# final set of items based on psychometric analyses
+itemlabels.final <- read_excel("../../DIDapp/data/SthlmsEnk_allItemInfo_2022-12-06.xls") %>% 
+  select(itemnr,item,Index)
+
+# list of all items included in analyses (even those discarded)
+allitems <- read.csv("../../DIDapp/data/SthlmsEnk_allitems.csv")
+
+# list of item responses for Psykiska/ psykosomatiska besvär, for use in the "persona" visualization
+itemresponses <- read.xlsx("../../DIDapp/data/SthlmsEnk_04psfRespCats.xls", sheetName = "04psf")
+
+# create vector with all index names
+sthlm.index <- itemlabels.final %>% 
+  distinct(Index) %>% 
+  pull()
+
+## Skolinspektionen --------------------------------------------------------
+
+# read data from processed file with Rasch based scores
+df.si <- read_parquet("../../DIDapp/data/SkolinspÅk5Scored.parquet")
+# this data is also based on higher score = higher risk
+
+# some functions are based on the SthlmsEnkät labeling of year as "ar"
+# we add a duplicate year variable
+df.si <- df.si %>% 
+  mutate(ar = as.numeric(as.character(År)),
+         ar = vec_cast(ar, double()))
+
+# read item info
+si.items <- read_csv("../../DIDapp/data/SkolinspFinalItems.csv")
+# note that all SI items have merged the top 3 response categories (top = highest risk)
+
+# Cutoff values SthlmsEnk -------------------------------------------------------------
+
+# percentiles based on 2006-2020 data for all of Stockholm Stad (~ 110k responses)
+# each year's 70th and 90th percentile value was used to calculate an average (not weighted in any way)
+# see script "file 04 Distributions and risk limits.R" in https://github.com/pgmj/sthlmsenk/tree/main/OtherScripts
+rslimits <- read.csv("../../DIDapp/data/SthlmsEnk_rslimitsNoRev2022-12-06.csv")
+
+# for Skolinspektionen ÅK5
+rslimits.si <- read_csv("../../DIDapp/data/SkolinspRSlimitsNoRev.csv")
+rslimits$`Positiv skolanknytning åk 5` <- rslimits.si$`Positiv skolanknytning`
+
+```
+
+```{r}
+
+# define a vector with all municipalities included in the dataset, to be used in input selection lists
+kommuner <- df %>%
+  distinct(Kommun) %>% 
+  pull()
+
+# vector of years to be included in year selection inputs
+årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)
+
+rsfaktorer <- c('Utagerande','Närsamhälle','Föräldraskap','Psykiska/ psykosomatiska besvär','Vantrivsel i skolan','Positiv skolanknytning','Välbefinnande')
+
+#---- sums.index -> key metrics for each year and municipality----
+
+RSsmf <- function(df, i, j) { # input df, index, and index number
+  #j <- match(qc({{i}}),sthlm.index)
+  df %>% 
+    group_by(ar,Kommun) %>% 
+    summarise(Medel = mean({{i}}, na.rm = T),
+              StDev = sd({{i}},  na.rm = T),
+              n = n(),
+              StErr = StDev/sqrt(n),
+              sd.lo = Medel-StDev,
+              sd.hi = Medel+StDev,
+              n.90 = length(which({{i}} > rslimits[2,j]))/n*100,
+              n.70 = length(which({{i}} > rslimits[1,j]))/n*100) %>% 
+    rename(År = ar) %>% 
+    mutate(across(where(is.numeric), round, 3)) %>% 
+    as.data.frame()
+}  
+
+sums.Utagerande <- RSsmf(df, Utagerande, 1) %>% 
+  add_column(Faktor = 'Utagerande')
+sums.SkolaNegativ <- RSsmf(df, SkolaNegativ, 2) %>% 
+  add_column(Faktor = 'SkolaNegativ')
+sums.SkolaPositiv <- RSsmf(df, SkolaPositiv, 3) %>% 
+  add_column(Faktor = 'SkolaPositiv')
+sums.PsykSomBesv <- RSsmf(df, PsykSomBesv, 4) %>% 
+  add_column(Faktor = 'PsykSomBesv')
+sums.Parenting <- RSsmf(df, Parenting, 5) %>% 
+  add_column(Faktor = 'Parenting')
+sums.Community <- RSsmf(df, Community, 6) %>% 
+  add_column(Faktor = 'Community')
+sums.Wellbeing <- RSsmf(df, Wellbeing, 7) %>%
+ add_column(Faktor = 'Wellbeing')
+
+sums.index <- rbind(sums.Utagerande,
+                    sums.SkolaPositiv,
+                    sums.SkolaNegativ,
+                    sums.PsykSomBesv,
+                    sums.Parenting,
+                    sums.Community,
+                    sums.Wellbeing)
+
+# same but for Skolinspektionens data
+sums.Skolinsp <- RSsmf(df.si,Indexvärde, 8) %>%
+  add_column(Faktor = 'SkolaPositivSI')
+
+## get key values divided by gender----
+
+RSsmfGender <- function(df, i, j) { # input df, index, and index number
+  #j <- match(qc({{i}}),sthlm.index)
+  df %>% 
+    group_by(ar,Kommun,Kön) %>% 
+    summarise(Medel = mean({{i}}, na.rm = T),
+              StDev = sd({{i}},  na.rm = T),
+              n = n(),
+              StErr = StDev/sqrt(n),
+              sd.lo = Medel-StDev,
+              sd.hi = Medel+StDev,
+              n.90 = length(which({{i}} > rslimits[2,j]))/n*100,
+              n.70 = length(which({{i}} > rslimits[1,j]))/n*100) %>% 
+    rename(År = ar) %>% 
+    mutate(across(where(is.numeric), round, 3)) %>% 
+    as.data.frame()
+}  
+
+sums.Utagerande <- RSsmfGender(df, Utagerande, 1) %>% 
+  add_column(Faktor = 'Utagerande') %>% 
+  filter(!Kön == '<NA>')
+sums.SkolaPositiv <- RSsmfGender(df, SkolaPositiv, 2) %>% 
+  add_column(Faktor = 'SkolaPositiv') %>% 
+  filter(!Kön == '<NA>')
+sums.SkolaNegativ <- RSsmfGender(df, SkolaNegativ, 3) %>% 
+  add_column(Faktor = 'SkolaNegativ') %>% 
+  filter(!Kön == '<NA>')
+sums.PsykSomBesv <- RSsmfGender(df, PsykSomBesv, 4) %>% 
+  add_column(Faktor = 'PsykSomBesv') %>% 
+  filter(!Kön == '<NA>')
+sums.Parenting <- RSsmfGender(df, Parenting, 5) %>% 
+  add_column(Faktor = 'Parenting') %>% 
+  filter(!Kön == '<NA>')
+sums.Community <- RSsmfGender(df, Community, 6) %>% 
+  add_column(Faktor = 'Community') %>% 
+  filter(!Kön == '<NA>')
+sums.Wellbeing <- RSsmfGender(df, Wellbeing, 7) %>%
+  add_column(Faktor = 'Wellbeing') %>%
+  filter(!Kön == '<NA>')
+
+sums.indexG <- rbind(sums.Utagerande,
+                     sums.SkolaPositiv,
+                     sums.SkolaNegativ,
+                     sums.PsykSomBesv,
+                     sums.Parenting,
+                     sums.Community,
+                     sums.Wellbeing)
+
+# same but for Skolinspektionens data
+sums.SkolinspG <- RSsmfGender(df.si,Indexvärde, 8)%>%
+  add_column(Faktor = 'SkolaPositivSI')
+
+
+## merge sums.index files----
+
+sums.index <- sums.index %>%
+  add_column(Kön = "Flickor och pojkar")
+
+sums.indexG <- sums.indexG %>%
+  relocate(Kön, .after = "Faktor")
+
+sums.index <- rbind(sums.index, sums.indexG)
+
+# same but for Skolinspektionens data
+sums.si <- sums.Skolinsp %>%
+  add_column(Kön = "Flickor och pojkar")
+sums.SkolinspG <- sums.SkolinspG %>%
+  relocate(Kön, .after = "Faktor")
+sums.si <- rbind(sums.si, sums.SkolinspG)
+sums.si <- sums.si %>% 
+  mutate(ar = as.numeric(as.character(År)))
+
+# Create risk-level variable -------------------------------------------------
+
+RSrisklevel <- function(df, i) { # input df, index, and index number
+  df |>
+    mutate(
+      !!paste0("Risk",i) := case_when(
+        .data[[i]] < rslimits |> select(i) |> slice(1) |> pull() ~ "Låg risk",
+        .data[[i]] >= rslimits |> select(i) |> slice(1) |> pull()
+        & .data[[i]] < rslimits |> select(i) |> slice(2) |> pull() ~ "Medelhög risk",
+        .data[[i]] >= rslimits |> select(i) |> slice(2) |> pull() ~ "Hög risk")
+      ) |>
+    select(!!paste0("Risk",i))
+}
+
+# Rename RS-factors -------------------------------------------------------
+
+sums.index$Faktor <- car::recode(sums.index$Faktor,"'Community'='Närsamhälle';'Parenting'='Föräldraskap';'PsykSomBesv'='Psykiska/ psykosomatiska besvär';'SkolaNegativ'='Vantrivsel i skolan';'Wellbeing'='Välbefinnande';'SkolaPositiv'='Positiv skolanknytning'")
+
+df <- df %>% 
+  rename(Närsamhälle = Community,
+         Föräldraskap = Parenting,
+         'Psykiska/ psykosomatiska besvär' = PsykSomBesv,
+         'Vantrivsel i skolan' = SkolaNegativ,
+         Välbefinnande = Wellbeing,
+         'Positiv skolanknytning' = SkolaPositiv
+  )
+
+rslimits <- rslimits %>% 
+  rename(Närsamhälle = Community,
+         Föräldraskap = Parenting,
+         'Psykiska/ psykosomatiska besvär' = PsykSomBesv,
+         'Vantrivsel i skolan' = SkolaNegativ,
+         Välbefinnande = Wellbeing,
+         'Positiv skolanknytning' = SkolaPositiv
+  )
+
+# Create long format risklevel df ------------------------
+#for coord_polar plot. Might be able to replace others
+riskCalc <- function(df,index){
+  df %>% 
+    mutate(riskLevel = case_when(
+      .data[[index]] < rslimits |> select(index) |> slice(1) |> pull() ~ "Låg risk",
+      .data[[index]] >= rslimits |> select(index) |> slice(1) |> pull() & 
+        .data[[index]] < rslimits |> select(index) |> slice(2) |> pull() ~ "Medelhög risk",
+      .data[[index]] >= rslimits |> select(index) |> slice(2) |> pull() ~ "Hög risk")
+    ) %>% 
+    group_by(Kommun,ar)  %>%  
+    count(riskLevel) %>% 
+    mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%  
+    mutate(riskLevel = factor(riskLevel, levels = c('Hög risk','Medelhög risk','Låg risk','NA'))) %>% 
+    ungroup() %>% 
+    add_column(Index = as.character(index)) %>% 
+    mutate(År = as.factor(ar)) %>%
+    select(!all_of(c("n","ar")))
+}
+
+df.risk <- data.frame(matrix(ncol = 4, nrow = 0))
+for (i in rsfaktorer){
+  df.r1<-as.data.frame(riskCalc(df,i))
+  df.risk <- rbind(df.risk,df.r1)
+}
+
+riskCalcGender <- function(df,index){
+  df %>% 
+    mutate(riskLevel = case_when(
+      .data[[index]] < rslimits |> select(index) |> slice(1) |> pull() ~ "Låg risk",
+      .data[[index]] >= rslimits |> select(index) |> slice(1) |> pull() & 
+        .data[[index]] < rslimits |> select(index) |> slice(2) |> pull() ~ "Medelhög risk",
+      .data[[index]] >= rslimits |> select(index) |> slice(2) |> pull() ~ "Hög risk")
+    ) %>% 
+    group_by(Kommun,ar,Kön)  %>%  
+    count(riskLevel) %>% 
+    mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%  
+    mutate(riskLevel = factor(riskLevel, levels = c('Hög risk','Medelhög risk','Låg risk','NA'))) %>% 
+    ungroup() %>% 
+    add_column(Index = as.character(index)) %>% 
+    mutate(År = as.factor(ar)) %>%
+    filter(!Kön == "<NA>") %>% 
+    select(!all_of(c("n","ar")))
+}
+
+df.risk.gender <- data.frame(matrix(ncol = 4, nrow = 0))
+for (i in rsfaktorer){
+  df.r1<-as.data.frame(riskCalcGender(df,i))
+  df.risk.gender <- rbind(df.risk.gender,df.r1)
+}
+
+```
+
+## Skolinspektionen åk5
+
+```{r}
+df.plot <- sums.si %>% 
+  #filter(År %in% c("2018","2019","2020")) %>% 
+  filter(Kommun %in% c("Stockholm","Vaxholm","Vallentuna")) %>% 
+  filter(Kön %in% c("Pojke","Flicka"))
+
+ggplot(df.plot, aes(x = År, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with ea color
+  geom_line(linewidth = 1.5) +
+  geom_point(size = 3) +
+  geom_ribbon(aes(ymin = sd.lo, ymax = sd.hi),
+              alpha = 0.1, linetype = 0
+  ) +
+  scale_y_continuous(limits = c(-2, 2)) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  theme(
+    axis.text.x = element_text(size = ax.size, family = "sans"),
+    axis.text.y = element_text(size = ax.size, family = "sans"),
+    title = element_text(size = title.size),
+    legend.text = element_text(size = legend.size)
+  ) +
+  labs(title = "Medelvärde över tid", subtitle = "Skuggat fält indikerar en standardavvikelse (~ 68%)") +
+  xlab("Årtal") +
+  ylab("Skolinspektionen åk 5 - Positiv skolanknytning") +
+  facet_wrap(~Kön)
+```
+
+# SI area
+
+```{r}
+    df.plot2 <- df.si %>%
+      filter(Kommun %in% c("Stockholm","Vaxholm","Vallentuna")) %>%
+      mutate(
+        Risknivå = case_when(
+          Indexvärde < rslimits |>
+            select(`Positiv skolanknytning åk 5`) |>
+            slice(1) |>
+            pull() ~ "Låg risk",
+          Indexvärde >= rslimits |>
+            select(`Positiv skolanknytning åk 5`) |>
+            slice(1) |>
+            pull() &
+            Indexvärde < rslimits |>
+            select(`Positiv skolanknytning åk 5`) |>
+            slice(2) |>
+              pull() ~ "Medelhög risk",
+            Indexvärde >= rslimits |>
+              select(`Positiv skolanknytning åk 5`) |>
+              slice(2) |>
+              pull() ~ "Hög risk",
+            TRUE ~ "Otillräckliga svar"
+          )
+        )
+      
+      df.plot2 %>%
+        filter(Kön %in% c("Pojke", "Flicka")) %>%
+        # filter(ar %in% input$years0) %>% # allow selection of span of years?
+        group_by(ar, Kön) %>%
+        count(Risknivå) %>%
+        mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+        mutate(Risknivå = factor(Risknivå, levels = c("Hög risk", "Medelhög risk", "Låg risk"))) %>%
+        ggplot(aes(x = ar, y = Andel)) +
+        geom_area(aes(color = Risknivå, fill = Risknivå), position = "stack") +
+        scale_fill_manual(values = DIDcolors) + # E69F00 orange
+        scale_color_manual(values = DIDcolors) + # F0E442 yellow
+        geom_hline(yintercept = 90, color = "black", linetype = 2, linewidth = 0.66) +
+        geom_hline(yintercept = 70, color = RISEprimRed, linetype = 2, linewidth = 0.66) +
+        scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100), limits = c(0,100)) +
+        scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+        xlab("Årtal") +
+        ylab("Andel i %") +
+        theme(
+          axis.text.x = element_text(size = ax.size, family = "sans"),
+          axis.text.y = element_text(size = ax.size, family = "sans"),
+          title = element_text(size = title.size),
+          legend.text = element_text(size = legend.size),
+          strip.text.x = element_text(size = 14)
+        ) +
+        labs(
+          title = paste0("Positiv skolanknytning åk 5"),
+          caption = str_wrap("Svart streckad linje = referensvärde för 10% med högst risk. Röd linje indikerar 30% (~ en standardavvikelse).
+                                  När kommunens fält är mindre än referensvärdet har man färre respondenter med den risknivån.")
+        ) +
+        facet_wrap(~Kön)
+```
+
+## SI area
+
+```{r}
+df.plot3 <- df.si %>%
+      #filter(Kommun %in% input$SIkommuner) %>%
+      mutate(
+        Risknivå = case_when(
+          Indexvärde < rslimits |>
+            select(`Positiv skolanknytning åk 5`) |>
+            slice(1) |>
+            pull() ~ "Låg risk",
+          Indexvärde >= rslimits |>
+            select(`Positiv skolanknytning åk 5`) |>
+            slice(1) |>
+            pull() &
+            Indexvärde < rslimits |>
+            select(`Positiv skolanknytning åk 5`) |>
+            slice(2) |>
+              pull() ~ "Medelhög risk",
+            Indexvärde >= rslimits |>
+              select(`Positiv skolanknytning åk 5`) |>
+              slice(2) |>
+              pull() ~ "Hög risk",
+            TRUE ~ "Otillräckliga svar"
+          )
+        ) %>% 
+        filter(Kön %in% c("Flicka","Pojke")) %>%
+        # filter(ar %in% input$years0) %>% # allow selection of span of years?
+        group_by(ar, Kön) %>%
+        count(Risknivå) %>%
+        mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+        mutate(Risknivå = factor(Risknivå, levels = c("Hög risk", "Medelhög risk", 
+                                                      "Låg risk", "Otillräckliga svar"))) %>% 
+        ungroup()
+årtal <- df.plot3 %>% distinct(ar) %>% pull()
+        ggplot(df.plot3,aes(x = ar, y = Andel)) +
+        geom_area(aes(color = Risknivå, fill = Risknivå), position = "stack") +
+        scale_color_brewer(type = "qual", palette = "Dark2") +
+        scale_fill_brewer(type = "qual", palette = "Dark2") +
+        geom_hline(yintercept = 90, color = "black", linetype = 2, linewidth = 0.66) +
+        geom_hline(yintercept = 70, color = RISEprimRed, linetype = 2, linewidth = 0.66) +
+        scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
+        scale_x_discrete(breaks = årtal, 
+                         guide = guide_axis(n.dodge = 2)) +
+        xlab("Årtal") +
+        ylab("Andel i %") +
+        theme(
+          axis.text.x = element_text(size = ax.size, family = "sans"),
+          axis.text.y = element_text(size = ax.size, family = "sans"),
+          title = element_text(size = title.size),
+          legend.text = element_text(size = legend.size),
+          strip.text.x = element_text(size = 14)
+        ) +
+        labs(
+          title = paste0("Positiv skolanknytning åk 5"),
+          caption = str_wrap("Svart streckad linje = referensvärde för 10% med högst risk. Röd linje indikerar 30% (~ en standardavvikelse).
+                                  När kommunens fält är mindre än referensvärdet har man färre respondenter med den risknivån.")
+        ) +
+        facet_wrap(~Kön)
+```
+

@@ -335,23 +335,6 @@ df <- df %>%
 #| code-fold: false
 #| include: false
 
-### set up color palette based on RISE guidelines
-RISEprimGreen <- "#009ca6"
-RISEprimRed <- "#e83c63"
-RISEprimYellow <- "#ffe500"
-RISEprimGreenMid <- "#8dc8c7"
-RISEprimRedMid <- "#f5a9ab"
-RISEprimYellowMid <- "#ffee8d"
-RISEprimGreenLight <- "#ebf5f0"
-RISEprimRedLight <- "#fde8df"
-RISEprimYellowLight <- "#fff7dd"
-RISEcompPurple <- "#482d55"
-RISEcompGreenDark <- "#0e4e65"
-RISEgrey1 <- "#f0f0f0"
-RISEgrey2 <- "#c8c8c8"
-RISEgrey3 <- "#828282"
-RISEgrey4 <- "#555555"
-
 # create dataframe with 2014 and 2020 data with all variables (post recode)
 df.omit.na <- df %>% 
   #filter(ar %in% c(2014,2020)) %>% 
@@ -1728,9 +1711,161 @@ df %>%
   geom_point(size = 2) +
   geom_line()
 
-  #facet_wrap(~factor(ar))
+```
+
+## Föräldrafrågor
+
+```{r}
+itemsANDTSfldr <- c("F17","F21","f22","F40","FNY22020")
+df.fldr <- df %>% 
+  select(all_of(itemsANDTSfldr)) %>% 
+  na.omit()
 
 ```
+
+Fråga f22 är summerad utifrån antalet familjemedlemmar som röker eller snusar, och har därför fler möjliga svarsalternativ.
+
+Övriga frågor har tre möjliga svar, utifrån frågan om huruvida eleven "får" använda en substans för föräldrarna:
+
+- 'Nej'=0;
+- 'Vet inte'=1;
+- 'Ja'=2;
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.fldr, 13)
+```
+
+### Deskriptiv statistik
+```{r}
+RItileplot(df.fldr)
+```
+
+```{r}
+#| column: margin
+RIlistItemsMargin(df.fldr, fontsize = 11)
+```
+
+::: column-page-inset-left
+::: panel-tabset
+### Item fit
+
+```{r}
+RIitemfitPCM2(df.fldr, 400, 16, 8)
+```
+
+### PCA
+
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+
+RIpcmPCA(df.fldr)
+```
+
+### Loadings 1st contrast
+
+```{r}
+RIloadLoc(na.omit(df.fldr))
+```
+
+### Residualkorrelationer
+
+```{r}
+RIresidcorr(df.fldr, cutoff = 0.2)
+```
+
+### Targeting
+
+```{r}
+#| fig-height: 5
+RItargeting(df.fldr)
+```
+
+### Itemhierarki
+
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df.fldr)
+```
+:::
+:::
+
+Som väntat passar inte f22 in bland övriga frågor, vilket syns tydligt på figuren med faktorladdning på första residualkontrasten.
+
+Gällande residualkorrelationer finns ett mycket starkt samband mellan röka och snusa. Det finns även ett samband mellan snusa och alkohol som är något över gränsvärdet.
+
+Vi tar bort f22 och tittar på svarskategorier för övriga frågor
+```{r}
+df.fldr$f22 <- NULL
+```
+
+### Svarskategorier
+
+```{r}
+#| include: false
+mirt.rasch <- mirt(df.fldr, model=1, itemtype='Rasch') # unidimensional Rasch model
+```
+
+```{r}
+plot(mirt.rasch, type="trace")
+```
+Att koda "Vet ej" som mitten på svarsskalan var ett test, och det verkar ha fungerat acceptabelt förutom för F40. Vi kodar om "Vet ej" som missing/NA.
+
+```{r}
+df.fldr$F40 <- recode(df.fldr$F40,"1=NA;2=1")
+df.erm <- PCM(df.fldr)
+plotICC(df.erm, item.subset = "F40")
+```
+```{r}
+RItargeting(df.fldr)
+```
+```{r}
+RIitemparams(df.fldr,"ANDTSfldr.csv")
+```
+
+Det är inte möjligt att ta fram något indexvärde, men det bör vara möjligt att ta fram en variabel som säger något om föräldrarnas tillåtande attityd, vilket är en känd riskfaktor för bruk av ANDTS.
+
+En utgångspunkt kan vara ett gränsvärdet på person location -1.5, utifrån item-parametrarna i tabellen ovan.
+
+```{r}
+df.fldr$FLDRscore <- RIestThetas2(df.fldr, cpu = 8)
+
+hist(df.fldr$FLDRscore, col = RISEprimGreen)
+
+ggplot(df.fldr,(aes(x = FLDRscore))) +
+  geom_histogram(fill = RISEprimGreen, bins = 40)
+
+df.fldr %>% 
+  mutate(Score = case_when(FLDRscore < -1.5 ~ "Låg risk",
+                           TRUE ~ "Förhöjd risk")
+         )%>% 
+  count(Score)
+
+```
+
+Eller så kan vi skilja ut de som svarat "Vet ej" eller "Ja" på någon av frågorna som "Förhöjd risk".
+
+```{r}
+df.fldr %>%
+  mutate(Fldr = rowSums(across(any_of(itemsANDTSfldr)))) %>%
+  mutate(Score = case_when(Fldr > 0 ~ "Förhöjd risk",
+                           TRUE ~ "Låg risk")
+         )%>%
+  count(Score)
+```
+
+Alternativt att skilja ut de som svarat "Ja" på någon av dessa fyra frågor, jämfört med övriga.
+
+```{r}
+
+df.fldr %>% 
+  mutate(Score = case_when(F17 == 2 | F21 == 2 | F40 == 1 | FNY22020 == 2 ~ "Förhöjd risk",
+                           TRUE ~ "Låg risk")
+         )%>%
+  count(Score)
+```
+
+Båda dessa varianter kan testas i sambandsanalyser med andra variabler för att identifiera vilken som förefaller mest korrekt att använda.
 
 ## Programvara som använts
 
