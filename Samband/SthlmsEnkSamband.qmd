@@ -12,7 +12,7 @@ date: last-modified
 format: 
   html:
     toc: true
-    toc-depth: 3
+    toc-depth: 5
     toc-title: "Innehållsförteckning"
     embed-resources: true
     standalone: true
@@ -74,6 +74,11 @@ library(ggiraph)
 library(ggdist)
 library(pscl)
 library(car)
+library(parameters)
+library(see)
+library(performance)
+library(modelbased)
+library(emmeans)
 
 ### set up color palette based on RISE guidelines
 RISEprimGreen <- "#009ca6"
@@ -301,9 +306,9 @@ df2 %>%
   filter(ar == 2020) %>% 
   select(Utagerande, Parenting, Kön) %>% 
   ggplot(aes(x = Parenting, y = Utagerande, color = Kön)) +
-  geom_point(alpha = 0.7) +
-  geom_smooth() +
-  scale_color_manual(values = RISEpalette1[c(2,5)],
+  geom_point2(alpha = 0.5, size = 2.2) +
+  geom_smooth(linewidth = 1.6) +
+  scale_color_manual(values = RISEpalette1[c(1,5)],
                      aesthetics = c("color", "fill"))
 ```
 
@@ -427,30 +432,184 @@ AIC(brott0,brott1,brott2)
 ```
 Hurdle model har lägst AIC.
 
+#### Visualisering hurdle model
+```{r}
+predicted <- estimate_expectation(brott2, data = "grid")
+plot(predicted) + 
+  scale_color_manual(values = RISEpalette1[c(1,5)]) +
+  ylab("Antal självrapporterade brott") +
+  xlab("Indexvärde utagerande") +
+  labs(title = "Hurdle negative binomial prediction model")
+# library(ggeffects)
+# pred <- ggpredict(brott2, terms = c("Utagerande","Kön"))
+# ggplot(pred, aes(x = x, y = predicted, colour = group)) +
+#   geom_line(linewidth = 1.5) +
+#   geom_point2() +
+#   scale_color_manual(values = RISEpalette1[c(1,5)]) +
+#   xlab("Antal självrapporterade brott") +
+#   ylab("Indexvärde utagerande")
+```
+
+
 #### Dikotomiserat utfall
 Vi kodar en variabel där antal brott 0-2 = 0, och 3 eller fler blir 1.
 ```{r}
 df2 <- df2 %>% 
-  mutate(BrottDik = car::recode(AntalBrott,"0:2=0;3:19=1"))
+  mutate(BrottDik = car::recode(AntalBrott,"0:2=0;3:19=1", as.factor = FALSE))
 
 brott0b <- glm(BrottDik ~ Utagerande + Kön, 
             data = df2 %>% filter(ar == 2020),
             family = binomial)
 summary(brott0b)
-
-
 ```
 
 ```{r}
-library(parameters)
-library(see)
-library(performance)
-
 plot(parameters(brott0b))
+
+predicted <- estimate_expectation(brott0b, data = "grid")
+plot(predicted) +
+  scale_color_manual(values = RISEpalette1[c(1,5)], 
+                     aesthetics = c("fill","color")) +
+  ylab("Antal självrapporterade brott") +
+  xlab("Indexvärde utagerande") +
+  labs(title = "Logistic regression prediction model")
 
 ### only for linear models:
 # check <- check_normality(brott0)
 # plot(check, type = "qq")
+```
+
+```{r}
+augment(brott0b) %>% 
+  filter(BrottDik == 1) %>% 
+  select(Utagerande) %>% 
+  summary()
+
+augment(brott0b) %>%
+  ggplot(aes(x = Utagerande, fill = BrottDik, group = BrottDik)) +
+  geom_density(alpha = 0.7) +
+  geom_vline(aes(xintercept = 0.9), color = "red", linetype = 2) +
+  theme_bw() +
+  scale_fill_viridis_c()
+  
+```
+
+### Machine Learning modeling
+
+#### Logistic penalized regression
+
+```{r}
+library(tidymodels)
+library(dotwhisker)
+library(vip)         # for variable importance plots
+library(ranger)
+df2$BrottDik2 <- factor(df2$BrottDik, levels = c(0,1),
+                        labels = c("Låg","Hög"))
+
+ml_vars <- c("BrottDik2","Utagerande","Kön","Parenting","Community","SkolaNegativ")
+
+df3 <- df2 %>% 
+  select(any_of(ml_vars),ar) %>% 
+  na.omit()
+
+splits <- initial_split(df3, strata = ar)
+df_train <- training(splits)
+df_test  <- testing(splits)
+val_set <- validation_split(df_train, 
+                            strata = ar, 
+                            prop = 0.80)
+df_fold <- vfold_cv(df_train, v = 10)
+```
+
+```{r}
+lr_mod <- 
+  logistic_reg(penalty = tune(), mixture = 1) %>% 
+  set_engine("glmnet")
+
+
+lr_fit <- 
+  lr_mod %>% 
+  fit(BrottDik2 ~ Utagerande + Kön + Parenting + Community + SkolaNegativ, data = df_train)
+
+lr_recipe <- 
+  recipe(BrottDik2 ~ Utagerande + Kön + Parenting + Community + SkolaNegativ, data = df_train) %>%
+  step_novel(all_nominal_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_zv(all_predictors())
+
+lr_workflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(lr_recipe)
+```
+
+```{r}
+#| eval: true
+#lr_splits <- vfold_cv(df_other, v = 10, strata = ar)
+#_res <- tune_grid(lr_mod, ames_rec, resamples = cv_splits, grid = spline_grid)
+
+lr_reg_grid <- tibble(penalty = 10^seq(-5, -1, length.out = 40))
+penalty_grid <- grid_regular(penalty(range = c(-5, 5)), levels = 50)
+
+lr_res <- 
+  tune_grid(lr_workflow,
+            resamples = df_fold,
+            grid = penalty_grid,
+            control = control_grid(save_pred = TRUE),
+            metrics = metric_set(roc_auc))
+
+# lr_res <-
+#   lr_workflow %>%
+#   tune_grid(val_set,
+#             grid = penalty_grid,
+#             control = control_grid(save_pred = TRUE),
+#             metrics = metric_set(roc_auc))
+
+lr_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = penalty, y = mean)) + 
+  geom_point() + 
+  geom_line() + 
+  ylab("Area under the ROC Curve") +
+  scale_x_log10(labels = scales::label_number())
+
+top_models <-
+  lr_res %>% 
+  show_best("roc_auc", n = 15) %>% 
+  arrange(penalty) 
+top_models
+
+lr_best <- lr_res %>% 
+  select_best()
+
+lr_auc <- 
+  lr_res %>% 
+  collect_predictions(parameters = lr_best) %>% 
+  roc_curve(BrottDik2, `.pred_Hög`) %>% 
+  mutate(model = "Logistic Regression")
+
+autoplot(lr_auc)
+```
+
+
+```{r}
+#| eval: true
+
+last_lr_mod <- 
+  logistic_reg(penalty = lr_best$penalty, mixture = 1) %>% 
+  set_engine("glmnet")
+
+last_lr_workflow <- 
+  lr_workflow %>% 
+  update_model(last_lr_mod)
+
+last_lr_fit <- 
+  last_lr_workflow %>% 
+  last_fit(splits)
+
+last_lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 20)
 ```
 
 

@@ -1471,6 +1471,44 @@ DIDmedelSD("Närsamhälle", xlim = c(-3,2))
 ```
 :::
 
+```{r}
+#| eval: false
+
+# same but facet_wrapped for gender
+
+plotFaktor <- "Psykiska/ psykosomatiska besvär"
+df.plot <- sums.index %>%
+  filter(Faktor == plotFaktor) %>%
+  filter(Kommun %in% jmfKommun) %>%
+  filter(!Kön == "Flickor och pojkar") %>%
+  filter(!År < 2006) %>% 
+  mutate(År = as.factor(År))
+
+ggplot(df.plot, aes(x = År, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
+  geom_line(linewidth = 0.9,
+            alpha = 0.7) +
+  geom_point(size = 2.5, alpha = 0.7) +
+  geom_line(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
+  geom_point(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
+  geom_ribbon(aes(ymin = sd.lo, ymax = sd.hi),
+              alpha = 0.1, linetype = 0
+  ) +
+  scale_y_continuous(limits = c(-2,2)) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 1)) +
+  theme(
+    axis.text.x = element_text(size = ax.size, family = "sans"),
+    axis.text.y = element_text(size = ax.size, family = "sans"),
+    title = element_text(size = title.size),
+    legend.text = element_text(size = legend.size),
+    panel.spacing = unit(pandist, "cm", data = NULL)
+  ) +
+  labs(title = "Medelvärde över tid", subtitle = "Skuggat fält indikerar en standardavvikelse (~ 68%)") +
+  xlab("Årtal") +
+  ylab(paste0(plotFaktor)) +
+  facet_wrap(~Kön)
+```
+
+
 ### Högrisk över tid
 
 ```{r}

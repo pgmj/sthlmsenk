@@ -11,7 +11,7 @@ date: last-modified
 format: 
   html:
     toc: true
-    toc-depth: 3
+    toc-depth: 4
     toc-title: "Innehållsförteckning"
     embed-resources: true
     standalone: true
@@ -21,7 +21,7 @@ format:
     monofont: 'Roboto Mono'
     code-overflow: wrap
     code-tools: true
-    code-fold: false
+    code-fold: true
     number-sections: true
     #fig-dpi: 250
     layout-align: left
@@ -42,7 +42,7 @@ format:
     scrollable: true
     smaller: false
 execute:
-  echo: false
+  echo: true
   warning: false
   message: false
   cache: true
@@ -54,7 +54,6 @@ bibliography: grateful-refs.bib
 ---
 
 ```{r}
-
 library(arrow)
 library(ggrepel)
 library(car)

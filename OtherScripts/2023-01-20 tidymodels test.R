@@ -130,7 +130,7 @@ tidy(lm_fit) %>%
 
 ## split data
 
-splits      <- initial_split(df.model, strata = Kön)
+splits  <- initial_split(df.model, strata = Kön)
 
 df_other <- training(splits)
 df_test  <- testing(splits)
