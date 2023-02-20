@@ -973,18 +973,75 @@ df.dif.years$F97 <- recode(df.dif.years$F97, "4=3;3=2;2=1;1=0", as.factor = FALS
 
 RIdifTable(df.dif.years, dif.year)
 ```
-#### Figur 1
+#### Figur items
 ```{r}
 RIdifFigure(df.dif.years, dif.year)
 ```
-#### Figur 2
+#### Över tid
 ```{r}
 RIdifFigTime(df.dif.years, dif.year)
+```
+#### Svarskategorier
+```{r}
+RIdifFigThresh(df.dif.years, dif.year)
 ```
 :::
 ::::
 
 Items fungerar stabilt över tid.
+
+### Interaktion årskurs och kön
+
+```{r}
+#| column: margin
+#| echo: false
+
+RIlistItemsMargin(df.psf, 12)
+```
+
+```{r}
+dfin <- df.psf
+
+df.tree <- data.frame(matrix(ncol = 0, nrow = nrow(dfin)))
+df.tree$difdata <- as.matrix(dfin)
+df.tree$dif.gender <- dif.gender
+df.tree$dif.arskurs <- dif.arskurs
+
+pctree.out <- pctree(difdata ~ dif.gender + dif.arskurs, data = df.tree)
+plot(pctree.out)
+```
+
+```{r}
+cutoff <- 0.5
+diffig <- itempar(pctree.out) %>%
+  as.data.frame() %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate(
+    `Mean location` = rowMeans(.),
+    StDev = rowSds(as.matrix(.))
+  ) %>%
+  rowwise() %>%
+  mutate(MaxDiff = (max(c_across(c(1:(ncol(.) - 2))))) -
+    min(c_across(c(1:(ncol(.) - 2))))) %>%
+  ungroup() %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  rownames_to_column(var = "Item") %>%
+  mutate(Item = names(dfin)) %>%
+  relocate(MaxDiff, .after = last_col())
+
+  formattable(diffig,
+    list(MaxDiff = formatter("span",
+      style = ~ style(color = ifelse(MaxDiff < -cutoff,
+        "red", ifelse(MaxDiff > cutoff, "red", "black")
+      ))
+    ),
+    formattable::area(col = 2:6) ~ color_tile(RISEprimYellowLight, RISEprimGreen)
+    ),
+    table.attr = "class=\"table table-striped\" style=\"font-size: 15px; font-family: Lato\""
+  )
+```
+
 
 ## Reliabilitet - psykiska/psykosomatiska besvär
 
