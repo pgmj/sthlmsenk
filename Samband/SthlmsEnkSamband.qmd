@@ -99,7 +99,7 @@ RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
 RISEpalette2 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(10)
 
 # read data
-df <- read_parquet("../../DIDapp/data/2023-02-07_ScoredRev.parquet")
+df <- read_parquet("../DIDapp/data/2023-02-07_ScoredRev.parquet")
 
 årtal <- c(2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020)
 sthlm.index.all <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv","Wellbeing")
@@ -411,7 +411,16 @@ brott0 <- glm(AntalBrott ~ Utagerande + Kön,
 summary(brott0)
 ```
 
-##### Zero-inflated poisson regression
+##### Negative binomial
+```{r}
+library(MASS)
+brott.nb <- glm.nb(AntalBrott ~ Utagerande + Kön, 
+            data = df2 %>% filter(ar == 2020))
+summary(brott.nb)
+```
+
+
+##### Zero-inflated poisson
 ```{r}
 brott1 <- pscl::zeroinfl(AntalBrott ~ Utagerande + Kön, 
             data = df2 %>% filter(ar == 2020))
@@ -428,9 +437,9 @@ summary(brott2)
 
 ##### AIC jämförelse
 ```{r}
-AIC(brott0,brott1,brott2)
+AIC(brott0,brott.nb,brott1,brott2)
 ```
-Hurdle model har lägst AIC.
+Hurdle model har lägst AIC, följd av negative binomial.
 
 #### Visualisering hurdle model
 ```{r}
@@ -439,7 +448,8 @@ plot(predicted) +
   scale_color_manual(values = RISEpalette1[c(1,5)]) +
   ylab("Antal självrapporterade brott") +
   xlab("Indexvärde utagerande") +
-  labs(title = "Hurdle negative binomial prediction model")
+  labs(title = "Hurdle negative binomial prediction model") +
+  scale_y_continuous(limits = c(0,21), breaks = c(0,3,6,9,12,15,18,21))
 # library(ggeffects)
 # pred <- ggpredict(brott2, terms = c("Utagerande","Kön"))
 # ggplot(pred, aes(x = x, y = predicted, colour = group)) +
@@ -448,6 +458,17 @@ plot(predicted) +
 #   scale_color_manual(values = RISEpalette1[c(1,5)]) +
 #   xlab("Antal självrapporterade brott") +
 #   ylab("Indexvärde utagerande")
+```
+
+#### Visualisering negative binomial
+```{r}
+predicted.nb <- estimate_expectation(brott.nb, data = "grid")
+plot(predicted.nb) + 
+  scale_color_manual(values = RISEpalette1[c(1,5)], aesthetics = c("color","fill")) +
+  ylab("Antal självrapporterade brott") +
+  xlab("Indexvärde utagerande") +
+  labs(title = "Negative binomial prediction model") +
+  scale_y_continuous(limits = c(0,21), breaks = c(0,3,6,9,12,15,18,21))
 ```
 
 
@@ -548,7 +569,7 @@ lr_workflow <-
 #lr_splits <- vfold_cv(df_other, v = 10, strata = ar)
 #_res <- tune_grid(lr_mod, ames_rec, resamples = cv_splits, grid = spline_grid)
 
-lr_reg_grid <- tibble(penalty = 10^seq(-5, -1, length.out = 40))
+#lr_reg_grid <- tibble(penalty = 10^seq(-5, -1, length.out = 40))
 penalty_grid <- grid_regular(penalty(range = c(-5, 5)), levels = 50)
 
 lr_res <- 
@@ -575,7 +596,7 @@ lr_res %>%
 
 top_models <-
   lr_res %>% 
-  show_best("roc_auc", n = 15) %>% 
+  show_best("roc_auc", n = 5) %>% 
   arrange(penalty) 
 top_models
 

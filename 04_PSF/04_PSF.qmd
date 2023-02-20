@@ -7,7 +7,7 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-11-22'
+date: last-modified
 format: 
   html:
     toc: true
@@ -251,6 +251,7 @@ RIbarplot(df.omit.na)
 ## Rasch-analys 1 samtliga items
 
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.omit.na, fontsize = 12)
 ```
@@ -392,6 +393,7 @@ RIitemHierarchy(df.psm)
 
 Efter att ha åtgärdat svarskategorierna.
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
@@ -434,6 +436,7 @@ RIitemHierarchy(df.psm)
 
 ### Kön
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
@@ -455,6 +458,7 @@ Inga problem med DIF för något item gällande kön.
 
 ### Årskurs
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
@@ -476,6 +480,7 @@ RIdifFigure(df.psm, dif.arskurs)
 
 ### Årtal
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
@@ -530,6 +535,7 @@ df.psy <- df.omit.na %>%
 ```
 
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psy, fontsize = 13)
 ```
@@ -639,6 +645,7 @@ RIitemHierarchy(df.psy)
 Efter att ha åtgärdat svarskategorierna.
 
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psy, fontsize = 13)
 ```
@@ -714,6 +721,7 @@ df.psf <- df.psf |>
 ## Rasch-analys 1 psykiska/psykosomatiska besvär
 
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psf, fontsize = 12)
 ```
@@ -794,6 +802,7 @@ RIitemHierarchy(df.psf)
 ## Rasch-analys 2 psykiska/psykosomatiska besvär
 
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psf, fontsize = 12)
 ```
@@ -844,9 +853,10 @@ F94 korrelerar för starkt med F92. Vi tar bort F94 p.g.a. sämre targeting och 
 df.psf$F94 <- NULL
 ```
 
-## Rasch-analys 2 psykiska/psykosomatiska besvär
+## Rasch-analys 3 psykiska/psykosomatiska besvär
 
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psf, fontsize = 12)
 ```
@@ -890,6 +900,7 @@ Detta ser ut att fungera bra. Vi övergår till DIF-analys
 ### Kön
 
 ```{r}
+#| echo: false
 #| column: margin
 RIlistItemsMargin(df.psf, 12)
 ```
@@ -914,6 +925,7 @@ F99 är enda item som går strax över 0.3 logits. Behöver ej åtgärdas.
 
 ```{r}
 #| column: margin
+#| echo: false
 
 RIlistItemsMargin(df.psf, 12)
 ```
@@ -934,6 +946,12 @@ RIdifFigure(df.psf, dif.arskurs)
 Inga skillnader mellan årskurser.
 
 ### Årtal
+
+```{r}
+#| echo: false
+#| column: margin
+RIlistItemsMargin(df.psf, fontsize = 12)
+```
 
 :::: column-page-inset-left
 ::: panel-tabset
