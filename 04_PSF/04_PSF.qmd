@@ -526,6 +526,21 @@ RItif(df.psm)
 
 Vi har acceptabel reliabilitet för ca 68% av respondenterna.
 
+## Item-parametrar
+```{r}
+RIitemparams(df.dif.years.psm, "PsyksomItemParams.csv")
+```
+
+
+## Transformeringstabell
+
+Med mätosäkerheter angivna som *Logit std.error*, där värden under 0.54 motsvarar reliabilitet över PSI = 0.7.
+
+```{r}
+RIscoreSE(df.dif.years.psm)
+```
+
+
 ## Rasch-analys 1 - psykiska besvär
 ```{r}
 items.psm <- c("F88","F91","F93","F95","F98")
