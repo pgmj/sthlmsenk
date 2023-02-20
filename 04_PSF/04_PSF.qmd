@@ -909,12 +909,17 @@ RIlistItemsMargin(df.psf, 12)
 ::: panel-tabset
 #### Tabell
 ```{r}
+#| fig-height: 3
 #dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
 RIdifTable(df.psf, dif.gender)
 ```
 #### Figur
 ```{r}
 RIdifFigure(df.psf, dif.gender)
+```
+#### Svarskategorier
+```{r}
+RIdifFigThresh(df.psf, dif.gender)
 ```
 :::
 ::::
@@ -934,11 +939,16 @@ RIlistItemsMargin(df.psf, 12)
 ::: panel-tabset
 #### Tabell
 ```{r}
+#| fig-height: 3
 RIdifTable(df.psf, dif.arskurs)
 ```
 #### Figur
 ```{r}
 RIdifFigure(df.psf, dif.arskurs)
+```
+#### Svarskategorier
+```{r}
+RIdifFigThresh(df.psf, dif.arskurs)
 ```
 :::
 ::::
