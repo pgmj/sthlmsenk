@@ -646,7 +646,7 @@ df <- df %>%
 
 ## 10 Brott/kriminalitet ---------------------------------------------------
 
-# brott, items f75a till s, samt fråga 77 i PDF
+# brott, items f75a till s (fråga 77 i PDF)
 # "Hur många gånger har du gjort följande saker under de senaste 12 månaderna?"
 
 items.brott <- df %>% 

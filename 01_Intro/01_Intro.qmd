@@ -7,7 +7,7 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-11-21'
+date: last-modified
 format:
   html:
     toc: true
@@ -53,6 +53,7 @@ editor_options:
 bibliography: 
 - references.bib
 - grateful-refs.bib
+bibliography: references.bib
 ---
 
 ```{r}
@@ -78,7 +79,6 @@ library(knitr)
 library(cowplot)
 library(formattable) 
 library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
-library(HH)
 library(glue)
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
@@ -127,7 +127,8 @@ yz = 10 # number of random samples
 
 # import item information
 itemlabels <- read.csv("../../data/allitems.csv", fileEncoding = "UTF-8")
-itemlabels.final <- read.csv("../../data/2022-09-18_FINALallitems.csv")
+#itemlabels.final <- read.csv("../../data/2022-09-18_FINALallitems.csv")
+itemlabels.final <- read_excel("../../data/2023-02-02_allItemInfo.xls")
 indexitems <- read_excel("../../data/Index och items i Stockholmsenkätanalyser1.xls")
 
 # import data
@@ -193,11 +194,10 @@ items.nsam.final <- itemlabels.final %>%
 
 Målsättningen med de analyser som gjorts har varit att:
 
-1.  Genomföra en mätteknisk och psykometrisk analys av befintliga enkätdata i Stockholmsenkäten med fokus på utveckling av index i Stockholmsenkäten baserade på risk- och skyddsfaktorer. Dataunderlaget bygger primärt på insamlade data från 2006, 2010, 2014, 2016, 2018 och 2020, samt i möjlig mån kommande data från 2022 (*data från 2022 blev ej tillgängliga*).
-2.  Fastställa mätegenskaper för att bedöma vilka indikatorer som kan bilda ett index, hur god mätprecision indexet har för att urskilja skillnader över tid eller mellan grupper, och huruvida index är lämpliga för att göra jämförelser mellan olika grupper (t.ex. könsskillnader) och över tid.
+1.  Genomföra en psykometrisk analys av befintliga enkätdata i Stockholmsenkäten med fokus på framtagande av index i Stockholmsenkäten baserade på risk- och skyddsfaktorer. Dataunderlaget bygger primärt på insamlade data från 2006 till 2020, med data från varannat år.
+2.  Fastställa mätegenskaper för att bedöma vilka items/frågor som tillsammans kan bilda ett adekvat index, hur god mätprecision indexet har för att urskilja skillnader över tid eller mellan grupper, och huruvida index är lämpliga för att göra jämförelser mellan olika grupper (t.ex. könsskillnader) och över tid.
 
-Utifrån kunskapssammanställningen om risk- och skyddsfaktorer för barn och unga [@johansson2021b] har vi strävat efter att identifiera centrala faktorer utifrån kontexterna **Individ, Familj, Skola, Kamrater och fritid, och Närsamhälle**. Syftet är att ta fram index som kan redovisas på en skala, för att möjliggöra mera finkorniga analyser och jämförelser än vad som är möjligt utifrån enstaka frågor eller index som endast består av 3-4 frågor. Det medför också att antalet index/faktorer som tas fram är lägre än vad som ofta redovisas utifrån Stockholmsenkäten.
-
+Utifrån RISE kunskapssammanställning om risk- och skyddsfaktorer för barn och unga [@johansson2021b] har vi strävat efter att identifiera centrala faktorer utifrån kontexterna **Individ, Familj, Skola, Kamrater och fritid, och Närsamhälle**. Syftet är att ta fram index som kan redovisas på en skala, för att möjliggöra mera finkorniga analyser och jämförelser än vad som är möjligt utifrån enstaka frågor, dikotomiserade data, eller index som endast består av 3-4 frågor. Det medför också att antalet index/faktorer som tas fram är lägre än vad som tidigare kan ha redovisats utifrån Stockholmsenkäten.
 
 ### Items som ingått i analysen
 
@@ -211,7 +211,9 @@ formattable(indexitems,
 
 ### Psykometriska kriterier
 
-Texten nedan kommer från RISE rapport till MFoF om uppföljning av föräldraskapsstöd [@preuter2022]:
+RISE har tagit fram fem grundläggande kriterier och en rapporteringsmall för vetenskapliga psykometri-artiklar som har varit utgångspunkt för analysarbetet. Artikeln finns som preprint [@johansson].
+
+En förenklad beskrivning (nedan) av psykometriska kriterier kommer från RISE rapport till MFoF om uppföljning av föräldraskapsstöd [@preuter2022]:
 
 > När enkäter konstrueras och utvärderas bedöms dess psykometriska egenskaper, ofta kopplade till begreppen reliabilitet och validitet. Förenklat kan man säga att reliabilitet beskriver hur väl något mäts (vilken precision mätverktyget har), medan validitet beskriver hur väl innehållet i frågorna och svarskategorierna fångar det man avser att mäta. Dock råder i allmänhet oklara definitioner av begreppen och kriterier för huruvida dessa mätegenskaper uppfylls eller inte. Det medför att även enkäter som i forskningsartiklar beskrivs som "validerade" eller att de har "god reliabilitet" inte nödvändigtvis uppfyller vad som kan anses vara grundläggande kriterier. En mera omfattande beskrivning av de grundläggande psykometriska kriterierna återfinns i Bilaga 3 (separat dokument). Nedan listas kriterierna. Var och en av dem kräver psykometrisk analys av insamlade data för att bedöma.
 >
@@ -230,13 +232,15 @@ Texten nedan kommer från RISE rapport till MFoF om uppföljning av föräldrask
 
 ### Noteringar om analysprocessen
 
-Inom varje område har samtliga frågor/items lagts in i analysen. Ambitionen har varit att först ta fram ett index med så goda mätegenskaper som möjligt, och att enbart eliminera items som varit tydligt problematiska utifrån de psykometriska kriterierna. Gällande Individfaktorer och Skola finns det ytterligare utrymme att minska antalet items och ändå ha acceptabel reliabilitet. I vissa fall har det gått att ur ett frågeområde ta fram mer än ett index med acceptabel reliabilitet.
+Inom varje område har samtliga frågor/items lagts in i en analys. Ambitionen har varit att först ta fram ett index med så goda mätegenskaper som möjligt, och att enbart eliminera items som varit tydligt problematiska utifrån de psykometriska kriterierna. Gällande Individfaktorer och Skola finns det ytterligare utrymme att minska antalet items och ändå ha acceptabel reliabilitet. I vissa fall har det gått att ur ett frågeområde ta fram mer än ett index med acceptabel reliabilitet.
 
-Samtliga index som redovisas i denna sammanfattning har uppfyllt alla kriterier beskrivna ovan. För att hålla en rimlig detaljnivå presenterar vi enbart figurer som visar reliabilitet och "targeting" (hur frågorna passar respondenterna), eftersom dessa hänger samman och även är relevanta för eventuella framtida reduktioner i items.
+Inom många områden finns sedan tidigare definierade index som använts i rapporteringen av Stockholmsenkäten, ofta bestående av tre frågor. Även dessa har analyserats kortfattat.
 
-Ett vanligt problem i analyserna är för stora residualkorrelationer. Det innebär att par av items är för lika varandra och inte enskilt medför tillräckligt mycket unik information till indexet. I stället finns risk för att indexvärden skulle bli oproportionerligt påverkade om båda items behålls i indexet.
+Samtliga index som redovisas i denna sammanfattning har uppfyllt alla kriterier beskrivna ovan. För att hålla en rimlig detaljnivå presenteras enbart figurer som visar reliabilitet och "targeting", hur frågorna passar respondenterna, eftersom dessa hänger samman med användningen av frågorna, och även är relevanta för eventuella framtida reduktioner i items i Stockholmsenkäten.
 
-Ett index, "Kamrater och fritid", håller för dålig kvalitet för att kunna användas som indexvärde. Det kan vara möjligt att skapa enklare nyckeltal utifrån items, som enbart återger nivåerna hög risk/låg risk. Arbete pågår för att utröna detta.
+Ett vanligt problem i analyserna har varit residualkorrelationer. Det innebär att par av items är för lika varandra och inte enskilt medför tillräckligt mycket unik information till indexet. I stället finns risk för att indexvärden skulle bli oproportionerligt påverkade om båda items behålls i indexet. I regel tas ett item bort, utifrån beaktande av varje items mätegenskaper i indexet.
+
+Två index, "Kamrater och fritid" samt "Prosocialt index", håller för dålig kvalitet för att kunna användas som indexvärde. Det kan vara möjligt att skapa enklare nyckeltal utifrån items, som enbart återger nivåerna hög risk/låg risk. Arbete pågår för att utröna detta.
 
 För att vara konsekvent i detta skede har samtliga frågor och index "vänts" så att en högre poäng medför högre risk, trots att vissa index representerar skyddsfaktorer. Genomgående är frågorna bättre på att mäta högre nivåer av risk än lägre nivåer av risk.
 
@@ -310,7 +314,6 @@ Items som eliminerats, samtliga utifrån att de varit för lika en annan fråga,
 De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre. Figurtexten ger viktig information om hur reliabiliteten förhåller sig till respondenterna.
 
 Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
-
 
 ::: panel-tabset
 #### Normbrytande
@@ -442,8 +445,8 @@ Grönmarkerade items i tabellen ovan bildar "Positiv skolanknytning", medan de r
 
 #### Svarskategorier som åtgärdats:
 
-- f54a och b - vi slår ihop de två högsta kategorierna (2 och 3)
-- f54o - vi slår ihop mittenkategorierna (1 och 2)
+-   f54a och b - vi slår ihop de två högsta kategorierna (2 och 3)
+-   f54o - vi slår ihop mittenkategorierna (1 och 2)
 
 #### Item-eliminering "positiv skolanknytning"
 
@@ -562,13 +565,13 @@ itemlabels %>%
 
 Det är möjligt att skapa ett index med enbart psykosomatiska items som har acceptabel reliabilitet, bestående av "F88","F91","F93","F95","F98". Vi behöver åtgärda svarskategorier för tre av dessa fem items:
 
-- F91: 1+2 och 3+4
-- F93 och F98: 3+4
+-   F91: 1+2 och 3+4
+-   F93 och F98: 3+4
 
 Vi behöver åtgärda flera items:
 
-- F89, 90, 96, 97: 1+2 och 3+4
-- F92, 99: 3+4
+-   F89, 90, 96, 97: 1+2 och 3+4
+-   F92, 99: 3+4
 
 ### Item som tagits bort
 
@@ -650,7 +653,7 @@ Svarsdata har kodats så att högre poäng innebär mera problem/högre "risk". 
 
 En enkätfråga som vanligtvis inte ingår bland föräldrafrågorna har lagts till:
 
-- F58 - "Hur skulle dina föräldrar reagera om du hade skolkat?"
+-   F58 - "Hur skulle dina föräldrar reagera om du hade skolkat?"
 
 Frågan har svarskategorier från *De skulle reagera mycket kraftigt*, till *De skulle inte reagera alls*, och har visat sig vara en nyckelkomponent för att få adekvat reliabilitet bland föräldrafrågorna.
 
@@ -745,6 +748,7 @@ df %>%
 ```
 
 #### Items
+
 ```{r}
 #| label: parents.items
 itemlabels %>%
@@ -781,7 +785,6 @@ itemlabels %>%
 ### Kort om resultat
 
 Analysen visar att items kan delas upp i negativa och positiva, men ingen av dem klarar av att bilda ett fungerande index med adekvat reliabilitet.
-
 
 ## Närsamhälle
 
@@ -845,7 +848,6 @@ Många items verkar beröra ungefär samma saker, vilket syns i residualkorrelat
 -   f101h med i (vuxna skulle ingripa vid slagsmål/rån)
 -   f101j med k och l (trivsel), där k och l är starkast
 
-
 ### Reliabilitet
 
 De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre.
@@ -880,6 +882,7 @@ df %>%
 ```
 
 #### Items
+
 ```{r}
 #| label: nsam.items
 itemlabels %>%
