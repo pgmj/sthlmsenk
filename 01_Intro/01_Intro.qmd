@@ -203,8 +203,9 @@ Utifrån RISE kunskapssammanställning om risk- och skyddsfaktorer för barn och
 
 ```{r}
 #| label: initialaitems
-
-formattable(indexitems, 
+indexitems %>% 
+  mutate(across(everything(), ~ car::recode(.x,"NA=''"))) %>% 
+  formattable(., 
             align=c("c","l"),
             table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 75%"')
 ```
@@ -240,15 +241,15 @@ Samtliga index som redovisas i denna sammanfattning har uppfyllt alla kriterier 
 
 Ett vanligt problem i analyserna har varit residualkorrelationer. Det innebär att par av items är för lika varandra och inte enskilt medför tillräckligt mycket unik information till indexet. I stället finns risk för att indexvärden skulle bli oproportionerligt påverkade om båda items behålls i indexet. I regel tas ett item bort, utifrån beaktande av varje items mätegenskaper i indexet.
 
-Två index, "Kamrater och fritid" samt "Prosocialt index", håller för dålig kvalitet för att kunna användas som indexvärde. Det kan vara möjligt att skapa enklare nyckeltal utifrån items, som enbart återger nivåerna hög risk/låg risk. Arbete pågår för att utröna detta.
+Två index, "Kamrater och fritid" samt "Prosocialt index", håller för dålig kvalitet för att kunna användas som indexvärde. Det kan eventuellt vara möjligt att skapa enklare nyckeltal utifrån items, som enbart återger nivåerna hög risk/låg risk.
 
-För att vara konsekvent i detta skede har samtliga frågor och index "vänts" så att en högre poäng medför högre risk, trots att vissa index representerar skyddsfaktorer. Genomgående är frågorna bättre på att mäta högre nivåer av risk än lägre nivåer av risk.
+För att vara konsekvent i detta skede har samtliga frågor och index "vänts" så att en högre poäng medför högre risk, trots att vissa index representerar skyddsfaktorer. Genomgående i samtliga index är frågorna bättre på att mäta högre nivåer av risk än lägre nivåer av risk.
 
-Detta dokument sammanfattar resultatet av varje indexområdes analysprocess. Hela analysdokument för varje indexområde kommer att tillgängliggöras för granskning, inklusive källkoden som visar hur analyserna gjorts, vilket möjliggör oberoende granskning.
+Detta dokument sammanfattar resultatet av varje indexområdes analysprocess. Hela analysdokument för varje indexområde finns tillgängligt i menyn till vänster på denna sida, inklusive källkoden som visar hur analyserna gjorts, vilket möjliggör oberoende granskning givet tillgång till rådata.
 
 Om frågor eller oklarheter uppstår längs läsningen rekommenderas i första hand nedladdning och läsning av introduktionen i Bilaga 3 till ovan nämnda MFoF-rapport (<a href="http://ri.diva-portal.org/smash/get/diva2:1686936/FULLTEXT02.pdf" target="_blank">direkt länk till PDF-fil</a>).
 
-## Individfaktorer (normbrytande)
+## Individfaktorer (utagerande)
 
 21 items/frågor med etiketter f66a-f66u i datafilen, och motsvaras av fråga 67 i PDF-filen med frågor.
 
@@ -266,25 +267,28 @@ Svarskategorierna ersätts med siffror från 0 till 3, och för f66h, m, p och u
 ```{r}
 #| label: IFitemlist
 
-if.normb.nr<-itemlabels %>%
-  filter(itemnr %in% items.if.all) %>% 
-  rownames_to_column() %>% 
-  filter(itemnr %in% items.normb.final) %>% 
+if.normb.nr <- itemlabels %>%
+  filter(itemnr %in% items.if.all) %>%
+  rownames_to_column() %>%
+  filter(itemnr %in% items.normb.final) %>%
   pull(rowname)
 
-if.pos.nr<-itemlabels %>%
-  filter(itemnr %in% items.if.all) %>% 
-  rownames_to_column() %>% 
-  filter(itemnr %in% items.ifpos.final) %>% 
+if.pos.nr <- itemlabels %>%
+  filter(itemnr %in% items.if.all) %>%
+  rownames_to_column() %>%
+  filter(itemnr %in% items.ifpos.final) %>%
   pull(rowname)
 
 itemlabels %>%
   filter(itemnr %in% items.if.all) %>%
-  select(!Index) %>% 
-  formattable(., align = c("r", "l"), list(
-    formattable::area(row = if.pos.nr) ~ color_tile(RISEprimGreenMid, "lightpink"),
-    formattable::area(row = if.normb.nr) ~ color_tile(RISEprimRedMid, "lightpink")),
-      table.attr = "style=\"font-size: 15px; font-family: Lato\"")
+  select(!Index) %>%
+  formattable(.,
+    align = c("r", "l"), list(
+      formattable::area(row = if.pos.nr) ~ color_tile(RISEprimGreenMid, "lightpink"),
+      formattable::area(row = if.normb.nr) ~ color_tile(RISEprimRedMid, "lightpink")
+    ),
+    table.attr = "style=\"font-size: 15px; font-family: Lato\""
+  )
 
 ```
 
@@ -293,6 +297,8 @@ I listan ovan är kvarstående items markerade med färg.
 Rödmarkerade items utgör index "Normbrytande". Det är möjligt att göra ytterligare reduktion av frågor och ändå ha adekvat reliabilitet/mätprecision, men detta har ännu inte fastställts.
 
 Grönmarkerade items utgör en positiv individfaktor, som vi inte satt någon rubrik på ännu, eller bestämt hur/om den ska användas. Reliabiliteten är betydligt sämre än för Normbrytande (se längre ner).
+
+Analys av delskalor finns sammanfattad, se @sec-ifDelskalorSmf
 
 ### Item som tagits bort
 
@@ -310,6 +316,8 @@ Items som eliminerats, samtliga utifrån att de varit för lika en annan fråga,
 -   f66t (sämst targeting)
 
 ### Reliabilitet
+
+se figur @fig-ifNegTIF
 
 De streckade linjerna i figuren nedan motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre. Figurtexten ger viktig information om hur reliabiliteten förhåller sig till respondenterna.
 

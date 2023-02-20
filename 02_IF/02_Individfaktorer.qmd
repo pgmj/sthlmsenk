@@ -115,7 +115,6 @@ library(knitr)
 library(cowplot)
 library(formattable) 
 library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
-library(HH)
 library(glue)
 library(foreach)
 
@@ -558,10 +557,7 @@ mirt.rasch <- mirt(df.neg, model=1, itemtype='Rasch') # unidimensional Rasch mod
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
-### Reliabilitet
-```{r}
-RItif(df.neg)
-```
+
 ### Items
 ```{r}
 RIlistitems(df.neg)
@@ -569,9 +565,7 @@ RIlistitems(df.neg)
 :::
 ::::
 
-Detta är sannolikt den optimala uppsättningen items, även om f66g och n uppvisar något låg item fit ZSTD.
-
-Vi kan gå vidare och undersöka ytterligare item-reduktion, men först tittar vi på DIF.
+Detta är en välfungerande uppsättning items utifrån analyserna så långt, även om f66g och n uppvisar något låg item fit ZSTD.
 
 ## Invarians/DIF - negativa items
 
@@ -629,6 +623,7 @@ Inga problem. Item f66f är den som har högst nivå.
 
 ```{r}
 #| column: margin
+#| echo: false
 
 RIlistItemsMargin(df.neg)
 ```
@@ -651,11 +646,11 @@ df.dif.years.neg <- df.dif.years %>%
 
 RIdifTable(df.dif.years.neg, dif.year)
 ```
-#### Figur 1
+#### Figur
 ```{r}
 RIdifFigure(df.dif.years.neg, dif.year)
 ```
-#### Figur 2
+#### Items över tid
 ```{r}
 RIdifFigTime(df.dif.years.neg, dif.year)
 ```
@@ -664,21 +659,158 @@ RIdifFigTime(df.dif.years.neg, dif.year)
 
 Inget item är problematiskt.
 
+### Interaktion årskurs och kön
+
+```{r}
+#| column: margin
+#| echo: false
+
+RIlistItemsMargin(df.neg, 12)
+```
+
+```{r}
+dfin <- df.neg
+
+df.tree <- data.frame(matrix(ncol = 0, nrow = nrow(dfin)))
+df.tree$difdata <- as.matrix(dfin)
+df.tree$dif.gender <- dif.gender
+df.tree$dif.arskurs <- dif.arskurs
+
+pctree.out <- pctree(difdata ~ dif.gender + dif.arskurs, data = df.tree)
+plot(pctree.out)
+```
+
+```{r}
+cutoff <- 0.5
+diffig <- itempar(pctree.out) %>%
+  as.data.frame() %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate(
+    `Mean location` = rowMeans(.),
+    StDev = rowSds(as.matrix(.))
+  ) %>%
+  rowwise() %>%
+  mutate(MaxDiff = (max(c_across(c(1:(ncol(.) - 2))))) -
+    min(c_across(c(1:(ncol(.) - 2))))) %>%
+  ungroup() %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  rownames_to_column(var = "Item") %>%
+  mutate(Item = names(dfin)) %>%
+  relocate(MaxDiff, .after = last_col())
+nodecolsN <- ncol(diffig)-3
+
+  formattable(diffig,
+    list(MaxDiff = formatter("span",
+      style = ~ style(color = ifelse(MaxDiff < -cutoff,
+        "red", ifelse(MaxDiff > cutoff, "red", "black")
+      ))
+    ),
+    formattable::area(col = 2:nodecolsN) ~ color_tile(RISEprimYellowLight, RISEprimGreen)
+    ),
+    table.attr = "class=\"table table-striped\" style=\"font-size: 15px; font-family: Lato\""
+  )
+```
+
+Här finns skillnader på två items, f66f och f66i, där flickor gy 2 och pojkar åk 9 skiljer sig åt över gränsvärdet 0.5. Ytterligare tre items går över 0.4.
+
+Eftersom vi har relativt många items förefaller den enklaste åtgärden vara att ta bort de två items som når problematiska nivåer.
+
+### Rasch-analys 5 negativa items
+
+Två items tas bort p.g.a. DIF, interaktion mellan kön och årskurs:
+
+- f66f
+- f66i
+
+
+```{r}
+removed.items <- c("f66b","f66t","f66a","f66e","f66f","f66i")
+
+df.neg <- df.neg %>% 
+  select(!any_of(removed.items))
+```
+
+```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df.neg)
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### Item fit {.smaller}
+```{r}
+RIitemfitPCM2(df.neg, 300, 32, 8)
+```
+### PCA
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df.neg)
+```
+### Loadings 1st contrast
+```{r}
+RIloadLoc(df.neg)
+```
+### Residualkorrelationer
+```{r}
+RIresidcorr(df.neg, cutoff = 0.2)
+```
+### Targeting
+```{r}
+#| label: fig-ifNegTargeting
+#| fig-cap: "TIF-kurva negativa items"
+#| fig-height: 6
+RItargeting(df.neg)
+```
+### Itemhierarki
+```{r}
+#| label: fig-ifNegHierarchy
+#| fig-cap: "TIF-kurva negativa items"
+#| fig-height: 6
+RIitemHierarchy(df.neg)
+```
+### Items
+```{r}
+RIlistitems(df.neg)
+```
+:::
+::::
+
+
 ## Person fit negativa items
 
 ```{r}
 RIpfit(df.neg)
 ```
 
+### Reliabilitet negativa items
+```{r}
+#| label: fig-ifNegTIF
+#| fig-cap: "TIF-kurva negativa items"
+RItif(df.neg)
+```
+
 ## Item-parametrar negativa items
 
 ```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df.neg)
+```
+
+```{r}
+df.dif.years.neg <- df.dif.years.neg %>% 
+  select(any_of(names(df.neg)))
+
 RIitemparams(df.dif.years.neg, "IFnegativaItems.csv")
 itemlabels %>% 
   filter(itemnr %in% names(df.dif.years.neg)) %>% 
   write_csv("IFnegItemnr.csv")
 ```
+## Transformeringstabell
 ```{r}
+
 RIscoreSE(df.dif.years.neg)
 ```
 
@@ -832,7 +964,7 @@ Items f66l och p har något hög DIF, men ej över gränsvärde 0.5.
 
 ```{r}
 #| column: margin
-
+#| echo: false
 RIlistItemsMargin(df.pos)
 ```
 
@@ -852,6 +984,11 @@ RIdifFigure(df.pos, dif.arskurs)
 Inga problem.
 
 ### Årtal
+```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df.pos)
+```
 
 :::: column-page-inset-left
 ::: panel-tabset
@@ -880,6 +1017,60 @@ RIdifFigTime(df.dif.years.pos, dif.year)
 
 Inget item uppvisar problematisk nivå av DIF.
 
+### Interaktion årskurs och kön
+
+```{r}
+#| column: margin
+#| echo: false
+
+RIlistItemsMargin(df.pos, 12)
+```
+
+```{r}
+dfin <- df.pos
+
+df.tree <- data.frame(matrix(ncol = 0, nrow = nrow(dfin)))
+df.tree$difdata <- as.matrix(dfin)
+df.tree$dif.gender <- dif.gender
+df.tree$dif.arskurs <- dif.arskurs
+
+pctree.out <- pctree(difdata ~ dif.gender + dif.arskurs, data = df.tree)
+plot(pctree.out)
+```
+
+```{r}
+cutoff <- 0.5
+diffig <- itempar(pctree.out) %>%
+  as.data.frame() %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate(
+    `Mean location` = rowMeans(.),
+    StDev = rowSds(as.matrix(.))
+  ) %>%
+  rowwise() %>%
+  mutate(MaxDiff = (max(c_across(c(1:(ncol(.) - 2))))) -
+    min(c_across(c(1:(ncol(.) - 2))))) %>%
+  ungroup() %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  rownames_to_column(var = "Item") %>%
+  mutate(Item = names(dfin)) %>%
+  relocate(MaxDiff, .after = last_col())
+
+nodecolsN <- ncol(diffig)-3
+
+  formattable(diffig,
+    list(MaxDiff = formatter("span",
+      style = ~ style(color = ifelse(MaxDiff < -cutoff,
+        "red", ifelse(MaxDiff > cutoff, "red", "black")
+      ))
+    ),
+    formattable::area(col = 2:nodecolsN) ~ color_tile(RISEprimYellowLight, RISEprimGreen)
+    ),
+    table.attr = "class=\"table table-striped\" style=\"font-size: 15px; font-family: Lato\""
+  )
+```
+
 
 ## Person fit positiva items
 
@@ -902,6 +1093,8 @@ itemlabels %>%
 ```{r}
 RIscoreSE(df.dif.years.pos)
 ```
+
+Denna uppsättning av items bildar ett fungerande index, men det är oklart vad indexet representerar och därmed hur det skulle kunna användas. De fem frågorna kommer från tre olika tänkta delskalor (se nästa avsnitt).
 
 ## Analys av delskalor
 
@@ -944,7 +1137,7 @@ RIlistItemsMargin(df.subskala, 13)
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 300, 32, 8)
+RIitemfitPCM2(df.subskala, 350, 32, 8)
 ```
 #### PCA
 ```{r}
@@ -1388,7 +1581,7 @@ RIpfit(df.subskala)
 :::
 ::::
 
-## Delskalor - sammanfattande kommentar
+## Delskalor - sammanfattande kommentar {#sec-ifDelskalorSmf}
 
 Alla delskalor har flera items som uppvisar låg item fit, vilket innebär att svaren är för förutsägbara tillsammans med övriga frågor. Det vill säga att de tillför relativt lite information.
 

@@ -1092,8 +1092,6 @@ itemlabels %>%
 RIscoreSE(df.dif.years)
 ```
 
-
-
 ## Exempel med single-item vs index
 
 Data från enbart 2020.
@@ -1298,9 +1296,29 @@ ggplot(df.if, aes(x = as.factor(F99o), y = SumScores)) +
   coord_flip()
 ```
 
+## Jämförelser befintligt och nytt index
+
+Rapporter utifrån Stockholmsenkäten har hittills räknat samman ett index för "Psykisk hälsa", baserat på enkätsvar för de fem items som i denna analys återfinns under rubriken "Psykosomatiska besvär"
 
 ```{r}
-#| label: test splitviolin
+items.psm <- c("F88","F91","F93","F95","F98")
+
+df.index <- df.all %>%
+  select(items.psm, Kön, ARSKURS, ar)
+
+RIlistitems(df.index)
+```
+
+Indexberäkningen som använts utgår från att svaren översätts till siffror och sedan beräknas ett medelvärde av alla items. Lägsta svarsalternativet ("Aldrig") ersätts med siffran 100, näst lägsta med 75, och så vidare. Det innebär att ett högt värde motsvarar låg förekomst av besvär.
+
+I [Stockholm Stads rapport för år 2022](https://start.stockholm/globalassets/aktuellt/nyheter/psykisk-halsa-grundskolans-arskurs-9-2022.pdf) återges resultatet på detta vis:
+
+![](Index0-100.png)
+
+
+```{r}
+#| eval: false
+#| echo: false
 # 
 # GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin,
 #                            draw_group = function(self, data, ..., draw_quantiles = NULL) {

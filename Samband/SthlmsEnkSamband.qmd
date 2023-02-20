@@ -385,6 +385,22 @@ sumEstimates(models2)
 compRsq(models2)
 ```
 
+#### Standardiserade effektstorlekar
+```{r}
+#df2 %>%
+#  split(.$ar) %>%
+#  map(~ emmeans(lm(Utagerande ~ Parenting + SkolaNegativ + Community + Kön, data = .)), "Parenting")
+
+m2s <- df2 %>% 
+  filter(ar == 2016) %>% 
+  lm(Utagerande ~ Parenting + SkolaNegativ + Community + Kön, data = .)
+
+emmeans(m2s, "Parenting")
+#eff_size(m2emm, edf = 6041, sigma=sigma(m2s))
+# borde gå att skriva en funktion för emmeans som går igenom varje år
+```
+
+
 ### Utagerande och kriminalitet
 
 #### Antal brott
