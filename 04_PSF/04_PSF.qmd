@@ -1304,7 +1304,7 @@ Rapporter utifrån Stockholmsenkäten har hittills räknat samman ett index för
 items.psm <- c("F88","F91","F93","F95","F98")
 
 df.index <- df.all %>%
-  select(items.psm, Kön, ARSKURS, ar)
+  select(items.psm, Kön, ARSKURS, ar, SkolSDO)
 
 RIlistitems(df.index)
 ```
@@ -1314,6 +1314,95 @@ Indexberäkningen som använts utgår från att svaren översätts till siffror 
 I [Stockholm Stads rapport för år 2022](https://start.stockholm/globalassets/aktuellt/nyheter/psykisk-halsa-grundskolans-arskurs-9-2022.pdf) återges resultatet på detta vis:
 
 ![](Index0-100.png)
+
+```{r}
+#| fig-width: 9
+df.indexR <- df.index %>% 
+  mutate(across(items.psm, ~ recode(.x,"0=100;1=75;2=50;3=25;4=0"))) %>% 
+  na.omit() %>% 
+  mutate(PSFindex = rowMeans(across(items.psm)))
+
+library(ggchicklet)
+# create a wide palette based on RISE colors
+RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
+# "#009CA6" "#5C758B" "#B94F70" "#EC5D4F" "#F5A127" "#FFE500"
+RISEpalette2 <- colorRampPalette(colors = c("#009ca6","#e83c63", "#ffe500"))(8)
+
+df.indexR %>% 
+  filter(ar == 2020) %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  filter(!is.na(SkolSDO)) %>% 
+  group_by(SkolSDO,Kön) %>% 
+  summarise(PSFmean = mean(PSFindex, na.rm = T)) %>% 
+  ggplot(aes(y = PSFmean, x = SkolSDO, fill = Kön, color = Kön)) +
+  geom_chicklet(radius = grid::unit(1.5, 'mm'),
+                position = "dodge") +
+  geom_hline(aes(yintercept = mean(PSFmean)), linetype = 2, color = "black") +
+  annotate("text", label = "Medelvärde Stockholm Stad", y = 57, x = 3, color = "darkgrey") +
+  scale_fill_manual('Kön', values = RISEpalette1[c(1,5)], aesthetics = c("color","fill")) +
+  scale_x_discrete('Stadsdel', guide = guide_axis(n.dodge = 2)) +
+  theme_rise() +
+  ylab("Snittvärde") +
+  labs(title = "Psykisk ohälsa indexvärde")
+  
+```
+
+```{r}
+# read item parameters from previous analysis
+itemParams.psm <- read_csv("PsyksomItemParams.csv") %>% 
+  as.matrix()
+
+# create id variable to re-join thetas
+df.index <- df.index %>% 
+  mutate(id = seq.int(nrow(.)))
+
+# recode items to correct response categories
+df.indexNew <- df.index %>% 
+  filter(ar == 2020) %>% 
+  select(all_of(c(items.psm,"id"))) %>% 
+  na.omit()
+
+df.indexNew$F91 <- recode(df.indexNew$F91, "2=1;3=2;4=2", as.factor = FALSE)
+df.indexNew$F93 <- recode(df.indexNew$F93, "4=3", as.factor = FALSE)
+df.indexNew$F98 <- recode(df.indexNew$F98, "4=3", as.factor = FALSE)
+df.indexNew$F95 <- recode(df.indexNew$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
+
+#RItileplot(df.indexNew %>% select(!id))
+#itemParams.psm
+df.indexNew$PSMscore <- df.indexNew %>% 
+  select(!id) %>% 
+  RIestThetas2(cpu = 8, itemParams = itemParams.psm)
+df.index <- df.indexNew %>% 
+  select(id,PSMscore) %>% 
+  left_join(df.index,df.indexNew, by = "id")
+
+# reverse score to match old index
+df.index$PSMscore <- df.index$PSMscore*-1
+
+df.index$PSMscore100 <- round(scales::rescale(df.index$PSMscore, to = c(0,100)),0)
+
+```
+
+### Omskalat index
+
+```{r}
+df.index %>% 
+  filter(ar == 2020) %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  filter(!is.na(SkolSDO)) %>% 
+  group_by(SkolSDO,Kön) %>% 
+  summarise(PSFmean = mean(PSMscore100, na.rm = T)) %>% 
+  ggplot(aes(y = PSFmean, x = SkolSDO, fill = Kön, color = Kön)) +
+  geom_chicklet(radius = grid::unit(1.5, 'mm'),
+                position = "dodge") +
+  geom_hline(aes(yintercept = mean(PSFmean)), linetype = 2, color = "black") +
+  annotate("text", label = "Medelvärde Stockholm Stad", y = 57, x = 3, color = "darkgrey") +
+  scale_fill_manual('Kön', values = RISEpalette1[c(1,5)], aesthetics = c("color","fill")) +
+  scale_x_discrete('Stadsdel', guide = guide_axis(n.dodge = 2)) +
+  theme_rise() +
+  ylab("Snittvärde") +
+  labs(title = "Psykisk ohälsa indexvärde")
+```
 
 
 ```{r}
