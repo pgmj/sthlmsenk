@@ -1,6 +1,6 @@
 ---
 title: "Data i dialog"
-subtitle: "Kommunrapport Vallentuna"
+subtitle: "Kommunrapport"
 title-block-banner: "#009ca6"
 title-block-banner-color: "#FFFFFF"
 author: 
@@ -8,11 +8,14 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://www.ri.se/sv/vad-vi-gor/expertiser/kategoriskt-baserade-matningar
   orcid: 0000-0003-1669-592X
-date: '2023-01-23'
+date: last-modified
+params:
+  kommun: "Södertälje"
+  jmfkommun: "Stockholm"
 format: 
   html:
     toc: true
-    toc-depth: 3
+    toc-depth: 4
     toc-title: "Innehållsförteckning"
     embed-resources: true
     standalone: true
@@ -29,45 +32,20 @@ format:
     linestretch: 1.6
     theme: materia
     link-external-newwindow: true
-  pdf:
-    papersize: a4
-    documentclass: article #article, report or book
-    classoption: [twocolumn, portrait]
-  revealjs:
-    theme: default
-    logo: rise_logo_quarto.png
-    chalkboard: false
-    self-contained: true
-    footer: 'Material skapat av magnus.p.johansson@ri.se'
-    mainfont: 'Lato'
-    slide-level: 4
-    scrollable: true
-    smaller: false
-  docx:
-    toc: true
-    number-sections: true
-    title: "Rasch in Quarto"
-    subtitle: "Template file"
-    author: "Magnus Johansson"
-#    reference-doc: RISEmallMJv6.dotx
 execute:
   echo: false
   warning: false
   message: false
   cache: true
-editor_options: 
-  markdown: 
-    wrap: 72
-  chunk_output_type: inline
 ---
 
 ```{r}
 
 # which municipality to focus this report on?
-fokusKommun <- "Vallentuna"
+fokusKommun <- params$kommun
 
 # which municipalities should be included in comparisons?
-jmfKommun <- c(fokusKommun,"Vaxholm","Täby","Danderyd")
+jmfKommun <- c(fokusKommun,"Stockholm")
 
 # years of interest
 years <- c(2016,2018,2020,2022)
@@ -103,6 +81,7 @@ library(vctrs)
 library(ggiraph)
 library(gt)
 library(gtExtras)
+library(RISEkbmRasch)
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
@@ -246,21 +225,23 @@ rsfaktorer <- c('Utagerande','Närsamhälle','Föräldraskap','Psykiska/ psykoso
 #---- sums.index -> key metrics for each year and municipality----
 
 RSsmf <- function(df, i, j) { # input df, index, and index number
-  #j <- match(qc({{i}}),sthlm.index)
-  df %>% 
-    group_by(ar,Kommun) %>% 
-    summarise(Medel = mean({{i}}, na.rm = T),
-              StDev = sd({{i}},  na.rm = T),
-              n = n(),
-              StErr = StDev/sqrt(n),
-              sd.lo = Medel-StDev,
-              sd.hi = Medel+StDev,
-              n.90 = length(which({{i}} > rslimits[2,j]))/n*100,
-              n.75 = length(which({{i}} > rslimits[1,j]))/n*100) %>% 
-    rename(År = ar) %>% 
-    mutate(across(where(is.numeric), round, 3)) %>% 
+  # j <- match(qc({{i}}),sthlm.index)
+  df %>%
+    group_by(ar, Kommun) %>%
+    reframe(
+      Medel = mean({{ i }}, na.rm = T),
+      StDev = sd({{ i }}, na.rm = T),
+      n = n(),
+      StErr = StDev / sqrt(n),
+      sd.lo = Medel - StDev,
+      sd.hi = Medel + StDev,
+      n.90 = length(which({{ i }} > rslimits[2, j])) / n * 100,
+      n.75 = length(which({{ i }} > rslimits[1, j])) / n * 100
+    ) %>%
+    rename(År = ar) %>%
+    mutate(across(where(is.numeric), \(x) round(x, 3))) %>%
     as.data.frame()
-}  
+}
 
 sums.Utagerande <- RSsmf(df, Utagerande, 1) %>% 
   add_column(Faktor = 'Utagerande')
@@ -295,7 +276,7 @@ RSsmfGender <- function(df, i, j) { # input df, index, and index number
   #j <- match(qc({{i}}),sthlm.index)
   df %>% 
     group_by(ar,Kommun,Kön) %>% 
-    summarise(Medel = mean({{i}}, na.rm = T),
+    reframe(Medel = mean({{i}}, na.rm = T),
               StDev = sd({{i}},  na.rm = T),
               n = n(),
               StErr = StDev/sqrt(n),
@@ -304,7 +285,7 @@ RSsmfGender <- function(df, i, j) { # input df, index, and index number
               n.90 = length(which({{i}} > rslimits[2,j]))/n*100,
               n.75 = length(which({{i}} > rslimits[1,j]))/n*100) %>% 
     rename(År = ar) %>% 
-    mutate(across(where(is.numeric), round, 3)) %>% 
+    mutate(across(where(is.numeric), \(x) round(x, 3))) %>%
     as.data.frame()
 }  
 
@@ -433,9 +414,9 @@ riskCalc <- function(df,index){
 }
 
 df.risk <- data.frame(matrix(ncol = 4, nrow = 0))
-for (i in rsfaktorer){
-  df.r1<-as.data.frame(riskCalc(df,i))
-  df.risk <- rbind(df.risk,df.r1)
+for (i in rsfaktorer) {
+  df.r1 <- as.data.frame(riskCalc(df, i))
+  df.risk <- rbind(df.risk, df.r1)
 }
 
 riskCalcGender <- function(df,index){
@@ -478,7 +459,7 @@ responsesGender <- df %>%
   rename(År = ar,
          Årskurs = ARSKURS) %>% 
   group_by(År,Kön) %>% 
-  summarise(Antal = n()) %>% 
+  reframe(Antal = n()) %>% 
   ggplot(aes(x = År, y = Antal, color = Kön)) + 
   geom_line(linewidth = 1) +
   geom_point_interactive(aes(tooltip = Antal),
@@ -487,7 +468,10 @@ responsesGender <- df %>%
   scale_x_continuous(guide = guide_axis(n.dodge = 1), breaks = årtal) +
   scale_y_continuous(limits = c(0,NA)) +
   labs(title = "Antal respondenter per år",
-       subtitle = "Fördelat på kön")
+       subtitle = "Fördelat på kön") +
+  theme_minimal() +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
 
 girafe(ggobj = responsesGender)
 
@@ -500,7 +484,7 @@ responsesARSKURS <- df %>%
   rename(År = ar,
          Årskurs = ARSKURS) %>% 
   group_by(År,Årskurs) %>% 
-  summarise(Antal = n()) %>% 
+  reframe(Antal = n()) %>% 
   ggplot(aes(x = År, y = Antal, color = Årskurs)) + 
   geom_line(linewidth = 1) +
   geom_point_interactive(aes(tooltip = Antal),
@@ -509,7 +493,10 @@ responsesARSKURS <- df %>%
   scale_x_continuous(guide = guide_axis(n.dodge = 1), breaks = årtal) +
   scale_y_continuous(limits = c(0,NA)) +
   labs(title = "Antal respondenter per år",
-       subtitle = "Fördelat på årskurs")  
+       subtitle = "Fördelat på årskurs") +
+  theme_minimal() +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
 
 girafe(ggobj = responsesARSKURS)
 
@@ -524,7 +511,11 @@ otillr <- df.risk %>%
   geom_line(linewidth = 0.8) +
   geom_point_interactive(aes(tooltip = Andel),
                          size = 2.5) +
-  ylab("Andel i %")
+  ylab("Andel i %") +
+  theme_minimal() +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
+
 girafe(ggobj = otillr)
 
 ```
@@ -540,7 +531,7 @@ df %>%
   rename(År = ar,
          Årskurs = ARSKURS) %>% 
   group_by(År,Kön) %>% 
-  summarise(`Antal respondenter` = n()) %>% 
+  reframe(`Antal respondenter` = n()) %>% 
   gt(.,
    groupname_col = "År") %>% 
   gt_theme_espn() %>% 
@@ -554,7 +545,7 @@ df %>%
   rename(År = ar,
          Årskurs = ARSKURS) %>% 
   group_by(År,Kön,Årskurs) %>% 
-  summarise(`Antal respondenter` = n()) %>% 
+  reframe(`Antal respondenter` = n()) %>% 
   gt(.,
    groupname_col = c("År","Årskurs")) %>% 
   gt_theme_espn() %>% 
@@ -614,15 +605,18 @@ DIDsnirkel <- function(årtal) {
       hjust = 0.15
     ) +
     theme(
-      axis.text.x = element_text(size = ax.size, family = "sans"),
-      axis.text.y = element_text(size = ax.size, family = "sans"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
       title = element_text(size = title.size),
       legend.text = element_text(size = legend.size),
       strip.text.x = element_text(size = stript.size),
       panel.spacing = unit(pandist, "cm", data = NULL)
     ) +
     xlab("") +
-    ylab("")
+    ylab("") +
+  theme_minimal() +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
 }
 ```
 
@@ -708,11 +702,98 @@ df.risk %>%
   ) +
   xlab("") +
   ylab("") +
-  facet_wrap(~År)
+  facet_wrap(~År) +
+  theme_minimal() +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
 ```
 :::
 ::::
 
+## Samtliga riskfaktorer, per år (stapel)
+```{r}
+DIDstapel <- function(årtal) {
+  year <- årtal
+  df.risk %>%
+    #filter(!riskLevel == "NA") %>%
+    filter(Kommun == fokusKommun) %>%
+    filter(År == year) %>%
+    filter(!Index %in% c("Välbefinnande", "Positiv skolanknytning")) %>%
+    mutate(riskLevel = car::recode(riskLevel,"NA='För få svar';
+                                   'Medelhög risk'='Något förhöjd risk';
+                                   'Hög risk'='Förhöjd risk'")) %>% 
+    mutate(Risknivå = factor(riskLevel, levels = c("För få svar", "Låg risk", "Något förhöjd risk", "Förhöjd risk"))) %>%
+    ggplot(aes(x = Index, y = Andel, fill = Risknivå)) +
+    geom_col() +
+    geom_textpath(aes(label = Index, group = Index),
+                  text_only = T,
+                  position = "stack",
+                  hjust = 0,
+                  size = 4
+    ) +
+    #coord_polar(theta = "y") +
+    scale_fill_manual(values = lighten(c("lightgrey","#009E73", "#F0E442", "#D55E00"),
+                                       amount = 0.1, space = "HLS")) +
+    theme_bw() +
+    scale_x_discrete(
+      #expand = expansion(add = c(3, 0)),
+      limits = rev,
+      labels = NULL
+    ) +
+    scale_y_continuous(
+      breaks = seq(0, 90, 10),
+      labels = paste0(seq(0, 90, 10), "%"),
+      limits = c(0, 100)
+    ) +
+    labs(title = paste0(fokusKommun, " - ", year)) +
+    geom_texthline(
+      yintercept = 10, color = "black",
+      linetype = 2, size = 2.5, alpha = 0.6,
+      label = "Förhöjd risk",
+      hjust = 0.05
+    ) +
+    geom_texthline(
+      yintercept = 25, color = RISEprimRed,
+      linetype = 2, size = 2.5, alpha = 0.6,
+      label = "Något förhöjd risk",
+      hjust = 0.15
+    ) +
+    theme(
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = stript.size),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    ) +
+    xlab("") +
+    ylab("") +
+  theme_minimal() +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
+}
+```
+
+:::: column-page-inset-left
+::: panel-tabset
+### 2022
+```{r}
+DIDstapel("2022")
+```
+### 2020
+```{r}
+DIDstapel("2020")
+```
+### 2018
+```{r}
+DIDstapel("2018")
+```
+### 2016
+```{r}
+DIDstapel("2016")
+```
+:::
+::::
 ## Riskfaktorer över tid, uppdelat på kön
 ```{r}
 DIDareaPlot <- function(faktor) {
@@ -761,15 +842,7 @@ DIDareaPlot <- function(faktor) {
     scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
     xlab("Årtal") +
     ylab("Andel i %") +
-    theme(
-      axis.text.x = element_text(size = ax.size, family = "sans"),
-      axis.text.y = element_text(size = ax.size, family = "sans"),
-      title = element_text(size = title.size),
-      legend.text = element_text(size = legend.size),
-      strip.text.x = element_text(size = 14),
-      panel.spacing = unit(pandist, "cm", data = NULL)
-    ) +
-    labs(
+        labs(
       title = paste0(plotFaktor, " - ", fokusKommun),
       subtitle = "Uppdelat på kön",
       caption = str_wrap("Svart streckad linje = referensvärde för 10% med högst risk. 
@@ -777,7 +850,17 @@ DIDareaPlot <- function(faktor) {
         width = 60
       )
     ) +
-    facet_wrap(~Kön)
+    facet_wrap(~Kön) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 }
 ```
 
@@ -805,6 +888,97 @@ DIDareaPlot("Närsamhälle")
 :::
 
 ## Riskfaktorer över tid, uppdelat på årskurs
+```{r}
+DIDareaPlot2 <- function(faktor) {
+  plotFaktor <- faktor
+  df.plot <- df %>%
+    filter(Kommun == fokusKommun) %>%
+    mutate(
+      Risknivå = case_when(
+        .data[[plotFaktor]] < rslimits |>
+          select(plotFaktor) |>
+          slice(1) |>
+          pull() ~ "Låg risk",
+        .data[[plotFaktor]] >= rslimits |>
+          select(plotFaktor) |>
+          slice(1) |>
+          pull() &
+          .data[[plotFaktor]] < rslimits |>
+            select(plotFaktor) |>
+            slice(2) |>
+            pull() ~ "Något förhöjd risk",
+        .data[[plotFaktor]] >= rslimits |>
+          select(plotFaktor) |>
+          slice(2) |>
+          pull() ~ "Förhöjd risk",
+        TRUE ~ "Otillräckliga svar"
+      )
+    )
+
+  df.plot %>%
+    filter(Kön %in% c("Pojke", "Flicka")) %>%
+    # filter(ar %in% input$years0) %>% # allow selection of span of years?
+    mutate(Risknivå = factor(Risknivå, levels = c("Förhöjd risk", "Något förhöjd risk", "Låg risk", "Otillräckliga svar"))) %>%
+    group_by(ar, Kön, ARSKURS) %>%
+    count(Risknivå, .drop = FALSE) %>%
+    mutate(Andel = (100 * n / sum(n)) %>% round(digits = 1)) %>%
+    ggplot(aes(x = ar, y = Andel)) +
+    geom_area(aes(fill = Risknivå),
+      position = "stack",
+      alpha = 0.85
+    ) +
+    scale_fill_manual(values = c("#D55E00", "#F0E442", "#009E73", "lightgrey")) +
+    #scale_color_manual(values = c("#D55E00", "#F0E442", "#009E73", "lightgrey")) +
+    geom_hline(yintercept = 90, color = "black", linetype = 2, linewidth = 0.66) +
+    geom_hline(yintercept = 75, color = RISEprimRed, linetype = 2, linewidth = 0.66) +
+    scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100)) +
+    scale_x_continuous(breaks = årtal, guide = guide_axis(n.dodge = 2)) +
+    xlab("Årtal") +
+    ylab("Andel i %") +
+        labs(
+      title = paste0(plotFaktor, " - ", fokusKommun),
+      subtitle = "Uppdelat på kön",
+      caption = str_wrap("Svart streckad linje = referensvärde för 10% med högst risk. 
+      Röd linje = referensvärde för 25% med högst risk",
+        width = 60
+      )
+    ) +
+    facet_grid(ARSKURS~Kön) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text = element_text(size = 11),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
+}
+```
+
+::: panel-tabset
+### Utagerande
+```{r}
+DIDareaPlot2("Utagerande")
+```
+### Psykiska/psykosomatiska besvär
+```{r}
+DIDareaPlot2("Psykiska/ psykosomatiska besvär")
+```
+### Föräldraskap
+```{r}
+DIDareaPlot2("Föräldraskap")
+```
+### Vantrivsel i skolan
+```{r}
+DIDareaPlot2("Vantrivsel i skolan")
+```
+### Närsamhälle
+```{r}
+DIDareaPlot2("Närsamhälle")
+```
+:::
 
 ```{r}
 #| include: false
@@ -876,6 +1050,12 @@ DIDareaPlot("Närsamhälle")
 ## Välbefinnande
 
 ::: panel-tabset
+### Medelvärden
+```{r}
+
+```
+
+
 ### Grupperat
 ```{r}
 
@@ -924,20 +1104,22 @@ df.plot <- df %>%
       #scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
       xlab("Årtal") +
       ylab("Andel i %") +
-      theme(
-        axis.text.x = element_text(size = ax.size, family = "sans"),
-        axis.text.y = element_text(size = ax.size, family = "sans"),
-        title = element_text(size = title.size),
-        legend.text = element_text(size = legend.size),
-        strip.text.x = element_text(size = stript.size),
-        panel.spacing = unit(pandist, "cm", data = NULL)
-      ) +
       labs(
         title = paste0(plotFaktor, " - ", fokusKommun),
         subtitle = "Uppdelat på kön",
         caption = str_wrap("Grönt fält = Andel som överstiger referensvärde för 20% med högst välbefinnande.\nRött fält indikerar andel som understiger referensvärde för 20% med lägst välbefinnande.")
       ) +
-      facet_wrap(~Kön)
+      facet_wrap(~Kön) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 ### Kontinuerlig skala
 ```{r}
@@ -963,17 +1145,22 @@ df.plot <- df %>%
         size = .4,
         position = position_dodge2nudge(x = .05, width = .8)
       ) +
-      theme(
-        axis.text.x = element_text(size = ax.size, family = "sans"),
-        axis.text.y = element_text(size = ax.size, family = "sans"),
-        title = element_text(size = title.size),
-      ) +
       xlab("") +
       ylab("") +
       labs(
         title = paste0(plotFaktor),
         caption = str_wrap("Pricken visar medelvärde. Fältet i mitten visar 50% av respondenterna, medan nästa fält visar 90% av respondenterna.")
-      )
+      ) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 ### Box- & violinplots
 ```{r}
@@ -990,9 +1177,21 @@ ggplot(df.plot, aes(y = RSfaktor, x = factor(År))) +
   geom_boxplot(alpha = 0.4, width = 0.6, outlier.shape = NA, notch = TRUE) +
   scale_fill_brewer(type = "qual", palette = "Dark2") +
   xlab("Årtal") +
-  ylab("Välbefinnande")
+  ylab("Välbefinnande") +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 :::
+
+
 
 ## Positiv skolanknytning över tid
 
@@ -1045,20 +1244,22 @@ df.plot <- df %>%
       #scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
       xlab("Årtal") +
       ylab("Andel i %") +
-      theme(
-        axis.text.x = element_text(size = ax.size, family = "sans"),
-        axis.text.y = element_text(size = ax.size, family = "sans"),
-        title = element_text(size = title.size),
-        legend.text = element_text(size = legend.size),
-        strip.text.x = element_text(size = stript.size),
-        panel.spacing = unit(pandist, "cm", data = NULL)
-      ) +
       labs(
         title = paste0(plotFaktor, " - ", fokusKommun),
         subtitle = "Uppdelat på kön",
         caption = str_wrap("Grönt fält indikerar andel som överstiger referensvärde för 20% med högst skydd.\nRött fält  indikerar andel som understiger referensvärde för 20% med lägst skydd.")
       ) +
-      facet_wrap(~Kön)
+      facet_wrap(~Kön) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 ### Kontinuerlig skala
 ```{r}
@@ -1094,7 +1295,17 @@ df.plot <- df %>%
       labs(
         title = paste0(plotFaktor),
         caption = str_wrap("Pricken visar medelvärde. Fältet i mitten visar 50% av respondenterna, medan nästa fält visar 90% av respondenterna.")
-      )
+      ) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 ### Box- & violinplots
 ```{r}
@@ -1111,7 +1322,17 @@ ggplot(df.plot, aes(y = RSfaktor, x = factor(År))) +
   geom_boxplot(alpha = 0.4, width = 0.6, outlier.shape = NA, notch = TRUE) +
   scale_fill_brewer(type = "qual", palette = "Dark2") +
   xlab("Årtal") +
-  ylab("Välbefinnande")
+  ylab("Välbefinnande") +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 :::
 
@@ -1144,26 +1365,28 @@ df.kolada <- KOLADA %>%
 
 ggplot(df.kolada,aes(x = År, y = Andel, group = Kommun, color = Kommun)) +
   geom_line(alpha = 0.5, 
-            linewidth = 0.5) +
+            linewidth = 0.8) +
   geom_point(alpha = 0.5, 
-             size = 1.2) +
+             size = 2) +
   geom_line(data = filter(df.kolada, Kommun == fokusKommun), alpha = 1) +
   geom_point(data = filter(df.kolada, Kommun == fokusKommun), alpha = 1) +
   scale_x_continuous(guide = guide_axis(n.dodge = 2)) +
   scale_y_continuous(limits = c(0, 100)) +
   scale_color_brewer(type = "qual", palette = "Dark2") +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_text(size = ax.size, family = "sans"),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = stript.size),
-    panel.spacing = unit(0.5, "cm", data = NULL)
-  ) +
   facet_wrap(~KPI,
              ncol = 4,
              scales = "free",
-             labeller = labeller(KPI = label_wrap_gen(25)))
+             labeller = labeller(KPI = label_wrap_gen(25))) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 ### Grundskola
 ```{r}
@@ -1177,28 +1400,30 @@ df.kolada <- KOLADA %>%
   )
 
 ggplot(df.kolada,aes(x = År, y = Andel, group = Kommun, color = Kommun)) +
-  geom_line(alpha = 0.5, linewidth = 0.5) +
-  geom_point(alpha = 0.5, size = 1.2) +
+  geom_line(alpha = 0.5, linewidth = 0.8) +
+  geom_point(alpha = 0.5, size = 2) +
   geom_line(data = filter(df.kolada, Kommun == fokusKommun), alpha = 1) +
   geom_point(data = filter(df.kolada, Kommun == fokusKommun), alpha = 1) +
   scale_x_continuous(guide = guide_axis(n.dodge = 2)) +
   scale_y_continuous(limits = c(0, 100)) +
   scale_color_brewer(type = "qual", palette = "Dark2") +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_text(size = ax.size, family = "sans"),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = stript.size),
-    panel.spacing = unit(0.5, "cm", data = NULL)
-  ) +
   ylab("Andel i %") +
   xlab("") +
   facet_wrap(~KPI,
              ncol = 2,
              nrow = 2,
              scales = "free",
-             labeller = labeller(KPI = label_wrap_gen(22)))
+             labeller = labeller(KPI = label_wrap_gen(22))) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 ### Gymnasie
 ```{r}
@@ -1219,21 +1444,23 @@ ggplot(df.kolada,aes(x = År, y = Andel, group = Kommun, color = Kommun)) +
   scale_x_continuous(guide = guide_axis(n.dodge = 2)) +
   scale_y_continuous(limits = c(0, 100)) +
   scale_color_brewer(type = "qual", palette = "Dark2") +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_text(size = ax.size, family = "sans"),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = stript.size),
-    panel.spacing = unit(0.5, "cm", data = NULL)
-  ) +
   ylab("Andel i %") +
   xlab("") +
   facet_wrap(~KPI,
              ncol = 2,
              nrow = 2,
              scales = "free",
-             labeller = labeller(KPI = label_wrap_gen(22)))
+             labeller = labeller(KPI = label_wrap_gen(22))) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 ```
 :::
 
@@ -1247,7 +1474,7 @@ responsesKommuner <- df %>%
   rename(År = ar,
          Årskurs = ARSKURS) %>% 
   group_by(År,Kommun) %>% 
-  summarise(Antal = n()) %>% 
+  reframe(Antal = n()) %>% 
   ggplot(aes(x = År, y = Antal, group = Kommun, color = Kommun)) + 
   geom_line(linewidth = 1) +
   geom_point_interactive(aes(tooltip = Antal),
@@ -1256,7 +1483,17 @@ responsesKommuner <- df %>%
   scale_x_continuous(guide = guide_axis(n.dodge = 1), breaks = årtal) +
   scale_y_continuous(limits = c(0,2000)) +
   labs(title = "Antal respondenter per år",
-       subtitle = "Fördelat på kommun")
+       subtitle = "Fördelat på kommun") +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 
 girafe(ggobj = responsesKommuner)
 
@@ -1265,157 +1502,72 @@ girafe(ggobj = responsesKommuner)
 
 ### Riskfaktorer
 ```{r}
-DIDradarPlot <- function(årtal){
+DIDradarPlot <- function(årtal) {
   year <- årtal
-  df.plot<-sums.index %>%
-  filter(Kommun %in% jmfKommun) %>%
-  filter(Faktor %in% rfactors) %>% 
-  filter(Kön %in% c("Flicka","Pojke")) %>%
-  filter(År == year)
+  df.plot <- sums.index %>%
+    filter(Kommun %in% jmfKommun) %>%
+    filter(Faktor %in% rfactors) %>%
+    filter(Kön %in% c("Flicka", "Pojke")) %>%
+    filter(År == year)
 
-ggplot(df.plot,aes(x = Faktor, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
-  geom_line(linewidth = 0.9,
-            alpha = 0.7) +
-  geom_point(size = 2.5, alpha = 0.7) +
-  geom_line(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  geom_point(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  scale_color_brewer(type = "qual", palette = "Dark2") +
-  see::coord_radar(theta = "x", start = 3, clip = "off") +
-  scale_y_continuous(limits = c(-3, NA), expand = c(0,0, 0, 0)) +
-  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_blank(),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = 14),
-    panel.background = element_rect(fill = 'white'),
-    panel.grid.major = element_line(color = 'grey', linetype = 'dotted'),
-    panel.grid.minor = element_line(color = 'grey', linewidth = 2),
-    panel.spacing = unit(pandist, "cm", data = NULL)
-  ) +
-  labs(title = paste0("Riskfaktorer ",year),
-       subtitle = "Högre värde = större risk",
-       y = "", x = "") +
-  facet_wrap(~Kön)
+  ggplot(df.plot, aes(x = Faktor, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
+    geom_line(
+      linewidth = 0.9,
+      alpha = 0.7
+    ) +
+    geom_point(size = 2.5, alpha = 0.7) +
+    geom_line(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
+    geom_point(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
+    scale_color_brewer(type = "qual", palette = "Dark2") +
+    see::coord_radar(theta = "x", start = 3, clip = "off") +
+    scale_y_continuous(limits = c(-3, NA), expand = c(0, 0, 0, 0)) +
+    scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+    labs(
+      title = paste0("Riskfaktorer ", year),
+      subtitle = "Högre värde = större risk",
+      y = "", x = ""
+    ) +
+    facet_wrap(~Kön) +
+    theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_blank(),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 14),
+      strip.background = element_rect(fill = RISEprimYellowLight),
+      panel.background = element_rect(fill = "white"),
+      panel.grid.major = element_line(color = "grey", linetype = "dotted"),
+      panel.grid.minor = element_line(color = "grey", linewidth = 2),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 }
 ```
 
 ::: panel-tabset
 #### 2022
+
+Vi saknar data för Stockholm gällande 2022.
 ```{r}
 DIDradarPlot("2022")
 ```
 #### 2020
 ```{r}
-year <- "2020"
-df.plot<-sums.index %>%
-  filter(Kommun %in% jmfKommun) %>%
-  filter(Faktor %in% rfactors) %>% 
-  filter(Kön %in% c("Flicka","Pojke")) %>%
-  filter(År == year)
-
-ggplot(df.plot,aes(x = Faktor, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
-  geom_line(linewidth = 0.9,
-            alpha = 0.7) +
-  geom_point(size = 2.5, alpha = 0.7) +
-  geom_line(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  geom_point(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  scale_color_brewer(type = "qual", palette = "Dark2") +
-  see::coord_radar(theta = "x", start = 3, clip = "off") +
-  scale_y_continuous(limits = c(-3, NA), expand = c(0,0, 0, 0)) +
-  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_blank(),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = 14),
-    panel.background = element_rect(fill = 'white'),
-    panel.grid.major = element_line(color = 'grey', linetype = 'dotted'),
-    panel.grid.minor = element_line(color = 'grey', linewidth = 2),
-    panel.spacing = unit(pandist, "cm", data = NULL)
-  ) +
-  labs(title = paste0("Riskfaktorer ",year),
-       subtitle = "Högre värde = större risk",
-       y = "", x = "") +
-  facet_wrap(~Kön)
+DIDradarPlot("2020")
 ```
 #### 2018
 ```{r}
-year <- "2018"
-df.plot<-sums.index %>%
-  filter(Kommun %in% jmfKommun) %>%
-  filter(Faktor %in% rfactors) %>% 
-  filter(Kön %in% c("Flicka","Pojke")) %>%
-  filter(År == year)
-
-ggplot(df.plot,aes(x = Faktor, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
-  geom_line(linewidth = 0.9,
-            alpha = 0.7) +
-  geom_point(size = 2.5, alpha = 0.7) +
-  geom_line(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  geom_point(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  scale_color_brewer(type = "qual", palette = "Dark2") +
-  see::coord_radar(theta = "x", start = 3, clip = "off") +
-  scale_y_continuous(limits = c(-3, NA), expand = c(0,0, 0, 0)) +
-  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_blank(),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = 14),
-    panel.background = element_rect(fill = 'white'),
-    panel.grid.major = element_line(color = 'grey', linetype = 'dotted'),
-    panel.grid.minor = element_line(color = 'grey', linewidth = 2),
-    panel.spacing = unit(pandist, "cm", data = NULL)
-  ) +
-  labs(title = paste0("Riskfaktorer ",year),
-       subtitle = "Högre värde = större risk",
-       y = "", x = "") +
-  facet_wrap(~Kön)
+DIDradarPlot("2018")
 ```
 #### 2016
 ```{r}
-year <- "2016"
-df.plot<-sums.index %>%
-  filter(Kommun %in% jmfKommun) %>%
-  filter(Faktor %in% rfactors) %>% 
-  filter(Kön %in% c("Flicka","Pojke")) %>%
-  filter(År == year)
-
-ggplot(df.plot,aes(x = Faktor, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
-  geom_line(linewidth = 0.9,
-            alpha = 0.7) +
-  geom_point(size = 2.5, alpha = 0.7) +
-  geom_line(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  geom_point(data = filter(df.plot, Kommun == fokusKommun), alpha = 1) +
-  scale_color_brewer(type = "qual", palette = "Dark2") +
-  see::coord_radar(theta = "x", start = 3, clip = "off") +
-  scale_y_continuous(limits = c(-3, NA), expand = c(0,0, 0, 0)) +
-  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_blank(),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = 14),
-    panel.background = element_rect(fill = 'white'),
-    panel.grid.major = element_line(color = 'grey', linetype = 'dotted'),
-    panel.grid.minor = element_line(color = 'grey', linewidth = 2),
-    panel.spacing = unit(pandist, "cm", data = NULL)
-  ) +
-  labs(title = paste0("Riskfaktorer ",year),
-       subtitle = "Högre värde = större risk",
-       y = "", x = "") +
-  facet_wrap(~Kön)
+DIDradarPlot("2016")
 ```
 :::
 
 ### Medelvärden över tid
 ```{r}
-DIDmedelSD <- function(faktor, xlim = c(-2,2)) {
+DIDmedelSD <- function(faktor, xlim = c(-3,3)) {
   plotFaktor <- faktor
   df.plot <- sums.index %>%
   filter(Faktor == plotFaktor) %>%
@@ -1435,16 +1587,20 @@ DIDmedelSD <- function(faktor, xlim = c(-2,2)) {
   ) +
   scale_y_continuous(limits = xlim) +
   scale_x_discrete(guide = guide_axis(n.dodge = 1)) +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_text(size = ax.size, family = "sans"),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    panel.spacing = unit(pandist, "cm", data = NULL)
-  ) +
+
   labs(title = "Medelvärde över tid", subtitle = "Skuggat fält indikerar en standardavvikelse (~ 68%)") +
   xlab("Årtal") +
-  ylab(paste0(plotFaktor))
+  ylab(paste0(plotFaktor)) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
 }
 ```
 
@@ -1467,24 +1623,23 @@ DIDmedelSD("Vantrivsel i skolan")
 ```
 #### Närsamhälle
 ```{r}
-DIDmedelSD("Närsamhälle", xlim = c(-3,2))
+DIDmedelSD("Närsamhälle")
 ```
 :::
 
+### Medelvärden över tid uppdelat på kön
+
 ```{r}
-#| eval: false
-
-# same but facet_wrapped for gender
-
-plotFaktor <- "Psykiska/ psykosomatiska besvär"
-df.plot <- sums.index %>%
+DIDmedelSDg <- function(faktor, xlim = c(-3,3)) {
+  plotFaktor <- faktor
+  df.plot <- sums.index %>%
   filter(Faktor == plotFaktor) %>%
   filter(Kommun %in% jmfKommun) %>%
-  filter(!Kön == "Flickor och pojkar") %>%
+  filter(Kön %in% c("Flicka", "Pojke")) %>%
   filter(!År < 2006) %>% 
   mutate(År = as.factor(År))
-
-ggplot(df.plot, aes(x = År, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
+  
+  ggplot(df.plot, aes(x = År, y = Medel, group = Kommun, color = Kommun, fill = Kommun)) + # make plot, with area color
   geom_line(linewidth = 0.9,
             alpha = 0.7) +
   geom_point(size = 2.5, alpha = 0.7) +
@@ -1493,21 +1648,49 @@ ggplot(df.plot, aes(x = År, y = Medel, group = Kommun, color = Kommun, fill = K
   geom_ribbon(aes(ymin = sd.lo, ymax = sd.hi),
               alpha = 0.1, linetype = 0
   ) +
-  scale_y_continuous(limits = c(-2,2)) +
-  scale_x_discrete(guide = guide_axis(n.dodge = 1)) +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_text(size = ax.size, family = "sans"),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    panel.spacing = unit(pandist, "cm", data = NULL)
-  ) +
+  scale_y_continuous(limits = xlim) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
   labs(title = "Medelvärde över tid", subtitle = "Skuggat fält indikerar en standardavvikelse (~ 68%)") +
   xlab("Årtal") +
   ylab(paste0(plotFaktor)) +
-  facet_wrap(~Kön)
+  theme_minimal() +
+  theme_rise() +
+  facet_wrap(~Kön) +
+  theme_minimal() +
+  theme_rise() +
+    theme(text = element_text(family = "Lato"),
+      axis.text.x = element_text(size = ax.size),
+      axis.text.y = element_text(size = ax.size),
+      title = element_text(size = title.size),
+      legend.text = element_text(size = legend.size),
+      strip.text.x = element_text(size = 13),
+      panel.spacing = unit(pandist, "cm", data = NULL)
+    )
+}
 ```
 
+::: panel-tabset
+#### Utagerande
+```{r}
+DIDmedelSDg("Utagerande")
+```
+#### Psykiska/psykosomatiska besvär
+```{r}
+DIDmedelSDg("Psykiska/ psykosomatiska besvär")
+```
+#### Föräldraskap
+```{r}
+DIDmedelSDg("Föräldraskap")
+```
+#### Vantrivsel i skolan
+```{r}
+DIDmedelSDg("Vantrivsel i skolan")
+```
+#### Närsamhälle
+```{r}
+DIDmedelSDg("Närsamhälle")
+```
+:::
 
 ### Högrisk över tid
 
@@ -1527,19 +1710,21 @@ ggplot(df.plot, aes(x = År, y = n.90, group = Kön, color = Kön, tooltip = n, 
   scale_y_continuous(limits = c(0, 30)) +
   scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
   scale_color_brewer(type = "qual", palette = "Dark2") +
-  theme(
-    axis.text.x = element_text(size = ax.size, family = "sans"),
-    axis.text.y = element_text(size = ax.size, family = "sans"),
-    title = element_text(size = title.size),
-    legend.text = element_text(size = legend.size),
-    strip.text.x = element_text(size = stript.size),
-    panel.spacing = unit(pandist, "cm", data = NULL)
-  ) +
-  #geom_hline(yintercept = 10, color = RISEprimRed, linetype = 2, linewidth = 0.4) +
+    #geom_hline(yintercept = 10, color = RISEprimRed, linetype = 2, linewidth = 0.4) +
   ggtitle("Procent över percentil 90, per år") +
   xlab("") +
   ylab(paste0(plotFaktor)) +
-  facet_wrap(~Kommun, labeller = labeller(Kommun = label_wrap_gen(12)))
+  facet_wrap(~Kommun, labeller = labeller(Kommun = label_wrap_gen(12))) +
+  theme_minimal(base_family = "Lato") +
+  theme_rise() +
+  theme(
+    axis.text.x = element_text(size = ax.size),
+    axis.text.y = element_text(size = ax.size),
+    title = element_text(size = title.size),
+    legend.text = element_text(size = legend.size),
+    strip.text.x = element_text(size = stript.size+1),
+    panel.spacing = unit(pandist, "cm", data = NULL)
+  )
 }
 ```
 

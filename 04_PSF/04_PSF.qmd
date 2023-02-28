@@ -190,7 +190,7 @@ df.dif.years$ar <- NULL
 
 ```
 
-## Psykiska/psykosomatiska besvär
+## Bakgrund
 
 Item/frågor har etiketter F88-F99 i datafilen, och motsvaras av fråga 90-101 i PDF-filen med frågor.
 
@@ -1296,6 +1296,8 @@ ggplot(df.if, aes(x = as.factor(F99o), y = SumScores)) +
   coord_flip()
 ```
 
+:::: column-page
+
 ## Jämförelser befintligt och nytt index
 
 Rapporter utifrån Stockholmsenkäten har hittills räknat samman ett index för "Psykisk hälsa", baserat på enkätsvar för de fem items som i denna analys återfinns under rubriken "Psykosomatiska besvär"
@@ -1315,39 +1317,65 @@ I [Stockholm Stads rapport för år 2022](https://start.stockholm/globalassets/a
 
 ![](Index0-100.png)
 
+Vi kan återskapa figuren utifrån data från 2020 för årskurs 9.
+
 ```{r}
-#| fig-width: 9
-df.indexR <- df.index %>% 
-  mutate(across(items.psm, ~ recode(.x,"0=100;1=75;2=50;3=25;4=0"))) %>% 
-  na.omit() %>% 
+#| fig-width: 12
+#| fig-height: 6
+df.indexR <- df.index %>%
+  mutate(across(items.psm, ~ recode(.x, "0=100;1=75;2=50;3=25;4=0"))) %>%
+  na.omit() %>%
   mutate(PSFindex = rowMeans(across(items.psm)))
 
 library(ggchicklet)
 # create a wide palette based on RISE colors
 RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
 # "#009CA6" "#5C758B" "#B94F70" "#EC5D4F" "#F5A127" "#FFE500"
-RISEpalette2 <- colorRampPalette(colors = c("#009ca6","#e83c63", "#ffe500"))(8)
+RISEpalette2 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(8)
 
-df.indexR %>% 
-  filter(ar == 2020) %>% 
-  filter(Kön %in% c("Pojke","Flicka")) %>% 
-  filter(!is.na(SkolSDO)) %>% 
-  group_by(SkolSDO,Kön) %>% 
-  summarise(PSFmean = mean(PSFindex, na.rm = T)) %>% 
+df.indexR %>%
+  filter(ar == 2020) %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  group_by(SkolSDO, Kön) %>%
+  summarise(PSFmean = round(mean(PSFindex, na.rm = T), 0)) %>%
   ggplot(aes(y = PSFmean, x = SkolSDO, fill = Kön, color = Kön)) +
-  geom_chicklet(radius = grid::unit(1.5, 'mm'),
-                position = "dodge") +
-  geom_hline(aes(yintercept = mean(PSFmean)), linetype = 2, color = "black") +
-  annotate("text", label = "Medelvärde Stockholm Stad", y = 57, x = 3, color = "darkgrey") +
-  scale_fill_manual('Kön', values = RISEpalette1[c(1,5)], aesthetics = c("color","fill")) +
-  scale_x_discrete('Stadsdel', guide = guide_axis(n.dodge = 2)) +
-  theme_rise() +
-  ylab("Snittvärde") +
-  labs(title = "Psykisk ohälsa indexvärde")
+  geom_chicklet(
+    radius = grid::unit(1.5, "mm"),
+    position = "dodge"
+  ) +
+  geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), linetype = 2, color = "darkgrey") +
+  geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), linetype = 3, color = "black") +
+  geom_text(aes(label = PSFmean, y = PSFmean + 2),
+    position = position_dodge(width = .9),
+    color = "black", size = 3.8
+  ) +
+
+  # annotate("text", label = "Medelvärde", y = 57, x = 3, color = "darkgrey") +
+  scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+  scale_x_discrete("Stadsdel", guide = guide_axis(n.dodge = 3)) +
+  scale_y_continuous(limits = c(0,100)) +
+  theme_minimal(base_size = 12) +
+  theme_rise(axissize = 14, titlesize = 16) +
+  theme(text = element_text(family = "Lato")) +
+  ylab("Medelvärde") +
+  labs(
+    title = "Psykisk hälsa indexvärde",
+    subtitle = "Befintligt index, 2020, åk 9",
+    caption = "Streckade linjer betecknar medelvärde för samtliga stadsdelar"
+  )
   
 ```
 
+### Nytt index (5 items)
+
+Här utgår vi från samma fem items som i det befintliga indexet, men kodar om svarskategorierna som inte fungerade som tänkt, och estimerar fram ett indexvärde för varje individ utifrån Rasch-parametrarna. För jämförbarhet skalas sedan mätvärdet om till att omfånget 0-100.
+
+Frågorna mäter i huvudsak besvär, vilket medfört att indexet uppkallats efter det. För jämförbarhet med det befintliga indexet "psykisk hälsa", har mätvärden reverserats, så högre värden = lägre nivåer av besvär. Samma gäller indexet med 8 items.
+
 ```{r}
+
 # read item parameters from previous analysis
 itemParams.psm <- read_csv("PsyksomItemParams.csv") %>% 
   as.matrix()
@@ -1358,7 +1386,6 @@ df.index <- df.index %>%
 
 # recode items to correct response categories
 df.indexNew <- df.index %>% 
-  filter(ar == 2020) %>% 
   select(all_of(c(items.psm,"id"))) %>% 
   na.omit()
 
@@ -1378,31 +1405,707 @@ df.index <- df.indexNew %>%
 
 # reverse score to match old index
 df.index$PSMscore <- df.index$PSMscore*-1
+```
 
+```{r}
+# rescale to match 0-100 range
 df.index$PSMscore100 <- round(scales::rescale(df.index$PSMscore, to = c(0,100)),0)
 
 ```
 
-### Omskalat index
+### Nytt index (8 items)
+
+Det index som både representerar psykosomatiska och psykiska besvär innehåller 8 frågor, och beräknas utifrån items efter korrigering av svarskategorier.
+
+```{r}
+newIndex <- read_csv("PSFitemnr.csv")
+
+items.psnew <- newIndex$itemnr
+
+df.index8 <- df.all %>%
+  select(items.psnew, Kön, ARSKURS, ar, SkolSDO)
+
+RIlistitems(df.index8)
+```
+
+```{r}
+# read item parameters from previous analysis
+itemParams.psnew <- read_csv("itemParameters.csv") %>% 
+  as.matrix()
+
+# create id variable to re-join thetas
+df.index8 <- df.index8 %>% 
+  mutate(id = seq.int(nrow(.)))
+
+# recode items to correct response categories
+df.indexNew8 <- df.index8 %>% 
+  select(all_of(c(items.psnew,"id"))) %>% 
+  na.omit()
+
+rcat1 <- c("F91")
+rcat2 <- c("F95", "F97")
+rcat3 <- c("F92", "F93", "F98", "F99")
+
+for (i in rcat1) {
+  df.indexNew8[[i]] <- recode(df.indexNew8[[i]], "2=1;3=2;4=2", as.factor = FALSE)
+}
+for (i in rcat2) {
+  df.indexNew8[[i]] <- recode(df.indexNew8[[i]], "1=0;2=1;3=2;4=3", as.factor = FALSE)
+}
+for (i in rcat3) {
+  df.indexNew8[[i]] <- recode(df.indexNew8[[i]], "4=3", as.factor = FALSE)
+}
+
+#RItileplot(df.indexNew %>% select(!id))
+#itemParams.psm
+df.indexNew8$PS8score <- df.indexNew8 %>% 
+  select(!id) %>% 
+  RIestThetas2(cpu = 8, itemParams = itemParams.psnew)
+df.index8 <- df.indexNew8 %>% 
+  select(id,PS8score) %>% 
+  left_join(df.index8,df.indexNew8, by = "id")
+
+# reverse score to match old index
+df.index8$PS8score <- df.index8$PS8score*-1
+# and rescaled version
+df.index8$PS8score100 <- round(scales::rescale(df.index8$PS8score, to = c(0,100)),0)
+
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 6
+df.index %>% 
+  filter(ar == 2020) %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  filter(ARSKURS == "Åk 9") %>% 
+  filter(!is.na(SkolSDO)) %>% 
+  group_by(SkolSDO,Kön) %>% 
+  summarise(PSFmean = round(mean(PSMscore100, na.rm = T),0)) %>% 
+  ggplot(aes(y = PSFmean, x = SkolSDO, fill = Kön, color = Kön)) +
+  geom_chicklet(
+    radius = grid::unit(1.5, "mm"),
+    position = "dodge"
+  ) +
+  geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), linetype = 2, color = "darkgrey") +
+  geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), linetype = 3, color = "black") +
+  geom_text(aes(label = PSFmean, y = PSFmean + 2),
+    position = position_dodge(width = .9),
+    color = "black", size = 3.8
+  ) +
+
+  # annotate("text", label = "Medelvärde", y = 57, x = 3, color = "darkgrey") +
+  scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+  scale_x_discrete("Stadsdel", guide = guide_axis(n.dodge = 3)) +
+  scale_y_continuous(limits = c(0,100)) +
+  theme_minimal(base_size = 12) +
+  theme_rise(axissize = 14, titlesize = 16) +
+  theme(text = element_text(family = "Lato")) +
+  ylab("Medelvärde") +
+  labs(title = "Psykosomatiska besvär indexvärde",
+       subtitle = "5 items, år 2020, åk 9",
+       caption = "Streckade linjer betecknar medelvärde per kön för samtliga stadsdelar")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 6
+df.index8 %>% 
+  filter(ar == 2020) %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  filter(ARSKURS == "Åk 9") %>% 
+  filter(!is.na(SkolSDO)) %>% 
+  group_by(SkolSDO,Kön) %>% 
+  summarise(PSFmean = round(mean(PS8score100, na.rm = T),0)) %>% 
+  ggplot(aes(y = PSFmean, x = SkolSDO, fill = Kön, color = Kön)) +
+  geom_chicklet(
+    radius = grid::unit(1.5, "mm"),
+    position = "dodge"
+  ) +
+  geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), linetype = 2, color = "darkgrey") +
+  geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), linetype = 3, color = "black") +
+  geom_text(aes(label = PSFmean, y = PSFmean + 2),
+    position = position_dodge(width = .9),
+    color = "black", size = 3.8
+  ) +
+
+  # annotate("text", label = "Medelvärde", y = 57, x = 3, color = "darkgrey") +
+  scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+  scale_x_discrete("Stadsdel", guide = guide_axis(n.dodge = 3)) +
+  scale_y_continuous(limits = c(0,100)) +
+  theme_minimal(base_size = 12) +
+  theme_rise(axissize = 14, titlesize = 16) +
+  theme(text = element_text(family = "Lato")) +
+  ylab("Medelvärde") +
+  labs(title = "Psykiska/psykosomatiska besvär indexvärde",
+       subtitle = "8 items, år 2020, åk 9",
+       caption = "Streckade linjer betecknar medelvärde per kön för samtliga stadsdelar")
+```
+
+### Indexvärde över tid, åk 9
+
+```{r}
+#| fig-width: 12
+#| fig-height: 10
+
+årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)
+# library(ggiraph)
+# psfTid <- df.indexR %>%
+#   filter(Kön %in% c("Pojke", "Flicka")) %>%
+#   filter(!is.na(SkolSDO)) %>%
+#   group_by(ar, SkolSDO, Kön) %>%
+#   summarise(PSFmean = round(mean(PSFindex, na.rm = T), 0),
+#             stdev = round(sd(PSFindex, na.rm = T))) %>%
+#   ggplot(aes(y = PSFmean, x = ar, color = Kön, group = Kön)) +
+#   geom_line(linewidth = 1) +
+#   geom_point_interactive(aes(tooltip = PSFmean),
+#                          size = 1.5) +
+#   geom_ribbon(aes(ymin = PSFmean-stdev, ymax = PSFmean+stdev, fill = Kön), 
+#               alpha = 0.15, linetype = 0) +
+#   geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), 
+#              linetype = 2, color = "black", alpha = 0.8) +
+#   geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), 
+#              linetype = 3, color = "black", alpha = 0.8) +
+#   scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+#   scale_x_continuous("År",guide = guide_axis(n.dodge = 2), breaks = årtal) +
+#   scale_y_continuous("Medelvärde", limits = c(0,100)) +
+#   labs(title = "Psykisk ohälsa indexvärde",
+#        caption = "Skuggade fält indikerar en standardavvikelse") +
+#   facet_wrap(~SkolSDO) +
+#   theme_minimal(base_size = 11) +
+#   theme_rise()
+# 
+# ggiraph(ggobj = psfTid)
+
+df.indexR %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  group_by(ar, SkolSDO, Kön) %>%
+  summarise(PSFmean = round(mean(PSFindex, na.rm = T), 0),
+            stdev = round(sd(PSFindex, na.rm = T))) %>%
+  ggplot(aes(y = PSFmean, x = ar, color = Kön, group = Kön)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = PSFmean-stdev, ymax = PSFmean+stdev, fill = Kön), 
+              alpha = 0.15, linetype = 0) +
+  geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), 
+             linetype = 2, color = "black", alpha = 0.8) +
+  geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), 
+             linetype = 3, color = "black", alpha = 0.8) +
+  scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+  scale_x_continuous("År",guide = guide_axis(n.dodge = 2), breaks = årtal) +
+  scale_y_continuous("Medelvärde", limits = c(0,100)) +
+  labs(title = "Psykisk hälsa indexvärde",
+        subtitle = "5 items, befintligt index",
+       caption = "Skuggade fält indikerar en standardavvikelse") +
+  facet_wrap(~SkolSDO) +
+  theme_minimal(base_size = 11) +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
+
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 10
+# psfTidscore <- df.index %>%
+#   filter(Kön %in% c("Pojke", "Flicka")) %>%
+#   filter(!is.na(SkolSDO)) %>%
+#   group_by(ar, SkolSDO, Kön) %>%
+#   summarise(PSFmean = round(mean(PSMscore100, na.rm = T), 0),
+#             stdev = round(sd(PSMscore100, na.rm = T))) %>%
+#   ggplot(aes(y = PSFmean, x = ar, color = Kön, group = Kön)) +
+#   geom_line(linewidth = 1) +
+#   geom_point_interactive(aes(tooltip = PSFmean),
+#                          size = 1.5) +
+#   geom_ribbon(aes(ymin = PSFmean-stdev, ymax = PSFmean+stdev, fill = Kön), 
+#               alpha = 0.15, linetype = 0) +
+#   geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), 
+#              linetype = 2, color = "black", alpha = 0.8) +
+#   geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), 
+#              linetype = 3, color = "black", alpha = 0.8) +
+#   scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+#   scale_x_continuous("År",guide = guide_axis(n.dodge = 2), breaks = årtal) +
+#   scale_y_continuous("Medelvärde", limits = c(0,100)) +
+#   labs(title = "Psykosomatiska besvär indexvärde",
+#        caption = "Skuggade fält indikerar en standardavvikelse") +
+#   facet_wrap(~SkolSDO) +
+#   theme_minimal(base_size = 11) +
+#   theme_rise()
+# 
+# ggiraph(ggobj = psfTidscore)
+
+df.index %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  group_by(ar, SkolSDO, Kön) %>%
+  summarise(PSFmean = round(mean(PSMscore100, na.rm = T), 0),
+            stdev = round(sd(PSMscore100, na.rm = T))) %>%
+  ggplot(aes(y = PSFmean, x = ar, color = Kön, group = Kön)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = PSFmean-stdev, ymax = PSFmean+stdev, fill = Kön), 
+              alpha = 0.15, linetype = 0) +
+  geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), 
+             linetype = 2, color = "black", alpha = 0.8) +
+  geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), 
+             linetype = 3, color = "black", alpha = 0.8) +
+  scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+  scale_x_continuous("År",guide = guide_axis(n.dodge = 2), breaks = årtal) +
+  scale_y_continuous("Medelvärde", limits = c(0,100)) +
+  labs(title = "Psykosomatiska besvär indexvärde",
+              subtitle = "5 items, nytt index",
+       caption = "Skuggade fält indikerar en standardavvikelse") +
+  facet_wrap(~SkolSDO) +
+  theme_minimal(base_size = 11) +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
+```
+```{r}
+#| fig-width: 12
+#| fig-height: 10
+
+df.index8 %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  group_by(ar, SkolSDO, Kön) %>%
+  summarise(PSFmean = round(mean(PS8score100, na.rm = T), 0),
+            stdev = round(sd(PS8score100, na.rm = T))) %>%
+  ggplot(aes(y = PSFmean, x = ar, color = Kön, group = Kön)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  geom_ribbon(aes(ymin = PSFmean-stdev, ymax = PSFmean+stdev, fill = Kön), 
+              alpha = 0.15, linetype = 0) +
+  geom_hline(data = . %>% filter(Kön == "Pojke"), aes(yintercept = mean(PSFmean)), 
+             linetype = 2, color = "black", alpha = 0.8) +
+  geom_hline(data = . %>% filter(Kön == "Flicka"), aes(yintercept = mean(PSFmean)), 
+             linetype = 3, color = "black", alpha = 0.8) +
+  scale_fill_manual("Kön", values = RISEpalette1[c(1, 5)], aesthetics = c("color", "fill")) +
+  scale_x_continuous("År",guide = guide_axis(n.dodge = 2), breaks = årtal) +
+  scale_y_continuous("Medelvärde", limits = c(0,100)) +
+  labs(title = "Psykiska/psykosomatiska besvär indexvärde",
+              subtitle = "8 items, nytt index",
+       caption = "Skuggade fält indikerar en standardavvikelse") +
+  facet_wrap(~SkolSDO) +
+  theme_minimal(base_size = 11) +
+  theme_rise() +
+  theme(text = element_text(family = "Lato"))
+```
+::::
+
+### Fördelningar
+
+```{r}
+df.indexR %>% 
+  filter(ar == 2020) %>% 
+  filter(ARSKURS == "Åk 9") %>% 
+  select(PSFindex) %>% 
+  summary()
+
+df.indexR %>% 
+  filter(ar == 2020) %>% 
+  filter(ARSKURS == "Åk 9") %>% 
+  select(PSFindex) %>% 
+  pull() %>% 
+  hist(., col = RISEprimGreen, main = "Psykisk ohälsa indexvärden")
+summary(df.indexR$PSFindex)
+```
 
 ```{r}
 df.index %>% 
   filter(ar == 2020) %>% 
-  filter(Kön %in% c("Pojke","Flicka")) %>% 
-  filter(!is.na(SkolSDO)) %>% 
-  group_by(SkolSDO,Kön) %>% 
-  summarise(PSFmean = mean(PSMscore100, na.rm = T)) %>% 
-  ggplot(aes(y = PSFmean, x = SkolSDO, fill = Kön, color = Kön)) +
-  geom_chicklet(radius = grid::unit(1.5, 'mm'),
-                position = "dodge") +
-  geom_hline(aes(yintercept = mean(PSFmean)), linetype = 2, color = "black") +
-  annotate("text", label = "Medelvärde Stockholm Stad", y = 57, x = 3, color = "darkgrey") +
-  scale_fill_manual('Kön', values = RISEpalette1[c(1,5)], aesthetics = c("color","fill")) +
-  scale_x_discrete('Stadsdel', guide = guide_axis(n.dodge = 2)) +
-  theme_rise() +
-  ylab("Snittvärde") +
-  labs(title = "Psykisk ohälsa indexvärde")
+  filter(ARSKURS == "Åk 9") %>% 
+  select(PSMscore100) %>% 
+  summary()
+
+df.index %>% 
+  filter(ar == 2020) %>%  
+  filter(ARSKURS == "Åk 9") %>% 
+  select(PSMscore100) %>% 
+  pull() %>% 
+  hist(., col = RISEprimGreen, main = "Psykosomatiska besvär 5 item")
 ```
+
+```{r}
+df.index8 %>% 
+  filter(ar == 2020) %>% 
+  filter(ARSKURS == "Åk 9") %>% 
+  select(PS8score100) %>% 
+  summary()
+
+df.index8 %>% 
+  filter(ar == 2020) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  select(PS8score100) %>% 
+  pull() %>% 
+  hist(., col = RISEprimGreen, main = "Psykosomatiska besvär 8 item")
+```
+
+### Violin- & boxplot jämförelse
+
+```{r}
+library(PrettyCols)
+df.indexR %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = År, y = PSFindex, group = År)) +
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
+  geom_violin(aes(fill = År), alpha= 0.85) +
+  geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
+  xlab("År") +
+  ylab("Indexvärde") +
+  # scale_color_manual(
+  #   values = RISEpalette1[c(1, 5)],
+  #   aesthetics = c("fill", "color")
+  # ) +
+   scale_fill_pretty_d(name = "TealGreens") +
+  labs(
+    title = "Psykisk hälsa",
+    subtitle = "Befintligt index",
+    caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
+  ) +
+  theme_minimal() +
+  theme_rise() +
+  theme(
+    text = element_text(family = "Lato")
+  )
+```
+
+```{r}
+df.index %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = År, y = PSMscore100, group = År)) +
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
+  geom_violin(aes(fill = År), alpha= 0.85) +
+  geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
+  xlab("År") +
+  ylab("Indexvärde") +
+  # scale_color_manual(
+  #   values = RISEpalette1[c(1, 5)],
+  #   aesthetics = c("fill", "color")
+  # ) +
+   scale_fill_pretty_d(name = "TealGreens") +
+  labs(
+    title = "Psykosomatiska besvär",
+    subtitle = "Nytt 5-item index",
+    caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
+  ) +
+  theme_minimal() +
+  theme_rise() +
+  theme(
+    text = element_text(family = "Lato")
+  )
+```
+```{r}
+df.index8 %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = År, y = PS8score100, group = År)) +
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
+  geom_violin(aes(fill = År), alpha= 0.85) +
+  geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
+  xlab("År") +
+  ylab("Indexvärde") +
+  # scale_color_manual(
+  #   values = RISEpalette1[c(1, 5)],
+  #   aesthetics = c("fill", "color")
+  # ) +
+   scale_fill_pretty_d(name = "TealGreens") +
+  labs(
+    title = "Psykiska/psykosomatiska besvär",
+    subtitle = "Nytt 8-item index",
+    caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
+  ) +
+  theme_minimal() +
+  theme_rise() +
+  theme(
+    text = element_text(family = "Lato")
+  )
+```
+
+#### Fördelat på kön
+
+```{r}
+library(PrettyCols)
+df.indexR %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = År, y = PSFindex, group = År)) +
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
+  geom_violin(aes(fill = År), alpha= 0.85) +
+  geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
+  xlab("År") +
+  ylab("Indexvärde") +
+  # scale_color_manual(
+  #   values = RISEpalette1[c(1, 5)],
+  #   aesthetics = c("fill", "color")
+  # ) +
+   scale_fill_pretty_d(name = "Rainbow") +
+  labs(
+    title = "Psykisk hälsa",
+    subtitle = "Befintligt index",
+    caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
+  ) +
+  theme_minimal() +
+  theme_rise() +
+  theme(
+    text = element_text(family = "Lato")
+  ) + 
+  facet_wrap(~Kön)
+```
+
+```{r}
+df.index %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = År, y = PSMscore100, group = År)) +
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
+  geom_violin(aes(fill = År), alpha= 0.85) +
+  geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
+  xlab("År") +
+  ylab("Indexvärde") +
+  # scale_color_manual(
+  #   values = RISEpalette1[c(1, 5)],
+  #   aesthetics = c("fill", "color")
+  # ) +
+   scale_fill_pretty_d(name = "Rainbow") +
+  labs(
+    title = "Psykosomatiska besvär",
+    subtitle = "Nytt 5-item index",
+    caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
+  ) +
+  theme_minimal() +
+  theme_rise() +
+  theme(
+    text = element_text(family = "Lato")
+  ) +
+  facet_wrap(~Kön)
+```
+```{r}
+df.index8 %>%
+  filter(Kön %in% c("Pojke", "Flicka")) %>%
+  filter(!is.na(SkolSDO)) %>%
+  filter(ARSKURS == "Åk 9") %>%
+  mutate(År = factor(ar)) %>% 
+  ggplot(aes(x = År, y = PS8score100, group = År)) +
+  geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
+  geom_violin(aes(fill = År), alpha= 0.85) +
+  geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
+  xlab("År") +
+  ylab("Indexvärde") +
+  # scale_color_manual(
+  #   values = RISEpalette1[c(1, 5)],
+  #   aesthetics = c("fill", "color")
+  # ) +
+   scale_fill_pretty_d(name = "Rainbow") +
+  labs(
+    title = "Psykiska/psykosomatiska besvär",
+    subtitle = "Nytt 8-item index",
+    caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
+  ) +
+  theme_minimal() +
+  theme_rise() +
+  theme(
+    text = element_text(family = "Lato")
+  ) + 
+  facet_wrap(~Kön)
+```
+
+
+### Tak-/golveffekter
+
+```{r}
+df.indexR %>% 
+  group_by(PSFindex) %>% 
+  reframe(n = n()) %>% 
+  mutate(Procent = round(100*n/sum(n),1)) %>% 
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 50%"')
+```
+```{r}
+df.index %>% 
+  group_by(PSMscore100) %>% 
+  reframe(n = n()) %>% 
+  mutate(Procent = round(100*n/sum(n),1)) %>% 
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 50%"')
+```
+```{r}
+df.index8 %>% 
+  group_by(PS8score100) %>% 
+  reframe(n = n()) %>% 
+  mutate(Procent = round(100*n/sum(n),1)) %>% 
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 50%"')
+```
+
+
+### Linjär regression över tid
+
+#### ~ Tid + Kön + (1 | SkolSDO)
+
+Först det befintliga indexet.
+
+```{r}
+library(lme4)
+library(broom.mixed)
+library(parameters)
+library(see)
+library(performance)
+library(modelbased)
+library(emmeans)
+df.indexR <- df.indexR %>% 
+  mutate(Tid = recode(ar,"2006=0;2008=1;2010=2;2012=3;2014=4;2016=5;2018=6;2020=7", as.factor = F))
+m1 <- lmer(PSFindex ~ Tid + Kön + (1 | SkolSDO),
+           data = df.indexR)
+summary(m1)
+icc(m1)
+glance(m1)
+#check_model(m1)
+```
+```{r}
+plot(parameters(m1))
+predicted <- estimate_expectation(m1, data = "grid")
+plot(predicted) +
+  scale_color_manual(values = RISEpalette1[c(1,5)], 
+                     aesthetics = c("fill","color")) +
+  ylab("Indexvärde psykiska besvär") +
+  xlab("Mättillfälle (2006-2020)") +
+  labs(title = "Linjär regression")
+```
+
+#### ~ Tid + Kön + (1 | SkolSDO)
+
+Nytt index som utfall.
+```{r}
+df.index <- df.index %>% 
+  mutate(Tid = recode(ar,"2006=0;2008=1;2010=2;2012=3;2014=4;2016=5;2018=6;2020=7", as.factor = F))
+
+m2 <- lmer(PSMscore100 ~ Tid + Kön + (1 | SkolSDO),
+           data = df.index)
+summary(m2)
+icc(m2)
+glance(m2)
+```
+```{r}
+plot(parameters(m2))
+predicted <- estimate_expectation(m2, data = "grid")
+plot(predicted) +
+  scale_color_manual(values = RISEpalette1[c(1,5)], 
+                     aesthetics = c("fill","color")) +
+  ylab("Indexvärde psykosomatiska besvär") +
+  xlab("Mättillfälle (2006-2020)") +
+  labs(title = "Linjär regression")
+```
+#### ~ Tid + Kön + SkolSDO
+
+Utan random intercept för SkolSDO.
+
+##### Befintligt index
+```{r}
+m3 <- lm(PSFindex ~ Tid + Kön + SkolSDO,
+           data = df.indexR)
+summary(m3)
+
+#tidy(m3)
+#icc(m3)
+glance(m3)
+```
+##### Nytt index
+```{r}
+m4 <- lm(PSMscore100 ~ Tid + Kön + SkolSDO,
+           data = df.index)
+summary(m4)
+
+#tidy(m4)
+#icc(m3)
+glance(m4)
+```
+#### Utan SkolSDO i modellen
+
+##### Befintligt index
+
+```{r}
+m5 <- lm(PSFindex ~ Tid + Kön,
+           data = df.indexR)
+summary(m5)
+
+#tidy(m5)
+#icc(m3)
+glance(m5)
+```
+##### Nytt index
+```{r}
+m6 <- lm(PSMscore100 ~ Tid + Kön,
+           data = df.index, REML = TRUE)
+summary(m6)
+#tidy(m6)
+#icc(m3)
+glance(m6)
+```
+#### Random intercept kön
+
+##### Befintligt index
+
+```{r}
+m7 <- lmer(PSFindex ~ Tid + (1|Kön) + (1|SkolSDO),
+           data = df.indexR)
+summary(m7)
+#tidy(m7)
+icc(m7, by_group = TRUE)
+glance(m7)
+```
+##### Nytt index
+```{r}
+m8 <- lmer(PSMscore100 ~ Tid + (1|Kön) + (1|SkolSDO),
+           data = df.index)
+summary(m8)
+#tidy(m8)
+icc(m8, by_group = TRUE)
+glance(m8)
+```
+```{r}
+plot(parameters(m8))
+predicted <- estimate_expectation(m8, data = "grid")
+plot(predicted) +
+  scale_color_manual(values = RISEpalette1[c(1,5)], 
+                     aesthetics = c("fill","color")) +
+  ylab("Indexvärde psykosomatiska besvär") +
+  xlab("Mättillfälle (2006-2020)") +
+  labs(title = "Linjär regression")
+
+```
+
+### Jämföra AIC/BIC för modellerna
+
+Sorterat på AIC och sedan BIC.
+
+```{r}
+data.frame(Model = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% rownames_to_column("Model") %>% pull(Model),
+                       AIC = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(AIC),
+                       BIC = BIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(BIC)) %>% 
+  arrange(AIC) %>% 
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+
+data.frame(Model = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% rownames_to_column("Model") %>% pull(Model),
+                       AIC = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(AIC),
+                       BIC = BIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(BIC)) %>% 
+  arrange(BIC) %>% 
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+
+```
+Model 2, 4 och 8 har lägst värden, vilket är modellerna med nya indexet och SkolSDO med i modellen. BIC är sannolikt mera korrekt med vårt stora sampel, vilket innebär att modell 2 (med random intercept för SkolSDO) är att föredra.
 
 
 ```{r}

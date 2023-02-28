@@ -541,6 +541,22 @@ itemlabels %>%
 RIscoreSE(df.dif.years)
 ```
 
+## Lista på items
+
+```{r}
+itemlabels <- read.csv("../../data/allitems.csv", fileEncoding = "UTF-8") %>% 
+  rename(Kontext = Index)
+finalItems <- read.csv("WellbeingItemnr.csv")
+
+itemlabels %>% 
+  filter(itemnr %in% finalItems$itemnr) %>% 
+  formattable(align = c("l", "l","l"), 
+              list(itemnr = formatter("span", style = ~style(color = "grey", 
+      font.weight = "bold"))), 
+      table.attr = "class=\"table table-striped\" style=\"font-size: 15px; font-family: Lato; width: 75%\"")
+
+```
+
 
 
 ## Programvara som använts för analyserna
