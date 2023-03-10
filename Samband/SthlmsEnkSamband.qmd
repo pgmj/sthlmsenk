@@ -98,6 +98,47 @@ RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
 # "#009CA6" "#5C758B" "#B94F70" "#EC5D4F" "#F5A127" "#FFE500"
 RISEpalette2 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(10)
 
+theme_rise <- function(palettesize = 6, fontfamily = "Lato", axissize = 13, titlesize = 15, margins = 12, axisface = "plain") {
+  theme(
+    text = element_text(family = fontfamily),
+    axis.title.x = element_text(
+      margin = margin(t = margins),
+      size = axissize
+    ),
+    axis.title.y = element_text(
+      margin = margin(r = margins),
+      size = axissize
+    ),
+    plot.title = element_text(
+      face = "bold",
+      size = titlesize
+    ),
+    axis.title = element_text(
+      face = axisface
+    ),
+    plot.caption = element_text(
+      face = "italic"
+    )
+  )
+}
+
+library(kableExtra)
+library(glue)
+kbl_rise <- function(data, width = 75, fontsize = 14) {  
+  kbl(data, booktabs = T, escape = F, table.attr = glue("style='width:{width}%;'")) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      position = "left",
+      full_width = T,
+      font_size = fontsize,
+      fixed_thead = T,
+      latex_options = c("striped", "scale_down")
+    ) %>%
+    row_spec(0, bold = T) %>%
+    kable_classic(html_font = "Lato")
+}
+
+
 # read data
 df <- read_parquet("../DIDapp/data/2023-02-07_ScoredRev.parquet")
 
@@ -318,6 +359,7 @@ models1 <- df2 %>%
   split(.$ar) %>%
   map(~ lm(Utagerande ~ Parenting + Kön, data = .))
 
+
 # models1 %>%
 #   map(summary) %>%
 #   map("coefficients") %>%
@@ -331,6 +373,7 @@ compEstimates <- function(m,n) {
   mutate(across(where(is.numeric), round, 3)) %>%
   add_column(Year = rep(årtal, each = n), .before = "term") %>%
   pivot_wider(values_from = c("estimate", "std.error"), names_from = term) %>%
+  #  write.csv(.,"compEstimates.csv") 
   formattable(.,
     table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
 }
@@ -373,6 +416,272 @@ compRsq <- function(m) {
 
 compRsq(models1)
 ```
+
+#### Random intercept kön
+
+```{r}
+models1b <- df2 %>% 
+  split(.$ar) %>%
+  map(~ lmer(Utagerande ~ Parenting + (1|Kön), data = .))
+library(broom.mixed)
+models1b %>% 
+  map(broom.mixed::tidy) %>% # makes multiple tibbles
+  bind_rows() %>% # stack them
+  select(term, estimate, std.error) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  add_column(Year = rep(årtal, each = 4), .before = "term") %>%
+  pivot_wider(values_from = c("estimate", "std.error"), names_from = term) %>%
+  kbl_rise()
+
+lmer1 <- df2 %>% 
+  filter(ar == 2020) %>%
+  lmer(Utagerande ~ Parenting + (1|Kön), data = .)
+lm1k <- df2 %>% 
+  filter(ar == 2020) %>%
+  lm(Utagerande ~ Parenting + Kön, data = .)
+AIC(lmer1,lm1k)
+```
+
+
+#### Uppdelat på kön
+
+```{r}
+
+modelsP <- df2 %>%
+  filter(Kön == "Pojke") %>% 
+  split(.$ar) %>%
+  map(~ lm(Utagerande ~ Parenting, data = .))
+
+modelsF <- df2 %>%
+  filter(Kön == "Flicka") %>% 
+  split(.$ar) %>%
+  map(~ lm(Utagerande ~ Parenting, data = .))
+
+compEstimatesG <- function(m,n,filename) {
+  m %>%
+  map(tidy) %>% # makes multiple tibbles
+  bind_rows() %>% # stack them
+  select(term, estimate, std.error) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  add_column(Year = rep(årtal, each = n), .before = "term") %>%
+  pivot_wider(values_from = c("estimate", "std.error"), names_from = term) %>%
+  write_csv(.,filename) 
+  #formattable(.,
+  #  table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+}
+compEstimatesG(models1,3,"Samband/compEstimates.csv")
+compEstimatesG(modelsP,2,"Samband/compEstimatesPojkar.csv")
+compEstimatesG(modelsF,2,"Samband/compEstimatesFlickor.csv")
+
+```
+#### Tabell
+```{r}
+allEstimates <- read_csv("Samband/compEstimates.csv") %>% 
+  select(!ends_with("KönPojke")) %>% 
+  add_column(Respondent = 'Alla')
+fEstimates <- read_csv("Samband/compEstimatesFlickor.csv") %>% 
+  add_column(Respondent = 'Flickor')
+pEstimates <- read_csv("Samband/compEstimatesPojkar.csv") %>% 
+  add_column(Respondent = 'Pojkar')
+
+aEstimates <- rbind(allEstimates,fEstimates,pEstimates) %>% 
+  janitor::clean_names(case = "snake")
+
+aEstimates %>% 
+  group_by(respondent) %>% 
+  summarise(medel_intercept = mean(estimate_intercept),
+            sd_intercept = sd(estimate_intercept),
+            max_intercept = max(estimate_intercept),
+            min_intercept = min(estimate_intercept),
+            medel_parenting = mean(estimate_parenting),
+            sd_parenting = sd(estimate_parenting),
+            max_parenting = max(estimate_parenting),
+            min_parenting = min(estimate_parenting)
+            ) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3))) %>% 
+  kbl_rise()
+
+```
+
+#### Tabell standardiserad
+```{r}
+library(datawizard)
+compEstimates <- function(m,n) {
+  m %>%
+  map(tidy) %>% # makes multiple tibbles
+  bind_rows() %>% # stack them
+  select(term, estimate, std.error) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  add_column(Year = rep(årtal, each = n), .before = "term") %>%
+  pivot_wider(values_from = c("estimate", "std.error"), names_from = term) %>%
+  #  write.csv(.,"compEstimates.csv") 
+  formattable(.,
+    table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+}
+
+models1 %>% 
+  map(datawizard::standardize) %>% 
+  map(tidy) %>% 
+  bind_rows() %>% 
+  select(term, estimate, std.error) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  add_column(Year = rep(årtal, each = 3), .before = "term") %>%
+  pivot_wider(values_from = c("estimate", "std.error"), names_from = term) %>%
+  write.csv(.,"Samband/StdEstimates.csv") 
+  #formattable(.,
+  #  table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+
+#quantile regression
+
+```
+
+
+#### Plots
+```{r}
+aEstimates %>%
+  filter(!respondent == "Alla") %>%
+  ggplot(aes(x = respondent, y = estimate_intercept, color = respondent)) +
+  geom_point(size = 4, alpha = 0.7) +
+  scale_y_continuous(limits = c(-2, 2)) +
+  theme_minimal(
+    base_family = "Lato",
+    base_size = 14
+  ) +
+  scale_color_manual(
+    values = colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(4),
+    aesthetics = c("fill", "color")
+  )
+
+aEstimates %>%
+  filter(!respondent == "Alla") %>%
+  ggplot(aes(x = respondent, y = estimate_parenting, color = respondent)) +
+  geom_point(size = 4, alpha = 0.7) +
+  geom_abline(aes(intercept = estimate_intercept, slope = estimate_parenting),
+              alpha = 0.2) +
+  scale_y_continuous(limits = c(-2, 2)) +
+  theme_minimal(
+    base_family = "Lato",
+    base_size = 14
+  ) +
+  scale_color_manual(
+    values = colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(4),
+    aesthetics = c("fill", "color")
+  )
+
+aEstimates %>%
+  filter(!respondent == "Alla") %>%
+  ggplot(aes(color = respondent)) +
+  geom_abline(aes(intercept = estimate_intercept, slope = estimate_parenting)) +
+  scale_y_continuous(limits = c(-4,4)) +
+  scale_x_continuous(limits = c(-4,4)) +
+
+  aEstimates %>%
+  filter(!respondent == "Alla") %>%
+  ggplot(aes(x = respondent, y = estimate_parenting, color = respondent)) +
+  geom_point(size = 4, alpha = 0.7) +
+  geom_abline(data = aEstimates %>% filter(respondent == "Alla"),
+              aes(intercept = mean(estimate_intercept), slope = mean(estimate_parenting)),
+              alpha = 0.86, color = "blue", linetype = 2, linewidth = 2) +
+  geom_abline(aes(intercept = estimate_intercept, slope = estimate_parenting),
+              alpha = 0.2) +
+  scale_y_continuous(limits = c(-2, 2)) +
+  theme_minimal(
+    base_family = "Lato",
+    base_size = 14
+  ) +
+  scale_color_manual(
+    values = colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(4),
+    aesthetics = c("fill", "color")
+  )
+```
+
+#### Plot 2
+```{r}
+
+library(ggside)
+corSidePlot <- function(data, x, y, smooth = "lm", color) {
+  
+  data %>%
+    ggplot(aes(x = {{ x }}, y = {{ y }}, color = {{ color }})) +
+    geom_point2(size = 3, alpha = 0.7) +
+    geom_smooth(method = smooth) +
+    geom_xsidedensity(aes(y = after_stat(density))) +
+    geom_ysidedensity(aes(x = after_stat(density))) +
+    geom_xsidehistogram(aes(y = after_stat(density),
+                            fill = {{ color }}), 
+                        binwidth = 0.2, alpha = 0.5) +
+    geom_ysidehistogram(aes(x = after_stat(density),
+                            fill = {{ color }}), 
+                        binwidth = 0.2, alpha = 0.5) +
+  theme_minimal(
+    base_family = "Lato",
+    base_size = 14
+  ) +
+  scale_color_manual(
+    values = colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(4),
+    aesthetics = c("fill", "color")
+  )
+}
+
+df2 %>% 
+  corSidePlot(., Utagerande, Parenting)
+
+```
+
+::: panel-tabset
+##### 2020
+```{r}
+df2 %>% 
+  filter(ar == 2020) %>% 
+  corSidePlot(., Utagerande, Parenting, color = Kön)
+```
+##### 2018
+```{r}
+df2 %>% 
+  filter(ar == 2018) %>% 
+  corSidePlot(., Utagerande, Parenting, color = Kön)
+```
+##### 2016
+```{r}
+df2 %>% 
+  filter(ar == 2016) %>% 
+  corSidePlot(., Utagerande, Parenting, color = Kön)
+```
+##### 2014
+```{r}
+df2 %>% 
+  filter(ar == 2014) %>% 
+  corSidePlot(., Utagerande, Parenting, color = Kön)
+```
+:::
+
+### Kvantil regression
+```{r}
+library(quantreg)
+lq1 <- rq(Utagerande ~ Parenting,
+  data = df2, tau = 0.5
+)
+lm1 <- lm(Utagerande ~ Parenting,
+  data = df2
+)
+AIC(lm1, lq1)
+tidy(lm1)
+tidy(lq1)
+
+ggplot(df2, aes(Utagerande, Parenting)) +
+  geom_point(size = 2, alpha = 0.7) +
+  geom_smooth(method = "lm", se = T, color = "blue", linewidth = 2) +
+  geom_quantile(quantiles = 0.5, color = "red", linewidth = 2) +
+  geom_quantile(
+    color = "orange", alpha = 0.6,
+    quantiles = seq(.1, .9, by = 0.1)
+  ) +
+  theme_minimal(
+    base_family = "Lato",
+    base_size = 14
+  )
+```
+
 
 ### LMM Utagerande 2
 ```{r}

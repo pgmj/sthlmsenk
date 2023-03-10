@@ -1,0 +1,234 @@
+### Linjär regression över tid
+
+#### ~ Tid + Kön + (1 | SkolSDO)
+
+Först det befintliga indexet.
+
+```{r}
+library(lme4)
+library(broom.mixed)
+library(parameters)
+library(see)
+library(performance)
+library(modelbased)
+library(emmeans)
+df.indexR <- df.indexR %>% 
+  mutate(Tid = recode(ar,"2006=0;2008=1;2010=2;2012=3;2014=4;2016=5;2018=6;2020=7", as.factor = F))
+m1 <- lmer(PSFindex ~ Tid + Kön + (1 | SkolSDO),
+           data = df.indexR)
+summary(m1)
+icc(m1)
+glance(m1)
+#check_model(m1)
+```
+```{r}
+plot(parameters(m1))
+predicted <- estimate_expectation(m1, data = "grid")
+plot(predicted) +
+  scale_color_manual(values = RISEpalette1[c(1,5)], 
+                     aesthetics = c("fill","color")) +
+  ylab("Indexvärde psykiska besvär") +
+  xlab("Mättillfälle (2006-2020)") +
+  labs(title = "Linjär regression")
+```
+
+#### ~ Tid + Kön + (1 | SkolSDO)
+
+Nytt index som utfall.
+```{r}
+df.index <- df.index %>% 
+  mutate(Tid = recode(ar,"2006=0;2008=1;2010=2;2012=3;2014=4;2016=5;2018=6;2020=7", as.factor = F))
+
+m2 <- lmer(PSMscore100 ~ Tid + Kön + (1 | SkolSDO),
+           data = df.index)
+summary(m2)
+icc(m2)
+glance(m2)
+```
+```{r}
+plot(parameters(m2))
+predicted <- estimate_expectation(m2, data = "grid")
+plot(predicted) +
+  scale_color_manual(values = RISEpalette1[c(1,5)], 
+                     aesthetics = c("fill","color")) +
+  ylab("Indexvärde psykosomatiska besvär") +
+  xlab("Mättillfälle (2006-2020)") +
+  labs(title = "Linjär regression")
+```
+#### ~ Tid + Kön + SkolSDO
+
+Utan random intercept för SkolSDO.
+
+##### Befintligt index
+```{r}
+m3 <- lm(PSFindex ~ Tid + Kön + SkolSDO,
+           data = df.indexR)
+summary(m3)
+
+#tidy(m3)
+#icc(m3)
+glance(m3)
+```
+##### Nytt index
+```{r}
+m4 <- lm(PSMscore100 ~ Tid + Kön + SkolSDO,
+           data = df.index)
+summary(m4)
+
+#tidy(m4)
+#icc(m3)
+glance(m4)
+```
+#### Utan SkolSDO i modellen
+
+##### Befintligt index
+
+```{r}
+m5 <- lm(PSFindex ~ Tid + Kön,
+           data = df.indexR)
+summary(m5)
+
+#tidy(m5)
+#icc(m3)
+glance(m5)
+```
+##### Nytt index
+```{r}
+m6 <- lm(PSMscore100 ~ Tid + Kön,
+           data = df.index, REML = TRUE)
+summary(m6)
+#tidy(m6)
+#icc(m3)
+glance(m6)
+```
+#### Random intercept kön
+
+##### Befintligt index
+
+```{r}
+m7 <- lmer(PSFindex ~ Tid + (1|Kön) + (1|SkolSDO),
+           data = df.indexR)
+summary(m7)
+#tidy(m7)
+icc(m7, by_group = TRUE)
+glance(m7)
+```
+##### Nytt index
+```{r}
+m8 <- lmer(PSMscore100 ~ Tid + (1|Kön) + (1|SkolSDO),
+           data = df.index)
+summary(m8)
+#tidy(m8)
+icc(m8, by_group = TRUE)
+glance(m8)
+```
+```{r}
+plot(parameters(m8))
+predicted <- estimate_expectation(m8, data = "grid")
+plot(predicted) +
+  scale_color_manual(values = RISEpalette1[c(1,5)], 
+                     aesthetics = c("fill","color")) +
+  ylab("Indexvärde psykosomatiska besvär") +
+  xlab("Mättillfälle (2006-2020)") +
+  labs(title = "Linjär regression")
+
+```
+
+### Jämföra AIC/BIC för modellerna
+
+Sorterat på AIC och sedan BIC.
+
+```{r}
+data.frame(Model = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% rownames_to_column("Model") %>% pull(Model),
+                       AIC = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(AIC),
+                       BIC = BIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(BIC)) %>% 
+  arrange(AIC) %>% 
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+
+data.frame(Model = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% rownames_to_column("Model") %>% pull(Model),
+                       AIC = AIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(AIC),
+                       BIC = BIC(m1,m2,m3,m4,m5,m6,m7,m8) %>% pull(BIC)) %>% 
+  arrange(BIC) %>% 
+  formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+
+```
+Model 2, 4 och 8 har lägst värden, vilket är modellerna med nya indexet och SkolSDO med i modellen. BIC är sannolikt mera korrekt med vårt stora sampel, vilket innebär att modell 2 (med random intercept för SkolSDO) är att föredra.
+
+
+```{r}
+#| eval: false
+#| echo: false
+# 
+# GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin,
+#                            draw_group = function(self, data, ..., draw_quantiles = NULL) {
+#                              # Original function by Jan Gleixner (@jan-glx)
+#                              # Adjustments by Wouter van der Bijl (@Axeman)
+#                              data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
+#                              grp <- data[1, "group"]
+#                              newdata <- plyr::arrange(transform(data, 
+#                                                                 x = if (grp %% 2 == 1) xminv
+#                                                                 else xmaxv), 
+#                                                       if (grp %% 2 == 1) y else -y)
+#                              newdata <- rbind(newdata[1, ], newdata, 
+#                                               newdata[nrow(newdata), ], newdata[1, ])
+#                              newdata[c(1, nrow(newdata) - 1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
+#                              if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+#                                stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 1))
+#                                quantiles <- create_quantile_segment_frame(data, draw_quantiles, split = TRUE, grp = grp)
+#                                aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+#                                aesthetics$alpha <- rep(1, nrow(quantiles))
+#                                both <- cbind(quantiles, aesthetics)
+#                                quantile_grob <- GeomPath$draw_panel(both, ...)
+#                                ggplot2:::ggname("geom_split_violin", grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+#                              }
+#                              else {
+#                                ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+#                              }
+#                            }
+# )
+# 
+# create_quantile_segment_frame <- function(data, draw_quantiles, split = FALSE, grp = NULL) {
+#   dens <- cumsum(data$density) / sum(data$density)
+#   ecdf <- stats::approxfun(dens, data$y)
+#   ys <- ecdf(draw_quantiles)
+#   violin.xminvs <- (stats::approxfun(data$y, data$xminv))(ys)
+#   violin.xmaxvs <- (stats::approxfun(data$y, data$xmaxv))(ys)
+#   violin.xs <- (stats::approxfun(data$y, data$x))(ys)
+#   if (grp %% 2 == 0) {
+#     data.frame(
+#       x = ggplot2:::interleave(violin.xs, violin.xmaxvs),
+#       y = rep(ys, each = 2), group = rep(ys, each = 2)
+#     )
+#   } else {
+#     data.frame(
+#       x = ggplot2:::interleave(violin.xminvs, violin.xs),
+#       y = rep(ys, each = 2), group = rep(ys, each = 2)
+#     )
+#   }
+# }
+# 
+# geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity", 
+#                               position = "identity", ..., draw_quantiles = NULL, 
+#                               trim = TRUE, scale = "area", na.rm = FALSE, 
+#                               show.legend = NA, inherit.aes = TRUE) {
+#   layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, 
+#         position = position, show.legend = show.legend, inherit.aes = inherit.aes, 
+#         params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, 
+#                       na.rm = na.rm, ...))
+# }
+# 
+# ggplot(data = df.if, aes(y = SumScores, x = factor(F99))) +
+# # Draw interquatile lines, AND draw a bunch of quantile lines around .5 to make a slightly thicker median strip - Dallas's ULTRA hacky and not great-looking solution  
+#   geom_split_violin(aes(fill=Kön, y = satisfaction, x = factor(F99), color = "grey")) +
+#         stat_summary(fun.data = "mean_cl_normal",show.legend = FALSE,size = .2,
+#                position = position_dodge2nudge(width = .7))+
+#   # styling
+#     scale_fill_ramp_discrete(from='white', aesthetics = "fill_ramp")+ # set ramping color
+#     guides( # change name and display of legend elements
+#            color="none") + # suppresses color legend item) 
+#   scale_colour_manual(values = cbPalette, aesthetics = c("colour","fill"))+
+#   theme_half_open() +   guides(fill_ramp = "none") +
+#   labs(subtitle = "Split violin")+
+#   theme(legend.position = "none")
+
+```

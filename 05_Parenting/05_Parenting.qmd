@@ -1101,7 +1101,7 @@ RIscoreSE(df.dif.years)
 RIpfit(df.omit.na)
 ```
 
-## Analys av delskalor
+## Analys av delskalor {#sec-parentDelskalor}
 
 Denna sektion använder data i originalform, d.v.s. utan några svarskategorier åtgärdade.
 

@@ -716,7 +716,7 @@ Här finns skillnader på två items, f66f och f66i, där flickor gy 2 och pojka
 
 Eftersom vi har relativt många items förefaller den enklaste åtgärden vara att ta bort de två items som når problematiska nivåer.
 
-### Rasch-analys 5 negativa items
+## Rasch-analys 5 negativa items
 
 Två items tas bort p.g.a. DIF, interaktion mellan kön och årskurs:
 
@@ -1096,7 +1096,7 @@ RIscoreSE(df.dif.years.pos)
 
 Denna uppsättning av items bildar ett fungerande index, men det är oklart vad indexet representerar och därmed hur det skulle kunna användas. De fem frågorna kommer från tre olika tänkta delskalor (se nästa avsnitt).
 
-## Analys av delskalor
+## Analys av delskalor {#sec-ifDelskalor}
 
 De 21 frågor som ingår under rubriken "Individfaktorer" har delats in i sju delskalor med tre items vardera.
 
@@ -1581,7 +1581,7 @@ RIpfit(df.subskala)
 :::
 ::::
 
-## Delskalor - sammanfattande kommentar {#sec-ifDelskalorSmf}
+## Delskalor - sammanfattande kommentar
 
 Alla delskalor har flera items som uppvisar låg item fit, vilket innebär att svaren är för förutsägbara tillsammans med övriga frågor. Det vill säga att de tillför relativt lite information.
 

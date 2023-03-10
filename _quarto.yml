@@ -41,3 +41,8 @@ format:
     link-external-newwindow: true
     fig-dpi: 96
     license: CC BY
+    crossref-sec-prefix: "Sektion"
+    toc-title: "Innehållsförteckning"
+    crossref-fig-title: "Figur"
+    crossref-tbl-title: "Tabell"
+    callout-note-title: "Beskrivning"

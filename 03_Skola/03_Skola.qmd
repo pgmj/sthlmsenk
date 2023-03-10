@@ -946,7 +946,7 @@ plot(mirt.rasch, type="trace")
 
 Även med svarskategorierna i ordning uppvisar F61 hög outfit MSQ och ZSTD. Faktorladdning på första kontrasten indikerar också att F61 avviker något. Det är inte befogat att ta med F61 i detta index.
 
-## Analys av delskalor
+## Analys av delskalor {#sec-skolaDelskalor}
 
 - Uppmärksamhet från lärare - (f54d,f54j,f54m)
 - Inflytande skolan - (f54c,f54g,f54k)
