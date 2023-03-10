@@ -191,14 +191,11 @@ kbl_rise <- function(data, width = 75, fontsize = 14) {
     row_spec(0, bold = T) %>%
     kable_classic(html_font = "Lato")
 }
-
 ```
 
+***OBS att sammanfattningen är under arbete och inte helt komplett ännu.***
+
 ## Introduktion
-
-## NOTERA: denna fil är ej uppdaterad
-
-*Senaste versionen av analyserna återspeglas ej av denna sammanfattning. Detta meddelande kommer raderas när sammanfattningen är uppdaterad.*
 
 Målsättningen med de analyser som gjorts har varit att:
 
@@ -318,21 +315,15 @@ itemlabels %>%
 #### Reliabilitet
 
 ```{r}
-#| label: if.rel
 df %>% 
   filter(ar == 2014) %>% 
   select(any_of(items.normb.final)) %>% 
   na.omit() %>% 
   RItif()
 ```
-Reliabilitetskurvan visar hur indexets frågor tillsammans ger olika mycket information om respondenterna längs indexets spann. Där kurvan är som högst har indexet bäst mätprecision och kan bäst urskilja olika nivåer av mätvärden.
-
-De streckade linjerna i figuren motsvarar reliabilitet på 0.7 (nedre linjen) och 0.8, på en skala från 0 till 1. Att dessa värden indikeras i figuren beror på att konventionen är att 0.7 är den lägsta nivån som anses acceptabel. Helst bör så många respondenter som möjligt finnas inom det område där indexet/enkätfrågorna sammantaget uppnår reliabilitet på 0.7 eller högre. Figurtexten ger viktig information om hur indexets reliabilitet förhåller sig till respondenternas egenskaper.
-
-Det är viktigt att visa reliabilitet som en kurva snarare en ett enskilt värde (som t.ex. Cronbach's alpha), eftersom reliabiliteten aldrig är samma över hela skalan.
+`r noquote(raschDesc[2,2])`
 
 #### Targeting
-
 ```{r}
 df %>% 
   filter(ar == 2014) %>% 
@@ -340,11 +331,7 @@ df %>%
   na.omit() %>% 
   RItargeting()
 ```
-Denna figur visar hur väl items passar respondenterna (de som besvarat enkätfrågorna). Överst syns respondenternas indexvärden, där högre värden motsvarar högre risk.
-
-Nederst finns frågornas tröskelvärden, som beskriver punkten på skalan där en högre svarskategori blir mer sannolik än den lägre. I mitten finns antalet tröskelvärden sammanräknade i staplar. 
-
-De två översta delarna visar även medelvärde för respondenter och item-trösklar med en streckad vertikal linje. I idealfallet ligger dessa medelvärden nära varandra, och de rosa och mörkgrå staplarna matchar varandra spegelvänt. Skulle de i stället ligga långt från varandra passar frågorna inte respondenterna.
+`r noquote(raschDesc[1,2])`
 
 #### Item-hierarki
 ```{r}
@@ -354,7 +341,7 @@ df %>%
   na.omit() %>% 
   RIitemHierarchy()
 ```
-Denna figur rangordnar items för att tydliggöra vilka frågor som, utifrån svarsdata, ger information om olika nivåer av indexvärdet. Items som ligger höger upp mäter högre nivåer av indexet bättre, och omvänt.
+`r noquote(raschDesc[3,2])`
 :::
 
 
@@ -723,10 +710,9 @@ F70 har fyra svarsalternativ: *"Ofta, Ibland, Sällan, Aldrig"*.
 
 Svarsdata har kodats så att högre poäng innebär mera problem/högre "risk". Svarsalternativet *"Vet inte"* har kodats som saknat svar.
 
-### Lista på samtliga items
+### Lista på items
 
 ```{r}
-#| label: kamfr.itemlist
 itemlabels %>%
   filter(Index == "Kamrater och fritid") %>%
   select(!Index) %>%
@@ -834,6 +820,88 @@ df %>%
 df %>% 
   filter(ar == 2014) %>% 
   select(any_of(items.nsam.final)) %>% 
+  na.omit() %>% 
+  RIitemHierarchy()
+```
+`r noquote(raschDesc[3,2])`
+:::
+
+## Välbefinnande
+
+Utifrån befintliga frågor har en explorativ analys genomförts för att undersöka möjligheten att ta fram ett index för välbefinnande. Det befintliga index som använts under rubriken "Psykisk hälsa" består av fem frågor om psykosomatiska besvär. Frånvaron av besvär har därmed varit underlag till uppskattning om "god psykisk hälsa", vilket inte ter sig optimalt.
+
+En uppsättning frågor från flera olika kontexter har använts för att försöka skapa ett brett mått på välbefinnande. Det är alltså befintliga frågor som använts i ny sammansättning, vilket gör att det går att ta fram indexvärden även bakåt i tiden. Dock har de två frågorna om framtidstro bara funnits med i enkäten sedan 2016.
+
+### Lista på items
+```{r}
+itemlabels.final %>%
+  filter(Index == "Wellbeing") %>%
+  select(itemnr,item) %>%
+  left_join(.,itemlabels, by = "itemnr") %>% 
+  select(!item.y) %>% 
+  rename(item = item.x) %>% 
+  kbl_rise() %>% 
+  kable_styling(
+      bootstrap_options = c("striped","hover"))
+
+```
+
+Notera att f86a avser kamraters motion, medan F70 avser respondentens aktivitet.
+
+Frågorna som ingår i detta index använder sig av tidigare genomförda justeringar av svarskategorier, där det är applicerbart.
+
+Viktigt att komma ihåg att frågorna är vända så att höga svar = lågt välbefinnande. Detta kommer ändras i en framtida version av denna sammanfattning, men i dagsläget innebär det att figurerna nedan behöver "tänkas om". Exempelvis kommer item-hierarkin att ha de items som bäst mäter höga nivåer av välbefinnande lägst i hierarkin.
+
+### Mätegenskaper
+```{r}
+#| column: margin
+#| echo: false
+
+items.wellb <- itemlabels.final %>%
+  filter(Index == "Wellbeing") %>%
+  pull(itemnr)
+
+itemlabels.final %>%
+  filter(Index == "Wellbeing") %>%
+  select(itemnr,item) %>% 
+  formattable(align = c(
+    "c",
+    "l"
+  ), list(itemnr = formatter("span", style = ~ style(
+    color = "grey",
+    font.weight = "bold"
+  ))), table.attr = glue::glue("class=\"table table-striped\" style=\"font-size: 11px; font-family: Lato\""))
+
+```
+
+::: panel-tabset
+#### Reliabilitet
+
+```{r}
+#| label: if.rel
+df %>% 
+  filter(ar == 2016) %>% 
+  select(any_of(items.wellb)) %>% 
+  na.omit() %>% 
+  RItif()
+```
+`r noquote(raschDesc[2,2])`
+
+#### Targeting
+```{r}
+df %>% 
+  filter(ar == 2016) %>% 
+  select(any_of(items.wellb)) %>% 
+  na.omit() %>% 
+  RItargeting()
+```
+`r noquote(raschDesc[1,2])`
+
+#### Item-hierarki
+```{r}
+df %>% 
+  filter(ar == 2016) %>% 
+  select(any_of(items.wellb)) %>% 
   na.omit() %>% 
   RIitemHierarchy()
 ```
