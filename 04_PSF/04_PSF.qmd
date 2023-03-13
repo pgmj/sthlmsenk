@@ -1067,6 +1067,94 @@ diffig <- itempar(pctree.out) %>%
   )
 ```
 
+### Item fit över tid
+
+DIF-analyserna visar på stabilitet i item locations över tid. Det kan också vara av intresse att se hur item fit ser ut över tid (2006-2020).
+
+```{r}
+
+final.items <- read_csv("PSFitemnr.csv") %>% 
+  pull(itemnr)
+
+df.fit <- df.all %>%
+  select(final.items,ar) %>% 
+  na.omit()
+
+df.fit$F91 <- recode(df.fit$F91, "2=1;3=2;4=2", as.factor = FALSE)
+df.fit$F92 <- recode(df.fit$F92, "4=3", as.factor = FALSE)
+df.fit$F93 <- recode(df.fit$F93, "4=3", as.factor = FALSE)
+df.fit$F98 <- recode(df.fit$F98, "4=3", as.factor = FALSE)
+df.fit$F99 <- recode(df.fit$F99, "4=3", as.factor = FALSE)
+df.fit$F95 <- recode(df.fit$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
+df.fit$F97 <- recode(df.fit$F97, "4=3;3=2;2=1;1=0", as.factor = FALSE)
+
+```
+
+```{r}
+library(furrr)
+plan(multisession, workers = 8)
+
+itemfit.time <- df.fit %>% 
+  split(.$ar) %>% 
+  future_map(~ RIitemfitPCM(subset(., select = -ar), table = FALSE), 
+             .options = furrr_options(seed = TRUE))
+
+årtal <- c("2006", "2008", "2010", "2012", "2014", "2016", "2018", "2020")
+itemfit.all <- data.frame(matrix(ncol = 4, nrow = 0))
+colnames(itemfit.all) <- c("Item", "År", 'InfitMSQ','OutfitMSQ')
+
+for (i in årtal) {
+  itemfit.add <- itemfit.time[[i]] %>% 
+    rownames_to_column("Item") %>% 
+    add_column(År = i)
+  
+  itemfit.all <- rbind(itemfit.all, itemfit.add)
+}
+
+itemfit.all %>%
+  group_by(Item) %>%
+  summarise(
+    mean_Out = mean(OutfitMSQ),
+    sd_Out = sd(OutfitMSQ),
+    max_Out = max(OutfitMSQ),
+    min_Out = min(OutfitMSQ),
+    mean_In = mean(InfitMSQ),
+    sd_In = sd(InfitMSQ),
+    max_In = max(InfitMSQ),
+    min_In = min(InfitMSQ)
+  ) %>%
+  mutate(
+    diffmax_OutfitMSQ = max_Out - min_Out,
+    diffmax_InfitMSQ = max_In - min_In,
+    item = Item
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  mutate(across(starts_with(c("max", "min")), ~ cell_spec(.x, color = ifelse(.x < msq_min, "red",
+    ifelse(.x > msq_max, "red", "black")
+  )))) %>%
+  kbl(booktabs = T, escape = F,
+      col.names = c("Item","Mean","SD","Max","Min","Mean","SD","Max","Min","OutfitMSQ","InfitMSQ","Item")) %>%
+  # bootstrap options are for HTML output
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    position = "left",
+    full_width = F,
+    font_size = 15,
+    fixed_thead = T
+  ) %>%
+  column_spec(c(1, 12), bold = T) %>%
+  kable_classic(html_font = "Lato") %>%
+  # latex_options are for PDF output
+  kable_styling(latex_options = c("striped", "scale_down")) %>%
+  add_header_above(c(" " = 1, 
+                     "OutfitMSQ" = 4, 
+                     "InfitMSQ" = 4, 
+                     "Max differences" = 2,
+                     " " = 1))
+
+```
+
+Inget item går utanför gränsvärden 0.7-1.3.
 
 ## Reliabilitet - psykiska/psykosomatiska besvär
 
@@ -1083,6 +1171,13 @@ RIpfit(df.psf)
 
 ## Item-parametrar
 ```{r}
+#| column: margin
+#| echo: false
+
+RIlistItemsMargin(df.psf, 12)
+```
+
+```{r}
 RIitemparams(df.dif.years)
 itemlabels %>% 
   filter(itemnr %in% names(df.dif.years)) %>% 
@@ -1091,6 +1186,9 @@ itemlabels %>%
 ```{r}
 RIscoreSE(df.dif.years)
 ```
+
+
+
 
 ## Exempel med single-item vs index
 
