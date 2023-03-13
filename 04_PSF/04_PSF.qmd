@@ -43,7 +43,7 @@ format:
     scrollable: true
     smaller: false
 execute:
-  echo: false
+  echo: true
   warning: false
   message: false
   cache: true
@@ -109,7 +109,6 @@ library(knitr)
 library(cowplot)
 library(formattable) 
 library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
-library(HH)
 library(glue)
 library(foreach)
 
@@ -1110,7 +1109,10 @@ for (i in årtal) {
   
   itemfit.all <- rbind(itemfit.all, itemfit.add)
 }
+```
 
+
+```{r}
 itemfit.all %>%
   group_by(Item) %>%
   summarise(
@@ -1128,7 +1130,7 @@ itemfit.all %>%
     diffmax_InfitMSQ = max_In - min_In,
     item = Item
   ) %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 2))) %>%
   mutate(across(starts_with(c("max", "min")), ~ cell_spec(.x, color = ifelse(.x < msq_min, "red",
     ifelse(.x > msq_max, "red", "black")
   )))) %>%
