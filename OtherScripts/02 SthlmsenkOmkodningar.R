@@ -22,8 +22,41 @@ for (i in 1:ncol(df)) {
 df$SkolSDO <- recode(df$SkolSDO,"'Övrigt ospecificerat'=NA;'<NA>'=NA")
 df$ARSKURS <- recode(df$ARSKURS,"'Ej svar'=NA;'Åk 7'=NA")
 df$Kön <- recode(df$Kön,"'<NA>'=NA")
-df$f6a <- recode(df$f6a,"'<NA>'=NA") # Mammas utbildningsnivå
-df$f6b <- recode(df$f6b,"'<NA>'=NA") # Pappas utbildningsnivå
+df$f6a <- recode(df$f6a,"'<NA>'=NA;'Vet inte'=NA") # Mammas utbildningsnivå
+df$f6b <- recode(df$f6b,"'<NA>'=NA;'Vet inte'=NA") # Pappas utbildningsnivå
+
+### Create new single variable for highest parent education level
+# first set factor levels
+df <- df %>% 
+  mutate(f6a = factor(f6a, levels = c("Folkskola eller grundskola (max 9 år i skolan)",
+                                      "Gymnasium",
+                                      "Universitet och högskola")),
+         f6b = factor(f6b, levels = c("Folkskola eller grundskola (max 9 år i skolan)",
+                                      "Gymnasium",
+                                      "Universitet och högskola"))
+  )
+
+# create numerical variable to enable logical comparisons
+df <- df %>% 
+  mutate(f6aNum = car::recode(f6a,"'Folkskola eller grundskola (max 9 år i skolan)'=0;
+                              'Gymnasium'=1;
+                              'Universitet och högskola'=2", as.factor = F),
+         f6bNum = car::recode(f6b,"'Folkskola eller grundskola (max 9 år i skolan)'=0;
+                              'Gymnasium'=1;
+                              'Universitet och högskola'=2", as.factor = F)
+  )
+
+# create new composite variable
+df <- df %>% 
+  mutate(f6ab = case_when(f6aNum > f6bNum ~ f6a,
+                          f6aNum < f6bNum ~ f6b,
+                          f6aNum == f6bNum ~ f6a),
+         .after = "F5")
+# clean up, removing variables not needed
+df$f6aNum <- NULL
+df$f6bNum <- NULL
+df$f6a <- NULL
+df$f6b <- NULL
 
 
 # Recoding ----------------------------------------------------------------

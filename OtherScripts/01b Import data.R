@@ -128,9 +128,114 @@ df.södertälje <- df.södertälje %>%
 df.sigtuna <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Sigtuna/Stockholmsenkäten 2012-2022 Sigtuna (9).sav"))
 #df.sigtuna2 <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Sigtuna/Stockholmsenkäten 2012-2022 Sigtuna (4).sav"))
 
+df.sigtuna <- df.sigtuna %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(DIDkommun = 'Sigtuna')
 
-# df <- df.södertälje
-# 
+
+
+## Järfälla ----------------------------------------------------------------
+
+df.jfl1 <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Järfälla/Stockholmsenkäten 2006-2020 Järfälla.sav"))
+df.jfl2 <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Järfälla/Stockholmsenkäten 2022 Järfälla.sav"))
+
+df.jfl1 <- df.jfl1 %>% 
+  rename(Kön = F2) %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(SkolID_gammal = NA, 
+             SkolSDO = NA,
+             DIDkommun = 'Järfälla')
+
+df.jfl2 <- df.jfl2 %>% 
+  rename(Kön = F2) %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(SkolID_gammal = NA, 
+             SkolSDO = NA,
+             DIDkommun = 'Järfälla')
+
+df.jfl <- rbind(df.jfl1,df.jfl2)
+
+
+## Lidingö -----------------------------------------------------------------
+
+df.lid1 <- read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Lidingö/Stockholmsenkäten 2016 Lidingö.sav", to.data.frame = TRUE) %>%
+  rename(
+    ARSKURS = Arskurs,
+    Skolnamn = SkolID
+  ) %>%
+  select(any_of(c(demogr.vars, allAnalyzedItems$itemnr, "SkolID_gammal", "SkolSDO"))) %>%
+  add_column(
+    SkolID_gammal = NA,
+    SkolSDO = NA,
+    Skolenhetskod = NA,
+    DIDkommun = "Lidingö"
+  ) %>%
+  relocate(Skolenhetskod, .after = "Skolkommun") %>% 
+  add_column(F67 = NA, .after = "f101l") %>%
+  add_column(F68 = NA, .before = "F14") %>%
+  add_column(F3_Omkodad = NA, .after = "Kön") %>%
+  add_column(FNY12020 = NA, .after = "F14") %>%
+  add_column(F41 = NA, .after = "F34") %>%
+  add_column(F44 = NA, .before = "F51") %>%
+  add_column(F37 = NA, .after = "F20") %>%
+  add_column(F45 = NA, .after = "F35") %>%
+  add_column(FNY22020 = NA, .after = "F40")
+
+df.lid2 <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Lidingö/Stockholmsenkäten 2018 Lidingö.sav")) %>% 
+  rename(
+    ARSKURS = Arskurs,
+    Skolnamn = SkolID
+  ) %>%
+  select(any_of(c(demogr.vars, allAnalyzedItems$itemnr, "SkolID_gammal", "SkolSDO"))) %>%
+  add_column(
+    SkolID_gammal = NA,
+    SkolSDO = NA,
+    Skolenhetskod = NA,
+    DIDkommun = "Lidingö"
+  ) %>%
+  relocate(Skolenhetskod, .after = "Skolkommun") %>% 
+  add_column(F67 = NA, .after = "f101l") %>%
+  add_column(F68 = NA, .before = "F14") %>%
+  add_column(F3_Omkodad = NA, .after = "Kön") %>%
+  add_column(FNY12020 = NA, .after = "F14") %>%
+  add_column(F41 = NA, .after = "F34") %>%
+  add_column(F44 = NA, .before = "F51") %>%
+  add_column(F37 = NA, .after = "F20") %>%
+  add_column(F45 = NA, .after = "F35") %>%
+  add_column(FNY22020 = NA, .after = "F40")
+
+
+df.lid3 <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Lidingö/Stockholmsenkäten 2020 Lidingö.sav")) %>% 
+  rename(Kön = F2) %>% 
+  select(any_of(c(demogr.vars, allAnalyzedItems$itemnr, "SkolID_gammal", "SkolSDO"))) %>% 
+  add_column(
+    SkolID_gammal = NA,
+    SkolSDO = NA,
+    DIDkommun = "Lidingö"
+  )
+  
+df.lid4 <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Lidingö/Stockholmsenkäten 2022 Lidingö.sav")) %>% 
+  rename(Kön = F2) %>% 
+  select(any_of(c(demogr.vars, allAnalyzedItems$itemnr, "SkolID_gammal", "SkolSDO"))) %>% 
+  add_column(
+    SkolID_gammal = NA,
+    SkolSDO = NA,
+    DIDkommun = "Lidingö"
+  )
+
+df.lidingö <- rbind(df.lid1,
+                    df.lid2,
+                    df.lid3,
+                    df.lid4)
+
+### compare within municipality
+# setdiff(names(df.jfl1),names(df.jfl2))
+# setdiff(names(df.jfl2),names(df.jfl1))
+### compare to template
+#setdiff(names(df),names(df.lid3))
+#setdiff(names(df.lid3),names(df))
+
+
 # df <- df %>%
 #   rename(`Hur länge har du bott i Sverige?` = F5,
 #          `Vilken högsta utbildning har din mamma?` = f6a,
@@ -147,19 +252,7 @@ df.sigtuna <- as.data.frame(read.spss("~/Library/CloudStorage/OneDrive-SharedLib
 #   )
 # df.old <- df.old %>%
 #   rename(DIDkommun = Kommun)
-# 
-# setdiff(names(df),names(df.old))
-# setdiff(names(df.old),names(df))
-# df$SkolID_gammal <- NULL
-# df$F3_Omkodad <- NULL
-# 
-# nameorder <- as.data.frame(cbind(names(df.old),names(df)))
-# 
-# df <- df %>%
-#   relocate(riskPSF, .after = Wellbeing)
 
-# df.new <- rbind(df.old,df)
-# 
 # write_parquet(df.new, sink = glue("../data/{Sys.Date()}_ScoredRev.parquet"))
 
 # Combine all data --------------------------------------------------------
@@ -173,9 +266,9 @@ df <- rbind(df.sthlm,
             df.vaxholm,
             df.danderyd,
             df.täby,
-            df.södertälje)
+            df.södertälje,
+            df.jfl,
+            df.sigtuna,
+            df.lidingö)
 
-# df <- rbind(df.vtuna, 
-#             df.vaxholm,
-#             df.danderyd,
-#             df.täby)
+## On to next script! 02 for recodings.
