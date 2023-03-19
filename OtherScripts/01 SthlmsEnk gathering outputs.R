@@ -77,7 +77,7 @@ for (i in 2:length(itemParams)){
 
 # join params and descriptions
 allItemInfo <- cbind(allItems,allItemParams)
-#write.xlsx(allItemInfo, glue("../data/{Sys.Date()}_allItemInfo.xls"), row.names = F)
+write.xlsx(allItemInfo, glue("../DIDapp/data/{Sys.Date()}_allItemInfo.xls"), row.names = F)
 
 # add itemnr identifyer to params df
 allItemParams <- allItemParams %>% 

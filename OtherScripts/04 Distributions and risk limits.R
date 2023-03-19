@@ -1,6 +1,8 @@
 library(arrow)
 library(tidyverse)
 library(car)
+library(glue)
+library(janitor)
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
 select <- dplyr::select
 count <- dplyr::count
@@ -10,16 +12,38 @@ rename <- dplyr::rename
 df <- read_parquet("../DIDapp/data/2023-03-14_ScoredRev.parquet") %>% 
   filter(ar > 2004 & ar < 2022)
 
+årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)
+
 #---- get cutoff values based on percentiles----
 
-#temporary removal of wellbeing index
+# create vector of risk index names
 sthlm.index <- allItems %>% 
   filter(!Index %in% c("Wellbeing","SkolaPositiv")) %>% 
   distinct(Index) %>% 
   pull()
 
+cutOffValues <- function(i,p) {
+  p_names <- map_chr(p, ~paste0(.x*100, "%"))
+  
+}
+
+
+cutOffValues("Utagerande", c(0.75,0.90))
+
+p <- c(0.75,0.90)
+p_names <- map_chr(p, ~paste0(.x*100, "%"))
+
+quantiles <- df %>% 
+  group_by(ar) %>% 
+  reframe(enframe(quantile(Utagerande, probs = c(0.75,0.9), na.rm = T))) %>% 
+  pivot_wider() %>% 
+  set_names(nm = p_names)
+  
+mean(quantiles$`75%`)
+mean(quantiles$`90%`)
+
 # https://tbradley1013.github.io/2018/10/01/calculating-quantiles-for-groups-with-dplyr-summarize-and-purrr-partial/
-p <- c(0.75,0.90,0.95)
+p <- c(0.75,0.90)
 p_names <- map_chr(p, ~paste0(.x*100, "%"))
 p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
   set_names(nm = p_names)
@@ -34,7 +58,7 @@ rslimits.75 <- df %>%
   add_row(medel = !!! colMeans(.[-1], na.rm = T)) %>% 
   t() %>%
   as.data.frame() %>% 
-  pull()
+  pull() 
 rslimits.90 <- df %>% 
   filter(!ar == 2022) |> 
   filter(DIDkommun == 'Stockholm') %>% 
@@ -71,7 +95,7 @@ rslimits <- rslimits %>%
 
 #rslimits
 
-write_csv(rslimits, file = "../DIDapp/data/{Sys.Date()}_rslimitsNoRev.csv")
+write_csv(rslimits, file = glue("../DIDapp/data/{Sys.Date()}_rslimitsNoRev.csv"))
 
 
 # cutoff values for protective factors -------------------------------------
@@ -124,5 +148,5 @@ rslimitsProt <- rslimitsProt %>%
   janitor::row_to_names(1) %>% 
   mutate_if(is.character, as.numeric)
 
-write_csv(rslimitsProt, file = "../DIDapp/data/{Sys.Date()}_protective.csv")
+write_csv(rslimitsProt, file = glue("../DIDapp/data/{Sys.Date()}_protective.csv"))
 
