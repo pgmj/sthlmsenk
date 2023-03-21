@@ -7,6 +7,12 @@
 library(foreign)
 library(tidyverse)
 
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
 # Import data -------------------------------------------------------------
 
 # make vector of demographic variables to include in final datafile
@@ -228,6 +234,16 @@ df.lidingö <- rbind(df.lid1,
                     df.lid3,
                     df.lid4)
 
+
+## Botkyrka ----------------------------------------------------------------
+
+df.botkyrka <- read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Botkyrka/Stockholmsenkäten 2004-2022 Botkyrka (4).sav", to.data.frame = TRUE)
+
+df.botkyrka <- df.botkyrka %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(DIDkommun = "Botkyrka")
+  
+
 ### compare within municipality
 # setdiff(names(df.jfl1),names(df.jfl2))
 # setdiff(names(df.jfl2),names(df.jfl1))
@@ -269,6 +285,7 @@ df <- rbind(df.sthlm,
             df.södertälje,
             df.jfl,
             df.sigtuna,
-            df.lidingö)
+            df.lidingö,
+            df.botkyrka)
 
 ## On to next script! 02 for recodings.

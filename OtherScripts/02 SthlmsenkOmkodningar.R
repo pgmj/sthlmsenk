@@ -50,7 +50,9 @@ df <- df %>%
 df <- df %>% 
   mutate(f6ab = case_when(f6aNum > f6bNum ~ f6a,
                           f6aNum < f6bNum ~ f6b,
-                          f6aNum == f6bNum ~ f6a),
+                          f6aNum == f6bNum ~ f6a,
+                          is.na(f6aNum) ~ f6b,
+                          is.na(f6bNum) ~ f6a),
          .after = "F5")
 # clean up, removing variables not needed
 df$f6aNum <- NULL
