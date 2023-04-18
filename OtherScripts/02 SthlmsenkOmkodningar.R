@@ -318,6 +318,37 @@ for (i in ns.negativa.items) {
   df[[i]]<-car::recode(df[[i]],"smb=3;sgb=2;sgd=1;smd=0;vetej=NA",as.factor=FALSE)
 }
 
+## 08 Mobbning ----------------------------------------------------------------
+
+# 61. Har du känt dig mobbad eller trakasserad i skolan det här läsåret?
+# f60a till i, antingen förkryssad eller inte
+
+items.mobbning <- df %>% 
+  select(starts_with("f60")) %>% 
+  names()
+
+for (i in items.mobbning) {
+  df[[i]] <- recode(df[[i]],"'Chosen'=1;
+                    'Not chosen'=0",
+                    as.factor = FALSE)
+}
+
+# 62. Hur ofta har du blivit mobbad eller trakasserad i skolan det här läsåret?
+# 64. Har du blivit mobbad eller trakasserad via internet eller SMS/MMS det här läsåret?
+
+df$F61<-recode(df$F61,"'Jag har inte blivit mobbad'=0;
+               'Det har hänt någon enstaka gång'=1;
+               '2 eller 3 gånger i månaden'=2;
+               'Ungefär en gång i veckan'=3;
+               'Flera gånger i veckan'=4;
+               '<NA>'=NA",
+               as.factor=FALSE)
+
+df$F63<-recode(df$F63,"'Ja'=1;
+               'Nej'=0;
+               'Vet inte'=NA;
+               '<NA>'=NA",
+               as.factor=FALSE)
 
 ## 09 ANDTS ----------------------------------------------------------------
 itemsANDTSegen <- c("F14","FNY12020","F18","F34","F41","F47","F48","f53a","F73")

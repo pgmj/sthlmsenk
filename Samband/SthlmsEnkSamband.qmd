@@ -719,7 +719,7 @@ items.brott <- df %>%
   names()
 
 df2 <- df2 %>% 
-  mutate(AntalBrott = rowSums(across(all_of(items.brott))))
+  mutate(AntalBrott = rowSums(across(all_of(items.brott)), na.rm = T))
 
 df2 %>% 
   ggplot(aes(x = AntalBrott)) +

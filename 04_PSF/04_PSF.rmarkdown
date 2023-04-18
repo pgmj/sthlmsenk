@@ -54,7 +54,6 @@ editor_options:
 bibliography: grateful-refs.bib
 ---
 
-
 ```{r}
 #| label: recoderawdata
 #| include: false
@@ -189,6 +188,7 @@ df.dif.years$ar <- NULL
 
 ```
 
+
 ## Bakgrund
 
 Item/frågor har etiketter F88-F99 i datafilen, och motsvaras av fråga 90-101 i PDF-filen med frågor.
@@ -201,12 +201,14 @@ Sektionen i enkäten inleds med meningen: "NÅGRA FRÅGOR OM HUR DU MÅR".
 
 ## Lista med enkätfrågorna
 
+
 ```{r}
 #| label: showitems
 #| tbl-cap-location: top
 
 RIlistitems(df.omit.na)
 ```
+
 
 ### Demografi
 
@@ -216,6 +218,7 @@ Vi har `r nrow(df.omit.na)` deltagare i samplet från 2014, och deras könsförd
 
 ### Demografi
 
+
 ```{r}
 #| label: descriptives1
 #| layout-ncol: 2
@@ -224,30 +227,38 @@ RIdemographics(dif.arskurs, "Årskurs")
 ```
 
 
+
 ### Item-data
 
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tile plot
+
 ```{r}
 #| label: descriptives2
 RItileplot(df.omit.na)
 ```
+
 #### Stacked bars
+
 ```{r}
 #| label: stack1
 RIbarstack(df.omit.na)
 ```
+
 #### Barplots {.scrollable}
+
 ```{r}
 #| label: alt-descriptives
 #| layout-ncol: 2
 RIbarplot(df.omit.na)
 ```
+
 :::
 ::::
 
 ## Rasch-analys 1 samtliga items
+
 
 ```{r}
 #| echo: false
@@ -255,49 +266,66 @@ RIbarplot(df.omit.na)
 RIlistItemsMargin(df.omit.na, fontsize = 12)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.omit.na, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.omit.na)
 ```
+
 ### Loadings 1st contrast
+
 ```{r}
 RIloadLoc(df.omit.na)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 RIresidcorr(df.omit.na, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| fig-height: 7
 RItargeting(df.omit.na)
 ```
+
 ### Itemhierarki
+
 ```{r}
 #| fig-height: 7
 RIitemHierarchy(df.omit.na)
 ```
+
 ### Svarskategorier
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.omit.na, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
+
 :::
 ::::
 
 PCA på residualer från Rasch-modellen indikerar möjlig multidimensionalitet. Utifrån faktorladdningarna på första residualkontrasten ser vi två potentiella kluster i data. Det ena betecknas av de psykosomatiska frågorna, det andra av psykiska besvär. Vi tittar på klustren separat.
 
 ## Rasch-analys 1 - psykosomatiska besvär
+
 ```{r}
 #| column: margin
 
@@ -309,39 +337,54 @@ df.psm <- df.omit.na %>%
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.psm, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.psm)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 RIresidcorr(df.psm, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 RItargeting(df.psm)
 ```
+
 ### Itemhierarki
+
 ```{r}
 RIitemHierarchy(df.psm)
 ```
+
 ### Svarskategorier
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.psm, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 #| label: rasch2.rcat2
 plot(mirt.rasch, type="trace")
 ```
+
 ### Barplots {.scrollable}
+
 ```{r}
 #| layout-ncol: 2
 for (i in 1:ncol(df.psm)) {
@@ -351,6 +394,7 @@ for (i in 1:ncol(df.psm)) {
                                             %>% .[i,2]))
   }
 ```
+
 :::
 ::::
 
@@ -364,6 +408,7 @@ Vi behöver åtgärda flera items genom att slå samman svarskategorier:
 - F93 och F98: 3+4
 - F95: 0+1
 
+
 ```{r}
 #| layout-ncol: 2
 
@@ -372,121 +417,156 @@ df.psm$F93 <- recode(df.psm$F93, "4=3", as.factor = FALSE)
 df.psm$F98 <- recode(df.psm$F98, "4=3", as.factor = FALSE)
 df.psm$F95 <- recode(df.psm$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
 ```
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.psm, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
 
+
 ::: panel-tabset
 #### Svarskategorier
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
+
 #### Itemhierarki (med konfidensintervall runt svarströsklar)
+
 ```{r}
 RIitemHierarchy(df.psm)
 ```
+
 :::
 
 ## Rasch-analys 2 - psykosomatiska besvär
 
 Efter att ha åtgärdat svarskategorierna.
+
 ```{r}
 #| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.psm, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| label: rasch3.pca
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.psm)
 ```
+
 ### Loadings 1st contrast
+
 ```{r}
 #| label: rasch3.load
 RIloadLoc(df.psm)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 #| label: rasch3.rcorr
 RIresidcorr(df.psm, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| label: rasch3.targ
 RItargeting(df.psm)
 ```
+
 ### Itemhierarki
+
 ```{r}
 RIitemHierarchy(df.psm)
 ```
+
 :::
 ::::
 
 ## Invarians-/DIF
 
 ### Kön
+
 ```{r}
 #| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 RIdifTable(df.psm, dif.gender)
 ```
+
 #### Figur
+
 ```{r}
 RIdifFigure(df.psm, dif.gender)
 ```
+
 :::
 ::::
 
 Inga problem med DIF för något item gällande kön.
 
 ### Årskurs
+
 ```{r}
 #| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 #| label: dif1
 RIdifTable(df.psm, dif.arskurs)
 ```
+
 #### Figur
+
 ```{r}
 #| label: dif1.2
 RIdifFigure(df.psm, dif.arskurs)
 ```
+
 :::
 ::::
 
 ### Årtal
+
 ```{r}
 #| echo: false
 #| column: margin
 RIlistItemsMargin(df.psm, fontsize = 13)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 #| label: difyear1
 
@@ -502,16 +582,21 @@ df.dif.years.psm$F95 <- recode(df.dif.years.psm$F95, "4=3;3=2;2=1;1=0", as.facto
 
 RIdifTable(df.dif.years.psm, dif.year)
 ```
+
 #### Figur 1
+
 ```{r}
 #| label: difyear1.2
 
 RIdifFigure(df.dif.years.psm, dif.year)
 ```
+
 #### Figur 2
+
 ```{r}
 RIdifFigTime(df.dif.years.psm, dif.year)
 ```
+
 :::
 ::::
 
@@ -519,28 +604,35 @@ Items är stabila och jämförbara över tid.
 
 ## Reliabilitet - psykosomatiska besvär
 
+
 ```{r}
 RItif(df.psm)
 ```
 
+
 Vi har acceptabel reliabilitet för ca 68% av respondenterna.
 
 ## Item-parametrar
+
 ```{r}
 RIitemparams(df.dif.years.psm, "PsyksomItemParams.csv")
 ```
+
 
 
 ## Transformeringstabell
 
 Med mätosäkerheter angivna som *Logit std.error*, där värden under 0.54 motsvarar reliabilitet över PSI = 0.7.
 
+
 ```{r}
 RIscoreSE(df.dif.years.psm)
 ```
 
 
+
 ## Rasch-analys 1 - psykiska besvär
+
 ```{r}
 items.psm <- c("F88","F91","F93","F95","F98")
 
@@ -554,46 +646,61 @@ df.psy <- df.omit.na %>%
 RIlistItemsMargin(df.psy, fontsize = 13)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 #| label: raschpsy1.fit
 
 RIitemfitPCM2(df.psy, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| label: raschpsy1.pca
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.psy)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 #| label: raschpsy1.rcorr
 RIresidcorr(df.psy, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| label: raschpsy1.targ
 RItargeting(df.psy)
 ```
+
 ### Itemhierarki
+
 ```{r}
 #| label: raschpsy1.targs
 RIitemHierarchy(df.psy)
 ```
+
 ### Svarskategorier
+
 ```{r}
 #| label: raschpsy1.rcat1
 #| include: false
 mirt.rasch <- mirt(df.psy, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 #| label: raschpsy1.rcat2
 plot(mirt.rasch, type="trace")
 ```
+
 ### Barplots {.scrollable}
+
 ```{r}
 #| label: raschpsy1.raw
 #| layout-ncol: 2
@@ -604,11 +711,14 @@ for (i in 1:ncol(df.psy)) {
                                             %>% .[i,2]))
   }
 ```
+
 ### Items
+
 ```{r}
 #| label: raschpsy1.items
 RIlistitems(df.psy)
 ```
+
 :::
 ::::
 
@@ -626,6 +736,7 @@ Vi behöver åtgärda flera items:
 
 (flera varianter testades, och ovanstående fungerade minst dåligt)
 
+
 ```{r}
 #| layout-ncol: 2
 
@@ -639,24 +750,31 @@ df.psy$F99 <- recode(df.psy$F99, "4=3", as.factor = FALSE)
 
 ```
 
+
 ::: panel-tabset
 #### Svarskategorier
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.psy, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
+
 #### Itemhierarki (med konfidensintervall runt svarströsklar)
+
 ```{r}
 RIitemHierarchy(df.psy)
 ```
+
 :::
 
 ## Rasch-analys 2 - psykiska besvär
 
 Efter att ha åtgärdat svarskategorierna.
+
 
 ```{r}
 #| echo: false
@@ -664,33 +782,44 @@ Efter att ha åtgärdat svarskategorierna.
 RIlistItemsMargin(df.psy, fontsize = 13)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 #| label: raschpsy2.fit
 RIitemfitPCM2(df.psy, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| label: raschpsy2.pca
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.psy)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 #| label: raschpsy2.rcorr
 RIresidcorr(df.psy, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| label: raschpsy2.targ
 RItargeting(df.psy)
 ```
+
 ### Itemhierarki
+
 ```{r}
 RIitemHierarchy(df.psy)
 ```
+
 :::
 ::::
 
@@ -703,6 +832,7 @@ Vi har två residualkorrelationer ca 0.25 över medelvärdet för samtliga resid
 
 Även om vi inte undersökt DIF, vilket bör göras innan reliabiliteten bedöms, så har de påtagliga problemen med svarskategorierna medfört att vi kan ha såpass låg reliabilitet att det inte är meningsfullt med DIF-analysen.
 
+
 ```{r}
 #| label: raschpsy2.rel2
 
@@ -712,14 +842,18 @@ df.psy$F90 <- NULL
 RItif(df.psy)
 ```
 
+
 Eftersom många items uppvisade problem med svarskategorierna blir reliabiliteten låg.
+
 
 ```{r}
 RIitemparams(df.psy, "PsykBesvItemParams.csv")
 ```
 
 
+
 Vi provar att slå samman kvarvarande items från psykiska besvär med de items som utgör psykosomatiska besvär.
+
 
 ```{r}
 df.psf <- cbind(df.psm,df.psy)
@@ -737,7 +871,9 @@ df.psf <- df.psf |>
 ```
 
 
+
 ## Rasch-analys 1 psykiska/psykosomatiska besvär
+
 
 ```{r}
 #| echo: false
@@ -745,43 +881,59 @@ df.psf <- df.psf |>
 RIlistItemsMargin(df.psf, fontsize = 12)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.psf, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.psf)
 ```
+
 ### Loadings 1st contrast
+
 ```{r}
 RIloadLoc(df.psf)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 RIresidcorr(df.psf, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| fig-height: 7
 RItargeting(df.psf)
 ```
+
 ### Itemhierarki
+
 ```{r}
 #| fig-height: 7
 RIitemHierarchy(df.psf)
 ```
+
 ### Svarskategorier
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.psf, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
+
 :::
 ::::
 
@@ -790,87 +942,115 @@ plot(mirt.rasch, type="trace")
 
 ::: panel-tabset
 #### ICC plot
+
 ```{r}
 df.erm <- PCM(df.psf)
 plotICC(df.erm, item.subset = "F94")
 ```
+
 #### Konfidensintervall för svarströsklar
+
 ```{r}
 RIitemHierarchy(df.psf)
 ```
+
 :::
 
 F94 har fortfarande problem med svarskategorierna. Vi slår samman de två mittersta.
 
 ::: panel-tabset
 #### ICC plot
+
 ```{r}
 df.psf$F94 <- recode(df.psf$F94, "3=2;2=1", as.factor = FALSE)
 df.erm <- PCM(df.psf)
 plotICC(df.erm, item.subset = "F94")
 ```
+
 #### Konfidensintervall för svarströsklar
+
 ```{r}
 RIitemHierarchy(df.psf)
 ```
+
 :::
 
 
 ## Rasch-analys 2 psykiska/psykosomatiska besvär
 
+
 ```{r}
 #| echo: false
 #| column: margin
 RIlistItemsMargin(df.psf, fontsize = 12)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.psf, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.psf)
 ```
+
 ### Loadings 1st contrast
+
 ```{r}
 RIloadLoc(df.psf)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 RIresidcorr(df.psf, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| fig-height: 7
 RItargeting(df.psf)
 ```
+
 ### Itemhierarki
+
 ```{r}
 #| fig-height: 7
 RIitemHierarchy(df.psf)
 ```
+
 ### Svarskategorier
+
 ```{r}
 #| include: false
 mirt.rasch <- mirt(df.psf, model=1, itemtype='Rasch') # unidimensional Rasch model
 ```
+
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
+
 :::
 ::::
 
 F94 korrelerar för starkt med F92. Vi tar bort F94 p.g.a. sämre targeting och ZSTD, samt problem med svarskategorierna.
 
+
 ```{r}
 df.psf$F94 <- NULL
 ```
 
+
 ## Rasch-analys 3 psykiska/psykosomatiska besvär
+
 
 ```{r}
 #| echo: false
@@ -878,35 +1058,48 @@ df.psf$F94 <- NULL
 RIlistItemsMargin(df.psf, fontsize = 12)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 ### Item fit
+
 ```{r}
 RIitemfitPCM2(df.psf, 300, 32, 8)
 ```
+
 ### PCA
+
 ```{r}
 #| tbl-cap: "PCA of Rasch model residuals"
 RIpcmPCA(df.psf)
 ```
+
 ### Loadings 1st contrast
+
 ```{r}
 RIloadLoc(df.psf)
 ```
+
 ### Residualkorrelationer
+
 ```{r}
 RIresidcorr(df.psf, cutoff = 0.2)
 ```
+
 ### Targeting
+
 ```{r}
 #| fig-height: 6
 RItargeting(df.psf)
 ```
+
 ### Itemhierarki
+
 ```{r}
 #| fig-height: 6
 RIitemHierarchy(df.psf)
 ```
+
 :::
 ::::
 
@@ -916,24 +1109,30 @@ Detta ser ut att fungera bra. Vi övergår till DIF-analys
 
 ### Kön
 
+
 ```{r}
 #| echo: false
 #| column: margin
 RIlistItemsMargin(df.psf, 12)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 #| fig-height: 3
 #dif.gender<-recode(dif.gender,"'Pojke'=1;'Flicka'=2",as.factor=FALSE)
 RIdifTable(df.psf, dif.gender)
 ```
+
 #### Figur
+
 ```{r}
 RIdifFigure(df.psf, dif.gender)
 ```
+
 :::
 ::::
 
@@ -941,6 +1140,7 @@ F89 har något hög DIF, i övrigt ser det bra ut. F99 ligger något högre än 
 
 ### Årskurs
 
+
 ```{r}
 #| column: margin
 #| echo: false
@@ -948,17 +1148,22 @@ F89 har något hög DIF, i övrigt ser det bra ut. F99 ligger något högre än 
 RIlistItemsMargin(df.psf, 12)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 #| fig-height: 3
 RIdifTable(df.psf, dif.arskurs)
 ```
+
 #### Figur
+
 ```{r}
 RIdifFigure(df.psf, dif.arskurs)
 ```
+
 :::
 ::::
 
@@ -966,15 +1171,18 @@ Inga skillnader mellan årskurser.
 
 ### Årtal
 
+
 ```{r}
 #| echo: false
 #| column: margin
 RIlistItemsMargin(df.psf, fontsize = 12)
 ```
 
+
 :::: column-page-inset-left
 ::: panel-tabset
 #### Tabell
+
 ```{r}
 final.items.psf <- names(df.psf)
 #write.csv(final.items, file = "2022-09-16 IFoptimalItems.csv")
@@ -994,20 +1202,26 @@ df.dif.years$F97 <- recode(df.dif.years$F97, "4=3;3=2;2=1;1=0", as.factor = FALS
 ```{r}
 RIdifTable(df.dif.years, dif.year)
 ```
+
 #### Figur items
+
 ```{r}
 RIdifFigure(df.dif.years, dif.year)
 ```
+
 #### Över tid
+
 ```{r}
 RIdifFigTime(df.dif.years, dif.year)
 ```
+
 :::
 ::::
 
 Items fungerar stabilt över tid.
 
 ### Interaktion årskurs och kön
+
 
 ```{r}
 #| column: margin
@@ -1019,9 +1233,11 @@ RIlistItemsMargin(df.psf, 12)
 ```{r}
 RIdifTable2(df.psf, dif.gender, dif.arskurs)
 ```
+
 Även här ligger F89 högt, vilket beror på könsskillnaden. Samtidigt är det sannolikt att det har mindre inverkan på beräkningen av indexvärden, när övriga items fungerar stabilt.
 
 Vi kan undersöka summan av DIF-differenser mellan könen för att se om de tar ut varandra.
+
 
 ```{r}
 data <- df.psf
@@ -1051,12 +1267,13 @@ pcmtable <- itempar(pctree.out) %>%
   mutate(diff = Flickor - Pojkar)
 ```
 
-
 ```{r}
 kbl_rise(pcmtable)
 sum(pcmtable$diff)
 ```
+
 #### LRT-test
+
 
 ```{r}
 ermOut <- PCM(df.psf)
@@ -1098,9 +1315,11 @@ RIdifFigThresh(df.psf, dif.gender)
 ```
 
 
+
 ### Item fit över tid
 
 DIF-analyserna visar på stabilitet i item locations över tid. Det kan också vara av intresse att se hur item fit ser ut över tid (2006-2020).
+
 
 ```{r}
 
@@ -1142,7 +1361,6 @@ for (i in årtal) {
   itemfit.all <- rbind(itemfit.all, itemfit.add)
 }
 ```
-
 
 ```{r}
 itemfit.all %>%
@@ -1188,22 +1406,28 @@ itemfit.all %>%
 
 ```
 
+
 Inget item går utanför gränsvärden 0.7-1.3.
 
 ## Reliabilitet - psykiska/psykosomatiska besvär
 
+
 ```{r}
 RItif(df.psf)
 ```
+
 Bättre reliabilitet än vad någon av delskalorna uppnår separat.
 
 ## Person fit
+
 
 ```{r}
 RIpfit(df.psf)
 ```
 
+
 ## Item-parametrar
+
 ```{r}
 #| column: margin
 #| echo: false
@@ -1217,9 +1441,11 @@ itemlabels %>%
   filter(itemnr %in% names(df.dif.years)) %>% 
   write_csv("PSFitemnr.csv")
 ```
+
 ```{r}
 RIscoreSE(df.dif.years)
 ```
+
 
 
 
@@ -1234,6 +1460,7 @@ OBS! Viktigt att komma ihåg att höga värden = hög risk, vilket även gäller
 - 2 - Ibland
 - 1 - Ganska ofta
 - 0 - Väldigt ofta
+
 
 ```{r}
 #| label: itemind1
@@ -1394,7 +1621,9 @@ ggplot(df.if, aes(x = as.factor(F99), y = SumScores)) +
 # stat_dotsinterval(scale = 0.5, quantiles = 100, position = "dodge") +
 
 ```
+
 ### Distribution med ej omkodade svarskategorier
+
 
 ```{r}
 #| label: testing
@@ -1428,11 +1657,13 @@ ggplot(df.if, aes(x = as.factor(F99o), y = SumScores)) +
   coord_flip()
 ```
 
+
 :::: column-page
 
 ## Jämförelser befintligt och nytt index
 
 Rapporter utifrån Stockholmsenkäten har hittills räknat samman ett index för "Psykisk hälsa", baserat på enkätsvar för de fem items som i denna analys återfinns under rubriken "Psykosomatiska besvär"
+
 
 ```{r}
 items.psm <- c("F88","F91","F93","F95","F98")
@@ -1443,6 +1674,7 @@ df.index <- df.all %>%
 RIlistitems(df.index)
 ```
 
+
 Indexberäkningen som använts utgår från att svaren översätts till siffror och sedan beräknas ett medelvärde av alla items. Lägsta svarsalternativet ("Aldrig") ersätts med siffran 100, näst lägsta med 75, och så vidare. Det innebär att ett högt värde motsvarar låg förekomst av besvär.
 
 I [Stockholm Stads rapport för år 2022](https://start.stockholm/globalassets/aktuellt/nyheter/psykisk-halsa-grundskolans-arskurs-9-2022.pdf) återges resultatet på detta vis:
@@ -1450,6 +1682,7 @@ I [Stockholm Stads rapport för år 2022](https://start.stockholm/globalassets/a
 ![](Index0-100.png)
 
 Vi kan återskapa figuren utifrån data från 2020 för årskurs 9.
+
 
 ```{r}
 #| fig-width: 12
@@ -1500,11 +1733,13 @@ df.indexR %>%
   
 ```
 
+
 ### Nytt index (5 items)
 
 Här utgår vi från samma fem items som i det befintliga indexet, men kodar om svarskategorierna som inte fungerade som tänkt, och estimerar fram ett indexvärde för varje individ utifrån Rasch-parametrarna. För jämförbarhet skalas sedan mätvärdet om till att omfånget 0-100.
 
 Frågorna mäter i huvudsak besvär, vilket medfört att indexet uppkallats efter det. För jämförbarhet med det befintliga indexet "psykisk hälsa", har mätvärden reverserats, så högre värden = lägre nivåer av besvär. Samma gäller indexet med 8 items.
+
 
 ```{r}
 
@@ -1545,9 +1780,11 @@ df.index$PSMscore100 <- round(scales::rescale(df.index$PSMscore, to = c(0,100)),
 
 ```
 
+
 ### Nytt index (8 items)
 
 Det index som både representerar psykosomatiska och psykiska besvär innehåller 8 frågor, och beräknas utifrån items efter korrigering av svarskategorier.
+
 
 ```{r}
 newIndex <- read_csv("PSFitemnr.csv")
@@ -1674,7 +1911,9 @@ df.index8 %>%
        caption = "Streckade linjer betecknar medelvärde per kön för samtliga stadsdelar")
 ```
 
+
 ### Indexvärde över tid, åk 9
+
 
 ```{r}
 #| fig-width: 12
@@ -1795,6 +2034,7 @@ df.index %>%
   theme_rise() +
   theme(text = element_text(family = "Lato"))
 ```
+
 ```{r}
 #| fig-width: 12
 #| fig-height: 10
@@ -1826,9 +2066,11 @@ df.index8 %>%
   theme_rise() +
   theme(text = element_text(family = "Lato"))
 ```
+
 ::::
 
 ### Fördelningar
+
 
 ```{r}
 df.indexR %>% 
@@ -1876,7 +2118,9 @@ df.index8 %>%
   hist(., col = RISEprimGreen, main = "Psykosomatiska besvär 8 item")
 ```
 
+
 ### Violin- & boxplot jämförelse
+
 
 ```{r}
 library(PrettyCols)
@@ -1936,6 +2180,7 @@ df.index %>%
     text = element_text(family = "Lato")
   )
 ```
+
 ```{r}
 df.index8 %>%
   filter(Kön %in% c("Pojke", "Flicka")) %>%
@@ -1964,9 +2209,11 @@ df.index8 %>%
     text = element_text(family = "Lato")
   )
 ```
+
 
 #### Fördelat på kön
 
+
 ```{r}
 library(PrettyCols)
 df.indexR %>%
@@ -2027,6 +2274,7 @@ df.index %>%
   ) +
   facet_wrap(~Kön)
 ```
+
 ```{r}
 df.index8 %>%
   filter(Kön %in% c("Pojke", "Flicka")) %>%
@@ -2058,7 +2306,9 @@ df.index8 %>%
 ```
 
 
+
 ### Tak-/golveffekter
+
 
 ```{r}
 df.indexR %>% 
@@ -2068,7 +2318,6 @@ df.indexR %>%
   formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 50%"')
 ```
 
-
 ```{r}
 df.index %>% 
   group_by(PSMscore100) %>% 
@@ -2076,7 +2325,6 @@ df.index %>%
   mutate(Procent = round(100*n/sum(n),1)) %>% 
   formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 50%"')
 ```
-
 
 ```{r}
 df.index8 %>% 
@@ -2087,7 +2335,9 @@ df.index8 %>%
 ```
 
 
+
 ## Programvara som använts för analyserna
+
 
 ```{r}
 #| label: packagesv
@@ -2099,7 +2349,9 @@ formattable(pkgs,
             table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
 ```
 
+
 ## Referenser
+
 
 
 

@@ -1,5 +1,5 @@
 ---
-title: "Mobbning"
+title: "Mobbning i skolan"
 title-block-banner: "#009ca6"
 title-block-banner-color: "#FFFFFF"
 author: 
@@ -7,7 +7,7 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: '2022-12-06'
+date: last-modified
 format: 
   html:
     toc: true
@@ -23,7 +23,7 @@ format:
     code-tools: true
     code-fold: true
     number-sections: true
-    fig-dpi: 250
+    #fig-dpi: 250
     layout-align: left
     linestretch: 1.6
     theme: materia
@@ -42,14 +42,14 @@ format:
     scrollable: true
     smaller: true
 execute:
-  echo: false
+  echo: true
   warning: false
   message: false
   cache: true
 editor_options: 
   markdown: 
     wrap: 72
-  chunk_output_type: inline
+  chunk_output_type: console
 bibliography: grateful-refs.bib
 ---
 
@@ -75,7 +75,6 @@ library(knitr)
 library(cowplot)
 library(formattable) 
 library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
-library(HH)
 library(glue)
 library(foreach)
 
@@ -110,8 +109,7 @@ df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parq
 
 # filter relevant variables
 df <- df.all %>% 
-  select(starts_with("f60"),F61,F63,ar,Kön,ARSKURS,SkolSDO) %>% 
-  select(!f60a)
+  select(starts_with("f60"),F61,F63,ar,Kön,ARSKURS,SkolSDO)
 
 # create dataframe with 2014 data with all variables (post recode)
 df.2014 <- df %>% 
@@ -120,6 +118,7 @@ df.2014 <- df %>%
 df.all.years <- na.omit(df)
 df.omit.na <- df.2014
 df.omit.na$ar <- NULL
+df.omit.na$f60a <- NULL # enbart svaret "Nej"
 
 # create DIF variables for gender and grade
 dif.gender <- df.omit.na$Kön
@@ -153,10 +152,9 @@ Eftersom det är relativt få respondenter i varje års mätning lägger vi samm
 ### Demografi
 ```{r}
 #| label: descriptives1
-#| layout-ncol: 3
+#| layout-ncol: 2
 RIdemographics(dif.gender, "Kön")
 RIdemographics(dif.arskurs, "Årskurs")
-#RIdemographics(dif.stadsdel, "Stadsdel")
 ```
 ### Item-data
 
@@ -248,13 +246,12 @@ Vi kodar om F61 så att 3 och 4 = 2 och tittar sedan på item fit igen. Det är 
 
 ```{r}
 df.omit.na$F61 <- recode(df.omit.na$F61,"4=2;3=2")
+RIitemCats(df.omit.na, items = "F61")
 RIitemfitPCM2(df.omit.na, 300, 32, 8)
 
 ```
 
 Vi tar bort F61 pga låg item fit, men kan prova att använda den bland skolfrågor och "Vantrivsel i skolan".
-
-Item f60h, som frågar specifikt om lärare medan alla andra item är ospecifika kring vem som mobbar, har något hög Outfit MSQ och avvikande loading.
 
 ## Rasch-parametrar 2 (utan F61)
 
@@ -285,12 +282,11 @@ RIresidcorr(df.omit.na, cutoff = 0.2)
 #| label: rasch1.targ
 RItargeting(df.omit.na, dich = T)
 ```
-### Targeting sorterad
+### Item-hierarki
 ```{r}
-#| label: rasch1.targs
-df.erm<-RM(df.omit.na)
+df.erm <- RM(df.omit.na)
 plotPImap(df.erm, sorted = T)
-```
+``` 
 ### Loadings 1st contrast
 ```{r}
 #| label: rasch1.load
@@ -311,7 +307,412 @@ Inga problem med dimensionalitet.
 RItif(df.omit.na)
 ```
 
-Det är inte möjligt att bilda något meningsfullt index kring mobbningsfrågorna. Däremot kan som tidigare nämnt F61 läggas in bland skolfrågorna.
+Den låga reliabiliteten gör att det inte är meningsfullt att estimera indexvärden utifrån mobbningsfrågorna.
+
+## Visualisering
+
+Med data från 2006 till 2020.
+
+```{r}
+df.plot <- df %>% 
+  select(!F61)
+
+```
+
+### Missing data
+
+::: panel-tabset
+#### 2020
+```{r}
+df.plot %>% 
+  filter(ar == 2020) %>% 
+  select(starts_with("f")) %>% 
+  RImissing()
+
+```
+#### 2018
+```{r}
+df.plot %>% 
+  filter(ar == 2018) %>% 
+  select(starts_with("f")) %>% 
+  RImissing()
+
+```
+#### 2016
+```{r}
+df.plot %>% 
+  filter(ar == 2016) %>% 
+  select(starts_with("f")) %>% 
+  RImissing()
+
+```
+#### 2014
+```{r}
+df.plot %>% 
+  filter(ar == 2014) %>% 
+  select(starts_with("f")) %>% 
+  RImissing()
+
+```
+:::
+
+Det verkar bara vara item F63 som har missing data. Vi tar en närmare titt på de som har missing data på F63 för att se om det finns ett mönster.
+
+```{r}
+#| include: false
+
+theme_rise <- function(fontfamily = "Lato", axissize = 13, titlesize = 15,
+                       margins = 12, axisface = "plain", stripsize = 12,
+                       panelDist = 0.6, legendSize = 11, legendTsize = 12) {
+  theme(
+    text = element_text(family = fontfamily),
+    axis.title.x = element_text(
+      margin = margin(t = margins),
+      size = axissize
+    ),
+    axis.title.y = element_text(
+      margin = margin(r = margins),
+      size = axissize
+    ),
+    plot.title = element_text(
+      face = "bold",
+      size = titlesize
+    ),
+    axis.title = element_text(
+      face = axisface
+    ),
+    plot.caption = element_text(
+      face = "italic"
+    ),
+    legend.text = element_text(family = fontfamily, size = legendSize),
+    legend.title = element_text(family = fontfamily, size = legendTsize),
+    strip.text = element_text(size = stripsize),
+    panel.spacing = unit(panelDist, "cm", data = NULL),
+    legend.background = element_rect(color = "lightgrey"),
+    strip.background = element_rect(color = "lightgrey")
+  )
+}
+```
+
+
+::: panel-tabset
+#### Kön - antal
+```{r}
+df.plot %>% 
+  filter(is.na(F63)) %>%
+  group_by(ar) %>% 
+  count(Kön) %>% 
+  mutate(Andel = 100 * n / sum(n)) %>% 
+  ggplot(aes(x = ar, y = n, color = Kön)) +
+  geom_point(size = 2) +
+  geom_line() +
+  scale_color_viridis_d(begin = 0.2, end = 0.8) +
+  scale_x_continuous("Årtal", breaks = c(2006,2008,2010,2012,2014,2016,2018,2020)) +
+  ylab("Antal svar") +
+  theme_minimal() +
+  theme_rise()
+
+```
+#### Kön - andel
+```{r}
+df.plot %>% 
+  filter(is.na(F63)) %>%
+  filter(!is.na(Kön)) %>%
+  group_by(ar) %>% 
+  count(Kön) %>% 
+  mutate(Andel = 100 * n / sum(n)) %>% 
+  ggplot(aes(x = ar, y = Andel, color = Kön)) +
+  geom_point(size = 2) +
+  geom_line() +
+  scale_color_viridis_d(begin = 0.2, end = 0.8) +
+  scale_x_continuous("Årtal", breaks = c(2006,2008,2010,2012,2014,2016,2018,2020)) +
+  scale_y_continuous(limits = c(0,100)) +
+  ylab("Andel svar") +  theme_minimal() +
+  theme_rise()
+
+```
+#### SkolSDO - antal
+```{r}
+df.plot %>% 
+  filter(is.na(F63)) %>%
+  filter(!is.na(SkolSDO)) %>%
+  group_by(ar) %>% 
+  count(SkolSDO) %>% 
+  mutate(Andel = 100 * n / sum(n)) %>% 
+  ggplot(aes(x = ar, y = n, color = SkolSDO)) +
+  geom_point(size = 2) +
+  geom_line() +
+  scale_color_viridis_d() +
+  scale_x_continuous("Årtal", breaks = c(2006,2008,2010,2012,2014,2016,2018,2020)) +
+  ylab("Antal svar") +
+  theme_minimal() +
+  theme_rise()
+
+```
+
+#### SkolSDO - andel
+```{r}
+df.plot %>% 
+  filter(is.na(F63)) %>%
+  group_by(ar) %>% 
+  count(SkolSDO) %>% 
+  mutate(Andel = 100 * n / sum(n)) %>% 
+  ggplot(aes(x = ar, y = Andel, color = SkolSDO)) +
+  geom_point(size = 2) +
+  geom_line() +
+  scale_color_viridis_d(begin = 0.2, end = 0.8) +
+  scale_x_continuous("Årtal", breaks = c(2006,2008,2010,2012,2014,2016,2018,2020)) +
+  ylab("Andel svar") +  
+  theme_minimal() +
+  theme_rise()
+```
+:::
+
+Inget tydligt mönster framgår.
+
+### Stapeldiagram
+
+Motsvarar det som Länsstyrelsen får från Origo.
+
+```{r}
+RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
+
+df.mobbad <- df.plot %>% 
+  mutate(mobbad = case_when(f60b == 1 ~ "Jag har blivit hånad, förlöjligad, kallad öknamn eller blivit retad på ett obehagligt och sårande sätt",
+                            f60c == 1 ~ "Jag har blivit utfrusen av andra elever",
+                            f60d == 1 ~ "Jag har blivit slagen, sparkad, knuffad eller stängd inne",
+                            f60e == 1 ~ "Någon elev har spritt lögner eller falska rykten om mig och försökt få andra att tycka illa om mig",
+                            f60f == 1 ~ "Jag har blivit fråntagen pengar eller saker eller fått saker förstörda
+",
+                            f60g == 1 ~ "Jag har blivit hotad eller tvingad att göra saker som jag inte ville göra
+",
+                            f60h == 1 ~ "Lärare har psykat eller på annat sätt varit elaka mot mig
+",
+                            f60i == 1 ~ "Jag har mobbats på annat sätt.
+",
+                            F63 == 1 ~ "Har du blivit mobbad eller trakasserad via internet eller SMS/MMS det här läsåret?",
+                            f60a == 1 ~ "Nej",
+                            TRUE ~ NA
+  )) %>% 
+  mutate(mobbad = factor(mobbad))
+
+df.mobbadG <- df.mobbad %>% 
+  filter(ar == 2020,
+         !is.na(Kön)) %>%
+  group_by(Kön) %>% 
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  mutate(mobbad = fct_reorder(mobbad, desc(n)))
+
+df.mobbadAlla <- df.mobbad %>% 
+  filter(ar == 2020) %>% 
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  mutate(mobbad = fct_reorder(mobbad, desc(n)))
+
+nejMedel <- df.mobbadAlla %>% 
+  filter(mobbad == 'Nej') %>% 
+  pull(Andel) %>% 
+  round(1)
+
+nejMedelÅk9 <- df.mobbad %>% 
+  filter(ar == 2020,
+         !is.na(Kön),
+         ARSKURS == "Åk 9") %>%
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  filter(mobbad == 'Nej') %>% 
+  pull(Andel) %>% 
+  round(1)
+
+nejMedelGy2 <- df.mobbad %>% 
+  filter(ar == 2020,
+         !is.na(Kön),
+         ARSKURS == "Gy 2") %>%
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  filter(mobbad == 'Nej') %>% 
+  pull(Andel) %>% 
+  round(1)
+```
+
+::: panel-tabset
+
+#### Uppdelat på kön
+```{r}
+#| fig-height: 7
+ggplot(df.mobbadG,
+       aes(x = mobbad, y = Andel, fill = Kön)) +
+  # geom_col(data = df.mobbadAlla, 
+  #          aes(x = mobbad, y = Andel),
+  #          fill = "grey",
+  #          width = 1) +
+  geom_bar(position=position_dodge(), 
+           stat = 'identity') +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_x_discrete(labels = ~ stringr::str_wrap(.x, width = 8)) +
+  scale_color_manual(values = RISEpalette1[c(1,5)],
+                     aesthetics = c("fill","color")) +
+  theme_minimal() +
+  theme_rise() +
+  labs(title = "Har du känt dig mobbad eller trakasserad i skolan det här läsåret?",
+       subtitle = "2020, både åk 9 och gy 2.") +
+  ylab("Andel i %") +
+  xlab("") +
+  geom_text(aes(label = round(Andel,1)),
+            position = position_dodge(width = 0.9),
+            hjust = -0.22, vjust = 0.5, angle = 90, size = 2.7,
+            color = "darkgrey") +
+  annotate("text", y = 95, x = 3,
+           label = paste0("Medelvärde ",nejMedel,"%"),
+           color = "black") +
+  geom_curve(x = 3, y = 91,
+           xend = 1, yend = nejMedel,
+           color = "black",
+           curvature = -0.4,
+           arrow = arrow()) +
+  update_geom_defaults("text", list(family = "Lato"))
+
+```
+
+#### Åk 9
+
+```{r}
+#| fig-height: 7
+df.mobbad %>% 
+  filter(ar == 2020,
+         !is.na(Kön),
+         !is.na(ARSKURS)) %>%
+  group_by(ARSKURS,Kön) %>% 
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  mutate(mobbad = fct_reorder(mobbad, desc(n))) %>% 
+  filter(ARSKURS == "Åk 9") %>% 
+  ggplot(aes(x = mobbad, y = Andel, fill = Kön)) +
+  # geom_col(data = df.mobbadAlla, 
+  #          aes(x = mobbad, y = Andel),
+  #          fill = "grey",
+  #          width = 1) +
+  geom_bar(position=position_dodge(), 
+           stat = 'identity') +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_x_discrete(labels = ~ stringr::str_wrap(.x, width = 8)) +
+  scale_color_manual(values = RISEpalette1[c(1,5)],
+                     aesthetics = c("fill","color")) +
+  theme_minimal() +
+  theme_rise() +
+  labs(title = "Har du känt dig mobbad eller trakasserad i skolan det här läsåret?",
+       subtitle = "2020, åk 9") +
+  ylab("Andel i %") +
+  xlab("") +
+  geom_text(aes(label = round(Andel,1)),
+            position = position_dodge(width = 0.9),
+            hjust = -0.22, vjust = 0.5, angle = 90, size = 2.7,
+            color = "darkgrey") +
+  annotate("text", y = 95, x = 3,
+           label = paste0("Medelvärde ",nejMedelÅk9,"%"),
+           color = "black") +
+  geom_curve(x = 3, y = 91,
+           xend = 1, yend = nejMedelÅk9,
+           color = "black",
+           curvature = -0.4,
+           arrow = arrow())
+
+```
+#### Gy 2
+```{r}
+#| fig-height: 7
+df.mobbad %>% 
+  filter(ar == 2020,
+         !is.na(Kön),
+         !is.na(ARSKURS)) %>%
+  group_by(ARSKURS,Kön) %>% 
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  mutate(mobbad = fct_reorder(mobbad, desc(n))) %>% 
+  filter(ARSKURS == "Gy 2") %>% 
+  ggplot(aes(x = mobbad, y = Andel, fill = Kön)) +
+  # geom_col(data = df.mobbadAlla, 
+  #          aes(x = mobbad, y = Andel),
+  #          fill = "grey",
+  #          width = 1) +
+  geom_bar(position=position_dodge(), 
+           stat = 'identity') +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_x_discrete(labels = ~ stringr::str_wrap(.x, width = 8)) +
+  scale_color_manual(values = RISEpalette1[c(1,5)],
+                     aesthetics = c("fill","color")) +
+  theme_minimal() +
+  theme_rise() +
+  labs(title = "Har du känt dig mobbad eller trakasserad i skolan det här läsåret?",
+       subtitle = "2020, gy 2") +
+  ylab("Andel i %") +
+  xlab("") +
+  geom_text(aes(label = round(Andel,1)),
+            position = position_dodge(width = 0.9),
+            hjust = -0.22, vjust = 0.5, angle = 90, size = 2.7,
+            color = "darkgrey") +
+  annotate("text", y = 95, x = 3,
+           label = paste0("Medelvärde ",nejMedelGy2,"%"),
+           color = "black") +
+  geom_curve(x = 3, y = 91,
+           xend = 1, yend = nejMedelGy2,
+           color = "black",
+           curvature = -0.4,
+           arrow = arrow())
+
+```
+
+#### Ej mobbad, över tid
+
+```{r}
+df.mobbad %>% 
+  filter(!is.na(Kön)) %>%
+  group_by(ar,Kön) %>% 
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  filter(mobbad == "Nej") %>% 
+  ggplot(aes(x = ar, y = Andel, color = Kön, group = Kön)) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 1.3) +
+  scale_color_manual(values = RISEpalette1[c(1,5)],
+                     aesthetics = c("fill","color")) +
+  scale_x_continuous("Årtal", breaks = c(2006,2008,2010,2012,2014,2016,2018,2020)) +
+  scale_y_continuous(limits = c(0,100)) +
+  theme_minimal() +
+  theme_rise() +
+  labs(title = "Har du känt dig mobbad eller trakasserad i skolan det här läsåret?",
+       subtitle = "Andel elever som svarat ''Nej'") +
+  ylab("Andel i %") +
+  xlab("")
+```
+
+#### Ej mobbad, årskurs
+```{r}
+df.mobbad %>% 
+  filter(!is.na(Kön),
+         !is.na(ARSKURS)
+         ) %>%
+  group_by(ar,ARSKURS,Kön) %>% 
+  count(mobbad) %>% 
+  mutate(Andel = 100*n/sum(n)) %>% 
+  filter(mobbad == "Nej") %>% 
+  ggplot(aes(x = ar, y = Andel, color = Kön, group = Kön)) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 1.3) +
+  scale_color_manual(values = RISEpalette1[c(1,5)],
+                     aesthetics = c("fill","color")) +
+  scale_x_continuous("Årtal", breaks = c(2006,2008,2010,2012,2014,2016,2018,2020)) +
+  scale_y_continuous(limits = c(0,100)) +
+  theme_minimal() +
+  theme_rise() +
+  labs(title = "Har du känt dig mobbad eller trakasserad i skolan det här läsåret?",
+       subtitle = "Andel elever som svarat ''Nej'") +
+  ylab("Andel i %") +
+  xlab("") +
+  facet_wrap(~ARSKURS)
+```
+:::
 
 ## Programvara som använts
 
