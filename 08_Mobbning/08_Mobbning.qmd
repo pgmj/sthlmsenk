@@ -640,7 +640,7 @@ df.mobbad %>%
            stat = 'identity') +
   scale_y_continuous(limits = c(0,100)) +
   scale_x_discrete(labels = ~ stringr::str_wrap(.x, width = 8)) +
-  scale_color_manual(values = RISEpalette1[c(1,5)],
+  scale_color_manual(values = RISEpalette1[c(2,6)],
                      aesthetics = c("fill","color")) +
   theme_minimal() +
   theme_rise() +
