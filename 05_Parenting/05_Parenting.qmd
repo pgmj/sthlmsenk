@@ -1134,8 +1134,6 @@ df.subskala <- df.omit.na %>%
 RIlistItemsMargin(df.subskala, 13)
 ```
 
-
-:::: column-page-inset-left
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
@@ -1172,10 +1170,6 @@ mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasc
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
-#### Items
-```{r}
-RIlistitems(df.subskala)
-```
 #### Reliabilitet
 ```{r}
 RItif(df.subskala)
@@ -1185,7 +1179,6 @@ RItif(df.subskala)
 RIpfit(df.subskala)
 ```
 :::
-::::
 
 ### Uppmärksamhet
 
@@ -1201,11 +1194,10 @@ RIlistItemsMargin(df.subskala, 13)
 ```
 
 
-:::: column-page-inset-left
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM2(df.subskala, 500, 32, 8)
+RIitemfitPCM(df.subskala, 300, 32)
 ```
 #### PCA
 ```{r}
@@ -1238,10 +1230,6 @@ mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasc
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
-#### Items
-```{r}
-RIlistitems(df.subskala)
-```
 #### Reliabilitet
 ```{r}
 RItif(df.subskala)
@@ -1251,7 +1239,6 @@ RItif(df.subskala)
 RIpfit(df.subskala)
 ```
 :::
-::::
 
 ### Inkonsekvens
 
@@ -1267,7 +1254,6 @@ RIlistItemsMargin(df.subskala, 13)
 ```
 
 
-:::: column-page-inset-left
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
@@ -1304,10 +1290,6 @@ mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasc
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
-#### Items
-```{r}
-RIlistitems(df.subskala)
-```
 #### Reliabilitet
 ```{r}
 RItif(df.subskala)
@@ -1317,7 +1299,6 @@ RItif(df.subskala)
 RIpfit(df.subskala)
 ```
 :::
-::::
 
 ### Föräldrakontroll
 
@@ -1333,11 +1314,10 @@ RIlistItemsMargin(df.subskala, 13)
 ```
 
 
-:::: column-page-inset-left
 ::: panel-tabset
 #### Item fit {.smaller}
 ```{r}
-RIitemfitPCM(df.subskala, 500, 32)
+RIitemfitPCM(df.subskala, 550, 32)
 ```
 #### PCA
 ```{r}
@@ -1370,10 +1350,6 @@ mirt.rasch <- mirt(df.subskala, model=1, itemtype='Rasch') # unidimensional Rasc
 ```{r}
 plot(mirt.rasch, type="trace")
 ```
-#### Items
-```{r}
-RIlistitems(df.subskala)
-```
 #### Reliabilitet
 ```{r}
 RItif(df.subskala)
@@ -1383,7 +1359,6 @@ RItif(df.subskala)
 RIpfit(df.subskala)
 ```
 :::
-::::
 
 ### Delskalor - sammanfattande kommentar
 
@@ -1398,7 +1373,8 @@ All delskalor uppvisar också låg reliabilitet.
 pkgs <- cite_packages(cite.tidyverse = TRUE, 
                       output = "table",
                       bib.file = "grateful-refs.bib",
-                      include.RStudio = TRUE)
+                      include.RStudio = TRUE,
+                      out.dir = getwd())
 formattable(pkgs, 
             table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
 ```
