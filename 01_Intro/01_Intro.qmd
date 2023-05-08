@@ -621,7 +621,7 @@ Analyser av hittills använda delskalor i sammanställningar av Stockholmsenkät
 ```{r}
 #| label: parents.itemlist
   
-parents.itemnr<-itemlabels %>%
+parents.itemnr <- itemlabels %>%
   filter(itemnr %in% items.parents.all) %>% 
   rownames_to_column() %>% 
   filter(itemnr %in% items.parents.final) %>% 
@@ -629,7 +629,7 @@ parents.itemnr<-itemlabels %>%
   as.numeric()
 
 itemlabels %>%
-  filter(itemnr %in% items.if.all) %>%
+  filter(itemnr %in% items.parents.all) %>%
   select(!Index) %>%
   kbl_rise() %>%
   row_spec(parents.itemnr, background = RISEprimGreen, color = "white")
@@ -917,7 +917,8 @@ df %>%
 pkgs <- cite_packages(cite.tidyverse = TRUE, 
                       output = "table",
                       bib.file = "grateful-refs.bib",
-                      include.RStudio = TRUE)
+                      include.RStudio = TRUE,
+                      out.dir = getwd())
 formattable(pkgs, 
             table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
 

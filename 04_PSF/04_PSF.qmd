@@ -694,7 +694,7 @@ RIitemHierarchy(df.psy)
 :::
 ::::
 
-Vi har två residualkorrelationer ca 0.25 över medelvärdet för samtliga residualkorrelationer.
+Vi har två residualkorrelationer ca 0.26 över medelvärdet för samtliga residualkorrelationer.
 
 - F96 tas bort (F92 behålls pga bättre targeting)
 - F90 tas bort (F89 behålls pga bättre targeting)
@@ -712,16 +712,42 @@ df.psy$F90 <- NULL
 RItif(df.psy)
 ```
 
-Eftersom många items uppvisade problem med svarskategorierna blir reliabiliteten låg.
+Eftersom många items uppvisade problem med svarskategorierna blir reliabiliteten låg, men ändå över gränsvärdet nära mitten på skalan.
+
 
 ```{r}
 RIitemparams(df.psy, "PsykBesvItemParams.csv")
 ```
 
 
-Vi provar att slå samman kvarvarande items från psykiska besvär med de items som utgör psykosomatiska besvär.
+## Explorativ analys
+
+Vi provar att slå samman items från psykiska besvär med de items som utgör psykosomatiska besvär.
+
+## Rasch-analys 1 psykiska/psykosomatiska besvär
 
 ```{r}
+items.psm <- c("F88","F91","F93","F95","F98")
+
+df.psm <- df.omit.na %>% 
+  select(any_of(items.psm))
+
+df.psm$F91 <- recode(df.psm$F91, "2=1;3=2;4=2", as.factor = FALSE)
+df.psm$F93 <- recode(df.psm$F93, "4=3", as.factor = FALSE)
+df.psm$F98 <- recode(df.psm$F98, "4=3", as.factor = FALSE)
+df.psm$F95 <- recode(df.psm$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
+
+df.psy <- df.omit.na %>% 
+  select(!any_of(items.psm))
+
+df.psy$F89 <- recode(df.psy$F89, "2=1;3=2;4=2", as.factor = FALSE)
+df.psy$F90 <- recode(df.psy$F90, "2=1;3=2;4=2", as.factor = FALSE)
+df.psy$F96 <- recode(df.psy$F96, "2=1;3=2;4=2", as.factor = FALSE)
+df.psy$F97 <- recode(df.psy$F97, "1=0;2=1;3=2;4=3", as.factor = FALSE)
+df.psy$F92 <- recode(df.psy$F92, "4=3", as.factor = FALSE)
+df.psy$F99 <- recode(df.psy$F99, "4=3", as.factor = FALSE)
+
+
 df.psf <- cbind(df.psm,df.psy)
 
 df.psf <- df.psf |> 
@@ -730,14 +756,13 @@ df.psf <- df.psf |>
   relocate(F89, .after = "F88") |>
   relocate(F94, .before = "F95")
 
+RItileplot(df.psf)
 # psf.items <- names(df.psf)
 # 
 # df.psf <- df.omit.na |> 
 #   select(any_of(psf.items))
 ```
 
-
-## Rasch-analys 1 psykiska/psykosomatiska besvär
 
 ```{r}
 #| echo: false
@@ -749,6 +774,7 @@ RIlistItemsMargin(df.psf, fontsize = 12)
 ::: panel-tabset
 ### Item fit
 ```{r}
+#| cache: true
 RIitemfitPCM2(df.psf, 300, 32, 8)
 ```
 ### PCA
@@ -785,14 +811,23 @@ plot(mirt.rasch, type="trace")
 :::
 ::::
 
+Starkaste korrelationen är mellan F92 (Hur mycket skulle du vilja ändra på dig själv?) och F96 (Är du nöjd med ditt utseende?). Båda korrelerar dessutom med F94 (Hur ofta tycker du att du inget duger till?). Vi tar bort F96 som ter sig innehållsmässigt minst relevant.
 
+```{r}
+df.psf$F96 <- NULL
+```
 
+Item F94 har problem med oordnade svarskategorier.
 
 ::: panel-tabset
 #### ICC plot
 ```{r}
+#| layout-ncol: 2
 df.erm <- PCM(df.psf)
 plotICC(df.erm, item.subset = "F94")
+df.psf %>% 
+  select(F94) %>% 
+  RIbarplot()
 ```
 #### Konfidensintervall för svarströsklar
 ```{r}
@@ -800,12 +835,12 @@ RIitemHierarchy(df.psf)
 ```
 :::
 
-F94 har fortfarande problem med svarskategorierna. Vi slår samman de två mittersta.
+Vi slår samman 1 och 2, samt 3 och 4.
 
 ::: panel-tabset
 #### ICC plot
 ```{r}
-df.psf$F94 <- recode(df.psf$F94, "3=2;2=1", as.factor = FALSE)
+df.psf$F94 <- recode(df.psf$F94, "4=2;3=2;2=1", as.factor = FALSE)
 df.erm <- PCM(df.psf)
 plotICC(df.erm, item.subset = "F94")
 ```
@@ -853,22 +888,23 @@ RItargeting(df.psf)
 #| fig-height: 7
 RIitemHierarchy(df.psf)
 ```
-### Svarskategorier
-```{r}
-#| include: false
-mirt.rasch <- mirt(df.psf, model=1, itemtype='Rasch') # unidimensional Rasch model
-```
-```{r}
-plot(mirt.rasch, type="trace")
-```
 :::
 ::::
 
-F94 korrelerar för starkt med F92. Vi tar bort F94 p.g.a. sämre targeting och ZSTD, samt problem med svarskategorierna.
+F89 och 94 är något låga på item fit ZSTD, men MSQ ser bra ut.
+
+Vi har flera par av items som korrelerar över gränsvärdet 0.2, men ingen över 0.25:
+
+- F94 med både 89 och 92 (duger inget till, ledsen/deppig, vill ändra dig själv)
+- F89 med både 94 och 90 (ledsen/deppig, duger inget till, rädd)
+
+Vi tar bort 94 och 90.
 
 ```{r}
+df.psf$F90 <- NULL
 df.psf$F94 <- NULL
 ```
+
 
 ## Rasch-analys 3 psykiska/psykosomatiska besvär
 
@@ -910,7 +946,6 @@ RIitemHierarchy(df.psf)
 :::
 ::::
 
-Detta ser ut att fungera bra. Vi övergår till DIF-analys
 
 ## DIF/invarians
 
@@ -985,10 +1020,11 @@ df.dif.years$F89 <- recode(df.dif.years$F89, "2=1;3=2;4=2", as.factor = FALSE)
 df.dif.years$F91 <- recode(df.dif.years$F91, "2=1;3=2;4=2", as.factor = FALSE)
 df.dif.years$F92 <- recode(df.dif.years$F92, "4=3", as.factor = FALSE)
 df.dif.years$F93 <- recode(df.dif.years$F93, "4=3", as.factor = FALSE)
-df.dif.years$F98 <- recode(df.dif.years$F98, "4=3", as.factor = FALSE)
-df.dif.years$F99 <- recode(df.dif.years$F99, "4=3", as.factor = FALSE)
+#df.dif.years$F94 <- recode(df.dif.years$F94, "2=1;3=2;4=2", as.factor = FALSE)
 df.dif.years$F95 <- recode(df.dif.years$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
 df.dif.years$F97 <- recode(df.dif.years$F97, "4=3;3=2;2=1;1=0", as.factor = FALSE)
+df.dif.years$F98 <- recode(df.dif.years$F98, "4=3", as.factor = FALSE)
+df.dif.years$F99 <- recode(df.dif.years$F99, "4=3", as.factor = FALSE)
 ```
 
 ```{r}
@@ -1019,83 +1055,7 @@ RIlistItemsMargin(df.psf, 12)
 ```{r}
 RIdifTable2(df.psf, dif.gender, dif.arskurs)
 ```
-Även här ligger F89 högt, vilket beror på könsskillnaden. Samtidigt är det sannolikt att det har mindre inverkan på beräkningen av indexvärden, när övriga items fungerar stabilt.
-
-Vi kan undersöka summan av DIF-differenser mellan könen för att se om de tar ut varandra.
-
-```{r}
-data <- df.psf
-df.tree <- data.frame(matrix(ncol = 0, nrow = nrow(data)))
-df.tree$difdata <- as.matrix(data)
-df.tree$dif.gender <- dif.gender
-pctree.out <- pctree(difdata ~ dif.gender, data = df.tree)
-
-pcmtable <- itempar(pctree.out) %>%
-  as.data.frame() %>%
-  t() %>%
-  as.data.frame() %>%
-  mutate(
-    `Mean location` = rowMeans(.),
-    StDev = rowSds(as.matrix(.))
-  ) %>%
-  rowwise() %>%
-  mutate(MaxDiff = (max(c_across(c(1:(ncol(.) - 2))))) -
-           min(c_across(c(1:(ncol(.) - 2))))) %>%
-  ungroup() %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
-  rownames_to_column(var = "Item") %>%
-  mutate(Item = names(data)) %>%
-  janitor::clean_names() %>%
-  rename(Flickor = x2,
-         Pojkar = x3) %>%
-  mutate(diff = Flickor - Pojkar)
-```
-
-
-```{r}
-kbl_rise(pcmtable)
-sum(pcmtable$diff)
-```
-#### LRT-test
-
-```{r}
-ermOut <- PCM(df.psf)
-psf.lrt <- LRtest(ermOut, splitcr = dif.gender)
-psf.wald <- Waldtest(ermOut, splitcr = dif.gender)
-psf.mloef <- MLoef(ermOut, splitcr = "median")
-
-dif.wald <- as.data.frame(psf.wald[["betapar1"]], nm = "Flickor") %>% 
-  rownames_to_column("item_thresh")
-dif.wald$Pojkar <- as.data.frame(psf.wald[["betapar2"]], nm = "Pojkar") %>%
-                    pull(Pojkar)
-# change beta (easiness) to eta (difficulty)
-dif.wald$Pojkar <- dif.wald$Pojkar*-1
-dif.wald$Flickor <- dif.wald$Flickor*-1
-
-dif.wald <- dif.wald %>% 
-  mutate(mean_location = rowMeans(.[,2:3]),
-         diff = Flickor - Pojkar) %>% 
-  mutate(across(where(is.numeric), ~ round(.x,3))) %>% 
-  separate(item_thresh, c("item", "threshold"), sep = "\\.") %>%
-  separate(item, c(NA,"item"), sep = " ")
-
-kbl_rise(dif.wald)
-
-dif.wald %>% 
-  group_by(item) %>% 
-  summarise(item_mean_location = mean(mean_location) %>% round(3))
-
-dif.wald %>% 
-  pivot_longer(cols = c("Flickor","Pojkar"), names_to = "group") %>% 
-  ggplot(aes(x = group, y = value, color = threshold, group = threshold)) +
-  geom_point(size = 2) +
-  geom_line() +
-  facet_wrap(~item) +
-  theme_minimal() +
-  theme_rise()
-
-RIdifFigThresh(df.psf, dif.gender)
-```
+Även här ligger F89 högt, vilket primärt beror på könsskillnaden som tidigare påvisades. Samtidigt är det sannolikt att det har mindre inverkan på beräkningen av indexvärden, när övriga items fungerar stabilt.
 
 
 ### Item fit över tid
@@ -1103,17 +1063,20 @@ RIdifFigThresh(df.psf, dif.gender)
 DIF-analyserna visar på stabilitet i item locations över tid. Det kan också vara av intresse att se hur item fit ser ut över tid (2006-2020).
 
 ```{r}
+final.items <- names(df.psf)
 
-final.items <- read_csv("PSFitemnr.csv") %>% 
-  pull(itemnr)
+# final.items <- read_csv("PSFitemnr.csv") %>% 
+#   pull(itemnr)
 
 df.fit <- df.all %>%
-  select(final.items,ar) %>% 
+  select(all_of(c(final.items,"ar"))) %>% 
   na.omit()
 
+df.fit$F89 <- recode(df.fit$F89, "2=1;3=2;4=2", as.factor = FALSE)
 df.fit$F91 <- recode(df.fit$F91, "2=1;3=2;4=2", as.factor = FALSE)
 df.fit$F92 <- recode(df.fit$F92, "4=3", as.factor = FALSE)
 df.fit$F93 <- recode(df.fit$F93, "4=3", as.factor = FALSE)
+#df.fit$F94 <- recode(df.fit$F94, "2=1;3=2;4=2", as.factor = FALSE)
 df.fit$F98 <- recode(df.fit$F98, "4=3", as.factor = FALSE)
 df.fit$F99 <- recode(df.fit$F99, "4=3", as.factor = FALSE)
 df.fit$F95 <- recode(df.fit$F95, "4=3;3=2;2=1;1=0", as.factor = FALSE)
@@ -1195,7 +1158,7 @@ Inget item går utanför gränsvärden 0.7-1.3.
 ```{r}
 RItif(df.psf)
 ```
-Bättre reliabilitet än vad någon av delskalorna uppnår separat.
+Klart bättre reliabilitet än vad någon av delskalorna uppnår separat.
 
 ## Person fit
 
@@ -1222,8 +1185,6 @@ RIscoreSE(df.dif.years)
 ```
 
 
-
-
 ## Exempel med single-item vs index
 
 Data från enbart 2020.
@@ -1246,15 +1207,7 @@ df.if <- df %>%
 
 F99o <- df.if$F99
 
-# rcat2 <- c("F95","F97")
-# rcat3 <- c("F92","F93","F99")
-# 
-# for (i in rcat2) {
-#   df.if[[i]]<-recode(df.if[[i]],"1=0;2=1;3=2;4=3",as.factor=FALSE)
-# }
-# for (i in rcat3) {
-#   df.if[[i]]<-recode(df.if[[i]],"4=3",as.factor=FALSE)
-# }
+df.if$F89 <- recode(df.if$F89, "2=1;3=2;4=2", as.factor = FALSE)
 df.if$F91 <- recode(df.if$F91, "2=1;3=2;4=2", as.factor = FALSE)
 df.if$F92 <- recode(df.if$F92, "4=3", as.factor = FALSE)
 df.if$F93 <- recode(df.if$F93, "4=3", as.factor = FALSE)
@@ -1281,7 +1234,7 @@ thetaEstScores <- c()
 #p1 <- c()
 for (i in 1:nrow(df.if)){
   p1 <- as.numeric(as.vector(df.if[i,]))
-  ptheta <- thetaEst(items, p1, model = "PCM", method = "ML") # several method options available for theta calculation
+  ptheta <- thetaEst(items, p1, model = "PCM", method = "WL") # several method options available for theta calculation
   thetaEstScores <- c(thetaEstScores,ptheta)
 }
 
@@ -1301,9 +1254,10 @@ df.if$F99o <- F99o
 
 #---- barplot for single item----
 barplot(table(df.if$F99), col = "#8dc8c7", main = "Svarsfördelning för item F99")
+```
 
 
-
+```{r}
 #---- visualize single item vs index score----
 # some code from https://dallasnova.rbind.io/post/efficient-data-visualization-with-faded-raincloud-plots-delete-boxplot/
 library(ggdist) # for shadeable density slabs
@@ -1340,7 +1294,10 @@ ggplot(df.if, aes(x = Kön, y = SumScores)) +
   #labs(caption = "Punkterna visar medelvärden för indexvärde, fälten motsvarar 50% och 95% av distributionen.",
   #     subtitle = "Item F99 - Hur ofta tycker du att det är riktigt härligt att leva?") +
   coord_flip()
+```
 
+
+```{r}
 #---- plots for index value vs single item response ----
 ggplot(df.if, aes(x = as.factor(F99), y = SumScores)) +
   #geom_violin()
@@ -1365,7 +1322,10 @@ ggplot(df.if, aes(x = as.factor(F99), y = SumScores)) +
   labs(caption = "Punkterna visar medelvärden för indexvärde, fälten motsvarar 50% och 95% av distributionen.",
        subtitle = "Item F99 - Hur ofta tycker du att det är riktigt härligt att leva?") +
   coord_flip()
+```
 
+
+```{r}
 ggplot(df.if, aes(x = as.factor(F99), y = SumScores)) +
   #geom_violin()
   # density distribution slab
@@ -1502,9 +1462,9 @@ df.indexR %>%
 
 ### Nytt index (5 items)
 
-Här utgår vi från samma fem items som i det befintliga indexet, men kodar om svarskategorierna som inte fungerade som tänkt, och estimerar fram ett indexvärde för varje individ utifrån Rasch-parametrarna. För jämförbarhet skalas sedan mätvärdet om till att omfånget 0-100.
+Här utgår vi från samma fem items som i det befintliga indexet, men kodar om svarskategorierna som inte fungerade korrekt, och estimerar fram ett indexvärde för varje individ utifrån Rasch-parametrarna. För jämförbarhet skalas sedan mätvärdet om till att matcha omfånget 0-100. OBS att alla värden mellan 0 och 100 inte är möjliga mätvärden.
 
-Frågorna mäter i huvudsak besvär, vilket medfört att indexet uppkallats efter det. För jämförbarhet med det befintliga indexet "psykisk hälsa", har mätvärden reverserats, så högre värden = lägre nivåer av besvär. Samma gäller indexet med 8 items.
+Frågorna mäter i huvudsak besvär, vilket medfört att indexet uppkallats efter det. För jämförbarhet med det befintliga indexet "psykisk hälsa", har mätvärden reverserats, så högre värden = lägre nivåer av besvär. Samma gäller det nya indexet med 9 items.
 
 ```{r}
 
@@ -1545,19 +1505,19 @@ df.index$PSMscore100 <- round(scales::rescale(df.index$PSMscore, to = c(0,100)),
 
 ```
 
-### Nytt index (8 items)
+### Nytt index (9 items)
 
-Det index som både representerar psykosomatiska och psykiska besvär innehåller 8 frågor, och beräknas utifrån items efter korrigering av svarskategorier.
+Det index som både representerar psykosomatiska och psykiska besvär innehåller 9 (5+4) frågor, och mätvärden beräknas på samma vis utifrån items efter korrigering av svarskategorier.
 
 ```{r}
 newIndex <- read_csv("PSFitemnr.csv")
 
 items.psnew <- newIndex$itemnr
 
-df.index8 <- df.all %>%
+df.index9 <- df.all %>%
   select(items.psnew, Kön, ARSKURS, ar, SkolSDO)
 
-RIlistitems(df.index8)
+RIlistitems(df.index9)
 ```
 
 ```{r}
@@ -1566,41 +1526,41 @@ itemParams.psnew <- read_csv("itemParameters.csv") %>%
   as.matrix()
 
 # create id variable to re-join thetas
-df.index8 <- df.index8 %>% 
+df.index9 <- df.index9 %>% 
   mutate(id = seq.int(nrow(.)))
 
 # recode items to correct response categories
-df.indexNew8 <- df.index8 %>% 
+df.indexNew9 <- df.index9 %>% 
   select(all_of(c(items.psnew,"id"))) %>% 
   na.omit()
 
-rcat1 <- c("F91")
+rcat1 <- c("F91", "F89")
 rcat2 <- c("F95", "F97")
 rcat3 <- c("F92", "F93", "F98", "F99")
 
 for (i in rcat1) {
-  df.indexNew8[[i]] <- recode(df.indexNew8[[i]], "2=1;3=2;4=2", as.factor = FALSE)
+  df.indexNew9[[i]] <- recode(df.indexNew9[[i]], "2=1;3=2;4=2", as.factor = FALSE)
 }
 for (i in rcat2) {
-  df.indexNew8[[i]] <- recode(df.indexNew8[[i]], "1=0;2=1;3=2;4=3", as.factor = FALSE)
+  df.indexNew9[[i]] <- recode(df.indexNew9[[i]], "1=0;2=1;3=2;4=3", as.factor = FALSE)
 }
 for (i in rcat3) {
-  df.indexNew8[[i]] <- recode(df.indexNew8[[i]], "4=3", as.factor = FALSE)
+  df.indexNew9[[i]] <- recode(df.indexNew9[[i]], "4=3", as.factor = FALSE)
 }
 
 #RItileplot(df.indexNew %>% select(!id))
 #itemParams.psm
-df.indexNew8$PS8score <- df.indexNew8 %>% 
+df.indexNew9$PS9score <- df.indexNew9 %>% 
   select(!id) %>% 
   RIestThetas2(cpu = 8, itemParams = itemParams.psnew)
-df.index8 <- df.indexNew8 %>% 
-  select(id,PS8score) %>% 
-  left_join(df.index8,df.indexNew8, by = "id")
+df.index9 <- df.indexNew9 %>% 
+  select(id,PS9score) %>% 
+  left_join(df.index9,df.indexNew9, by = "id")
 
 # reverse score to match old index
-df.index8$PS8score <- df.index8$PS8score*-1
+df.index9$PS9score <- df.index9$PS9score*-1
 # and rescaled version
-df.index8$PS8score100 <- round(scales::rescale(df.index8$PS8score, to = c(0,100)),0)
+df.index9$PS9score100 <- round(scales::rescale(df.index9$PS9score, to = c(0,100)),0)
 
 ```
 
@@ -1642,13 +1602,13 @@ df.index %>%
 ```{r}
 #| fig-width: 12
 #| fig-height: 6
-df.index8 %>% 
+df.index9 %>% 
   filter(ar == 2020) %>% 
   filter(Kön %in% c("Pojke","Flicka")) %>% 
   filter(ARSKURS == "Åk 9") %>% 
   filter(!is.na(SkolSDO)) %>% 
   group_by(SkolSDO,Kön) %>% 
-  summarise(PSFmean = round(mean(PS8score100, na.rm = T),0)) %>% 
+  summarise(PSFmean = round(mean(PS9score100, na.rm = T),0)) %>% 
   ggplot(aes(y = PSFmean, x = SkolSDO, fill = Kön, color = Kön)) +
   geom_chicklet(
     radius = grid::unit(1.5, "mm"),
@@ -1670,7 +1630,7 @@ df.index8 %>%
   theme(text = element_text(family = "Lato")) +
   ylab("Medelvärde") +
   labs(title = "Psykiska/psykosomatiska besvär indexvärde",
-       subtitle = "8 items, år 2020, åk 9",
+       subtitle = "9 items, år 2020, åk 9",
        caption = "Streckade linjer betecknar medelvärde per kön för samtliga stadsdelar")
 ```
 
@@ -1799,13 +1759,13 @@ df.index %>%
 #| fig-width: 12
 #| fig-height: 10
 
-df.index8 %>%
+df.index9 %>%
   filter(Kön %in% c("Pojke", "Flicka")) %>%
   filter(!is.na(SkolSDO)) %>%
   filter(ARSKURS == "Åk 9") %>% 
   group_by(ar, SkolSDO, Kön) %>%
-  summarise(PSFmean = round(mean(PS8score100, na.rm = T), 0),
-            stdev = round(sd(PS8score100, na.rm = T))) %>%
+  summarise(PSFmean = round(mean(PS9score100, na.rm = T), 0),
+            stdev = round(sd(PS9score100, na.rm = T))) %>%
   ggplot(aes(y = PSFmean, x = ar, color = Kön, group = Kön)) +
   geom_line(linewidth = 1) +
   geom_point(size = 2.5) +
@@ -1819,7 +1779,7 @@ df.index8 %>%
   scale_x_continuous("År",guide = guide_axis(n.dodge = 2), breaks = årtal) +
   scale_y_continuous("Medelvärde", limits = c(0,100)) +
   labs(title = "Psykiska/psykosomatiska besvär indexvärde",
-              subtitle = "8 items, nytt index",
+              subtitle = "9 items, nytt index",
        caption = "Skuggade fält indikerar en standardavvikelse") +
   facet_wrap(~SkolSDO) +
   theme_minimal(base_size = 11) +
@@ -1862,18 +1822,18 @@ df.index %>%
 ```
 
 ```{r}
-df.index8 %>% 
+df.index9 %>% 
   filter(ar == 2020) %>% 
   filter(ARSKURS == "Åk 9") %>% 
-  select(PS8score100) %>% 
+  select(PS9score100) %>% 
   summary()
 
-df.index8 %>% 
+df.index9 %>% 
   filter(ar == 2020) %>%
   filter(ARSKURS == "Åk 9") %>% 
-  select(PS8score100) %>% 
+  select(PS9score100) %>% 
   pull() %>% 
-  hist(., col = RISEprimGreen, main = "Psykosomatiska besvär 8 item")
+  hist(., col = RISEprimGreen, main = "Psykosomatiska besvär 9 item")
 ```
 
 ### Violin- & boxplot jämförelse
@@ -1937,12 +1897,12 @@ df.index %>%
   )
 ```
 ```{r}
-df.index8 %>%
+df.index9 %>%
   filter(Kön %in% c("Pojke", "Flicka")) %>%
   filter(!is.na(SkolSDO)) %>%
   filter(ARSKURS == "Åk 9") %>%
   mutate(År = factor(ar)) %>% 
-  ggplot(aes(x = År, y = PS8score100, group = År)) +
+  ggplot(aes(x = År, y = PS9score100, group = År)) +
   geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
   geom_violin(aes(fill = År), alpha= 0.85) +
   geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
@@ -1955,7 +1915,7 @@ df.index8 %>%
    scale_fill_pretty_d(name = "TealGreens") +
   labs(
     title = "Psykiska/psykosomatiska besvär",
-    subtitle = "Nytt 8-item index",
+    subtitle = "Nytt 9-item index",
     caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
   ) +
   theme_minimal() +
@@ -2028,12 +1988,12 @@ df.index %>%
   facet_wrap(~Kön)
 ```
 ```{r}
-df.index8 %>%
+df.index9 %>%
   filter(Kön %in% c("Pojke", "Flicka")) %>%
   filter(!is.na(SkolSDO)) %>%
   filter(ARSKURS == "Åk 9") %>%
   mutate(År = factor(ar)) %>% 
-  ggplot(aes(x = År, y = PS8score100, group = År)) +
+  ggplot(aes(x = År, y = PS9score100, group = År)) +
   geom_jitter(shape = 16, position = position_jitter(0.3), alpha = 0.05) +
   geom_violin(aes(fill = År), alpha= 0.85) +
   geom_boxplot(width = .3, outlier.shape = NA, alpha = 0.3, notch = TRUE) +
@@ -2046,7 +2006,7 @@ df.index8 %>%
    scale_fill_pretty_d(name = "Rainbow") +
   labs(
     title = "Psykiska/psykosomatiska besvär",
-    subtitle = "Nytt 8-item index",
+    subtitle = "Nytt 9-item index",
     caption = "I boxen ryms 50% av respondenterna. Strecket indikerar medianvärdet"
   ) +
   theme_minimal() +
@@ -2079,8 +2039,8 @@ df.index %>%
 
 
 ```{r}
-df.index8 %>% 
-  group_by(PS8score100) %>% 
+df.index9 %>% 
+  group_by(PS9score100) %>% 
   reframe(n = n()) %>% 
   mutate(Procent = round(100*n/sum(n),1)) %>% 
   formattable(., table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 50%"')
@@ -2094,7 +2054,8 @@ df.index8 %>%
 pkgs <- cite_packages(cite.tidyverse = TRUE, 
                       output = "table",
                       bib.file = "grateful-refs.bib",
-                      include.RStudio = TRUE)
+                      include.RStudio = TRUE,
+                      out.dir = getwd())
 formattable(pkgs, 
             table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
 ```

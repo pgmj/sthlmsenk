@@ -9,7 +9,7 @@ count <- dplyr::count
 recode <- car::recode
 rename <- dplyr::rename
 
-df <- read_parquet("../DIDapp/data/2023-03-19_ScoredRev.parquet") %>% 
+df <- read_parquet("../DIDapp/data/2023-05-07_ScoredRev.parquet") %>% 
   filter(ar > 2004 & ar < 2022)
 
 årtal <- c(2006,2008,2010,2012,2014,2016,2018,2020,2022)

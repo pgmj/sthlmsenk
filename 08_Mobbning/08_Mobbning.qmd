@@ -475,6 +475,10 @@ Inget tydligt mönster framgår.
 Motsvarar det som Länsstyrelsen får från Origo.
 
 ```{r}
+# df.plot <- df %>% 
+#   filter(DIDkommun == "Vallentuna") %>% 
+#   select(starts_with("f60"),F63,ar,Kön,ARSKURS)
+
 RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
 
 df.mobbad <- df.plot %>% 
@@ -497,16 +501,16 @@ df.mobbad <- df.plot %>%
   mutate(mobbad = factor(mobbad))
 
 df.mobbadG <- df.mobbad %>% 
-  filter(ar == 2020,
+  filter(ar == 2022,
          !is.na(Kön)) %>%
   group_by(Kön) %>% 
-  count(mobbad) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   mutate(mobbad = fct_reorder(mobbad, desc(n)))
 
 df.mobbadAlla <- df.mobbad %>% 
-  filter(ar == 2020) %>% 
-  count(mobbad) %>% 
+  filter(ar == 2022) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   mutate(mobbad = fct_reorder(mobbad, desc(n)))
 
@@ -516,20 +520,20 @@ nejMedel <- df.mobbadAlla %>%
   round(1)
 
 nejMedelÅk9 <- df.mobbad %>% 
-  filter(ar == 2020,
+  filter(ar == 2022,
          !is.na(Kön),
          ARSKURS == "Åk 9") %>%
-  count(mobbad) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   filter(mobbad == 'Nej') %>% 
   pull(Andel) %>% 
   round(1)
 
 nejMedelGy2 <- df.mobbad %>% 
-  filter(ar == 2020,
+  filter(ar == 2022,
          !is.na(Kön),
          ARSKURS == "Gy 2") %>%
-  count(mobbad) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   filter(mobbad == 'Nej') %>% 
   pull(Andel) %>% 
@@ -541,7 +545,10 @@ nejMedelGy2 <- df.mobbad %>%
 #### Uppdelat på kön
 ```{r}
 #| fig-height: 7
-ggplot(df.mobbadG,
+
+df.mobbadG %>% 
+  drop_na(mobbad) %>% 
+ggplot(data = .,
        aes(x = mobbad, y = Andel, fill = Kön)) +
   # geom_col(data = df.mobbadAlla, 
   #          aes(x = mobbad, y = Andel),
@@ -583,8 +590,9 @@ df.mobbad %>%
   filter(ar == 2020,
          !is.na(Kön),
          !is.na(ARSKURS)) %>%
+  drop_na(mobbad) %>% 
   group_by(ARSKURS,Kön) %>% 
-  count(mobbad) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   mutate(mobbad = fct_reorder(mobbad, desc(n))) %>% 
   filter(ARSKURS == "Åk 9") %>% 
@@ -626,8 +634,9 @@ df.mobbad %>%
   filter(ar == 2020,
          !is.na(Kön),
          !is.na(ARSKURS)) %>%
+  drop_na(mobbad) %>% 
   group_by(ARSKURS,Kön) %>% 
-  count(mobbad) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   mutate(mobbad = fct_reorder(mobbad, desc(n))) %>% 
   filter(ARSKURS == "Gy 2") %>% 
@@ -668,8 +677,9 @@ df.mobbad %>%
 ```{r}
 df.mobbad %>% 
   filter(!is.na(Kön)) %>%
+  drop_na(mobbad) %>% 
   group_by(ar,Kön) %>% 
-  count(mobbad) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   filter(mobbad == "Nej") %>% 
   ggplot(aes(x = ar, y = Andel, color = Kön, group = Kön)) +
@@ -682,7 +692,7 @@ df.mobbad %>%
   theme_minimal() +
   theme_rise() +
   labs(title = "Har du känt dig mobbad eller trakasserad i skolan det här läsåret?",
-       subtitle = "Andel elever som svarat ''Nej'") +
+       subtitle = "Andel elever som svarat ''Nej', åk 9 och gy 2") +
   ylab("Andel i %") +
   xlab("")
 ```
@@ -693,8 +703,9 @@ df.mobbad %>%
   filter(!is.na(Kön),
          !is.na(ARSKURS)
          ) %>%
+  drop_na(mobbad) %>% 
   group_by(ar,ARSKURS,Kön) %>% 
-  count(mobbad) %>% 
+  count(mobbad, .drop = F) %>% 
   mutate(Andel = 100*n/sum(n)) %>% 
   filter(mobbad == "Nej") %>% 
   ggplot(aes(x = ar, y = Andel, color = Kön, group = Kön)) +

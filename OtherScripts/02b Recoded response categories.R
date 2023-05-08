@@ -18,8 +18,8 @@ df$F61 <- recode(df$F61,"3=2;4=2",as.factor=F)
 
 ## 04 PSF-----
 
-rcat1 <- c("F89", "F90", "F91")
-rcat2 <- c("F94","F95","F97")
+rcat1 <- c("F89","F90","F91","F94")
+rcat2 <- c("F95","F97")
 rcat3 <- c("F92","F93","F96","F98","F99")
 
 for (i in rcat1) {
