@@ -125,15 +125,13 @@ yz = 10 # number of random samples
 
 # import item information
 itemlabels <- read.csv("../../data/allitems.csv", fileEncoding = "UTF-8")
-#itemlabels.final <- read.csv("../../data/2022-09-18_FINALallitems.csv")
-itemlabels.final <- read_excel("../../data/2023-03-09_allItemInfo.xls")
+itemlabels.final <- read_excel("../../data/2023-05-07_allItemInfo.xls")
 indexitems <- read_excel("../../data/Index och items i Stockholmsenkätanalyser1.xls")
 
 # read file containing recurring description text
 raschDesc <- read_excel("../OtherScripts/SummaryDesc.xls")
 
 # import data
-#df.all <- read_parquet("../../data/2022-09-18 sthlmsenkat recoded responses.parquet")
 df.all <- read_parquet("../../data/2023-03-10_recodedData2b.parquet")
 
 df <- df.all
@@ -526,7 +524,7 @@ psf.itemnr<-itemlabels %>%
   as.numeric()
 
 itemlabels %>%
-  filter(itemnr %in% items.if.all) %>%
+  filter(itemnr %in% items.psf.all) %>%
   select(!Index) %>%
   kbl_rise() %>%
   row_spec(psf.itemnr, background = RISEprimGreen, color = "white")
