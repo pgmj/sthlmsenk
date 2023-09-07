@@ -38,11 +38,11 @@ sthlm.index <- allItems %>%
 for (i in sthlm.index) {
   df.if <- df %>%
     # head(100) %>% # for testing purposes subset small group
-    select(all_of(allItems %>%
+    select(all_of(allItems %>% # select index items
       filter(Index == i) %>%
       select(itemnr) %>%
-      pull()), individ) %>%
-    filter(length(allItems %>%
+      pull()), individ) %>% # and id variable
+    filter(length(allItems %>% # include only respondents with data for at least min.responses items
       filter(Index == i) %>%
       select(itemnr) %>%
       pull()) - rowSums(is.na(.[allItems %>%
@@ -63,20 +63,11 @@ for (i in sthlm.index) {
     filter(Index == i) %>%
     pull(order) %>%
     as.numeric()
-  # this loop should probably be rewritten using sapply instead, or furrr::map2_dbl
-  # https://bioinformatics.stackexchange.com/questions/4580/how-do-i-create-a-for-loop-to-filter-through-different-fdr-values
-  # for (j in 1:nrow(df.if)) {
-  #   p1 <- as.numeric(as.vector((df.if[j, ])))
-  #   ptheta <- thetaEst(itemParams[[x]], p1, model = "PCM", method = "WL") # WL has less bias (see Warm, 1989)
-  #   thetaEstScores <- c(thetaEstScores, ptheta)
-  # }
-
-  #thetas <- as.data.frame(thetaEstScores) # insert interval scores to new df
+  # estimate person scores using RIestThetas2, which uses parallel processing
   thetas <- as.data.frame(RIestThetas2(df.if, itemParams = itemParams[[x]], cpu = 8))
   thetas$individ <- df.if.id # insert id variable to new df
   names(thetas) <- c(i, "individ")
   thetas[1] <- round(thetas[1], 3)
-  # thetas$IFscore100<-round(scales::rescale(thetas$IFscore, to = c(0,100)),1) # rescale logits to 0-100 range with one decimal
   df <- merge(df, thetas, by = "individ", all = T) # merge interval score variables back to the original df
   # clean up between loops
   df.if <- NULL

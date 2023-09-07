@@ -242,7 +242,11 @@ df.botkyrka <- read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/S
 df.botkyrka <- df.botkyrka %>% 
   select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
   add_column(DIDkommun = "Botkyrka")
-  
+
+# df.botkyrka %>% 
+#   filter(ARSKURS == "Åk 9") %>% 
+#   group_by(ar) %>% 
+#   summarise(na = sum(is.na(Skolenhetskod)))
 
 ### compare within municipality
 # setdiff(names(df.jfl1),names(df.jfl2))

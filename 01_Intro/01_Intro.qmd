@@ -7,40 +7,25 @@ author:
   affiliation: RISE Research Institutes of Sweden
   affiliation-url: https://ri.se/shic
   orcid: 0000-0003-1669-592X
-date: last-modified
+date: 2023-05-09
 format:
   html:
     toc: true
     toc-depth: 3
     toc-title: "Innehållsförteckning"
-    embed-resources: true
-    standalone: true
     page-layout: full
-    logo: rise_logo_quarto.png
     mainfont: 'Lato'
     monofont: 'Roboto Mono'
     code-overflow: wrap
     code-tools: true
     code-fold: false
     number-sections: true
-    #fig-dpi: 250
     layout-align: left
     linestretch: 1.6
     theme: materia
   pdf:
     papersize: a4
-    documentclass: article #article, report or book
-    classoption: [twocolumn, portrait]
-  revealjs:
-    theme: default
-    logo: rise_logo_quarto.png
-    chalkboard: false
-    self-contained: true
-    footer: 'Material skapat av magnus.p.johansson@ri.se'
-    mainfont: 'Lato'
-    slide-level: 4
-    scrollable: true
-    smaller: true
+    documentclass: report
 execute:
   echo: false
   warning: false
@@ -531,9 +516,9 @@ itemlabels %>%
 
 ```
 
-Det är möjligt att skapa ett index med enbart psykosomatiska items som har acceptabel reliabilitet, bestående av "F88","F91","F93","F95","F98". Detta är samma index som används sedan tidigare i redovisningen av Stockholmsenkäten, dock betecknas det indexet som "Psykisk hälsa" och omvänds så låga nivåer av psykosomatiska besvär beskrivs som "god psykisk hälsa". 
+Det är möjligt att skapa ett index med enbart psykosomatiska items som har acceptabel reliabilitet, bestående av "F88", "F91", "F93", "F95" och "F98". Detta är samma index som används sedan tidigare i redovisningen av Stockholmsenkäten. Dock betecknas det indexet som "Psykisk hälsa" och omvänds, vilket innebär att låga nivåer av psykosomatiska besvär beskrivs som "god psykisk hälsa".
 
-Med tillägg av ytterligare tre items kan vi ta fram ett index med bättre mätegenskaper som kan rubriceras som "Psykiska/psykosomatiska besvär". Det är dessa åtta items som är markerade med färg i tabellen ovan.
+Genom att lägga till fyra items kan vi ta fram ett bredare index med bättre mätegenskaper som kan rubriceras som "Psykiska/psykosomatiska besvär". Det är dessa nio items som är markerade med färg i tabellen ovan.
 
 ### Svarskategorier som åtgärdats
 
@@ -576,6 +561,7 @@ df %>%
 
 #### Targeting
 ```{r}
+#| fig-height: 6
 df %>% 
   filter(ar == 2014) %>% 
   select(any_of(items.psf.final)) %>% 
@@ -586,6 +572,7 @@ df %>%
 
 #### Item-hierarki
 ```{r}
+#| fig-height: 6
 df %>% 
   filter(ar == 2014) %>% 
   select(any_of(items.psf.final)) %>% 

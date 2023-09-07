@@ -10,19 +10,60 @@ count <- dplyr::count
 recode <- car::recode
 rename <- dplyr::rename
 
-df <- read_parquet("../data/2023-01-10_ScoredRev.parquet") %>% 
+theme_rise <- function(fontfamily = "Lato", axissize = 13, titlesize = 15,
+                       margins = 12, axisface = "plain", stripsize = 12,
+                       panelDist = 0.6, legendSize = 11, legendTsize = 12) {
+  theme_minimal() +
+    theme(
+      text = element_text(family = fontfamily),
+      axis.title.x = element_text(
+        margin = margin(t = margins),
+        size = axissize
+      ),
+      axis.title.y = element_text(
+        margin = margin(r = margins),
+        size = axissize
+      ),
+      plot.title = element_text(
+        face = "bold",
+        size = titlesize
+      ),
+      axis.title = element_text(
+        face = axisface
+      ),
+      plot.caption = element_text(
+        face = "italic"
+      ),
+      legend.text = element_text(family = fontfamily, size = legendSize),
+      legend.title = element_text(family = fontfamily, size = legendTsize),
+      legend.background = element_rect(color = "lightgrey"),
+      strip.text = element_text(size = stripsize),
+      strip.background = element_rect(color = "lightgrey"),
+      panel.spacing = unit(panelDist, "cm", data = NULL)
+    )
+}
+
+theme_set(theme_rise())
+
+gender_colors <- c("Pojke" = "#F5A127", "Flicka" = "#009CA6")
+scale_color_gender <- partial(scale_color_manual, values = gender_colors)
+scale_fill_gender <- partial(scale_fill_manual, values = gender_colors)
+
+
+df <- read_parquet("../DIDapp/data/2023-05-07_ScoredRev.parquet") %>% 
   mutate(År = factor(ar))
 
-rslimits <- read_csv("../data/2023-01-17_rslimitsRisk.csv")
+rslimits <- read_csv("../DIDapp/data/2023-05-07_rslimitsNoRev.csv")
+#rslimits <- read_csv("../data/2023-01-17_rslimitsRisk.csv")
 
 # Fix demographics
-df <- df %>% 
-  rename(F6mamma = `Vilken högsta utbildning har din mamma?`,
-         F6pappa = `Vilken högsta utbildning har din pappa?`)
+# df <- df %>% 
+#   rename(F6mamma = `Vilken högsta utbildning har din mamma?`,
+#          F6pappa = `Vilken högsta utbildning har din pappa?`)
 
-df <- df %>% mutate(ParentEdu = case_when(F6mamma == "Universitet och högskola" | F6pappa == "Universitet och högskola" ~ "Högutbildad",
-                                          TRUE ~ "Lågutbildad")
-                    )
+# df <- df %>% mutate(ParentEdu = case_when(F6mamma == "Universitet och högskola" | F6pappa == "Universitet och högskola" ~ "Högutbildad",
+#                                           TRUE ~ "Lågutbildad")
+#                     )
 
 # Create risk groups for externalizing behavior
 df <- df %>% 
@@ -79,13 +120,19 @@ df$riskUtagerande <- as.factor(df$riskUtagerande)
 
 df.model <- df %>% 
   filter(ar == 2020) %>% 
-  select(Utagerande,Parenting,riskUtagerande,Kön,ARSKURS,ParentEdu,Community,SkolaNegativ) %>% 
+  select(Utagerande,Parenting,riskUtagerande,Kön,ARSKURS,f6ab,Community,SkolaNegativ) %>% 
   na.omit()
 
 ggplot(df.model, aes(x = Utagerande, y = Parenting)) +
   geom_point(aes(color = riskUtagerande)) +
   geom_smooth(method = lm, se = F) +
   scale_color_viridis_d(option = "plasma", end = .7)
+
+ggplot(df.model, aes(x = Utagerande, y = Parenting)) +
+  geom_point(aes(color = riskUtagerande)) +
+  geom_smooth(method = lm, se = F) +
+  scale_color_viridis_d(option = "plasma", end = .7) +
+  facet_wrap(~Kön)
 
 df.model %>% 
 #  filter(!Utagerande == -4,
@@ -96,13 +143,21 @@ df.model %>%
   scale_color_viridis_d(option = "plasma", end = .7)
 
 ggplot(df.model, aes(x = Utagerande, fill = Kön)) +
-  geom_histogram(alpha = 0.8)
+  geom_histogram() +
+  facet_wrap(~Kön) +
+  scale_fill_gender()
 
 ggplot(df.model, aes(x = Utagerande, fill = ARSKURS)) +
-  geom_histogram(alpha = 0.8)
+  geom_histogram() +
+  facet_wrap(~ARSKURS)
 
-ggplot(df.model, aes(x = Utagerande, fill = ParentEdu)) +
-  geom_histogram(alpha = 0.8)
+ggplot(df.model, aes(x = Utagerande, fill = f6ab)) +
+  geom_histogram() +
+  facet_wrap(~f6ab)
+
+ggplot(df.model, aes(x = Utagerande, fill = f6ab)) +
+  geom_density() +
+  facet_wrap(~f6ab)
 
 ## start to build model
 # https://www.tidymodels.org/start/models/
