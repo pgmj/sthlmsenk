@@ -16,12 +16,15 @@ rename <- dplyr::rename
 # Import data -------------------------------------------------------------
 
 # make vector of demographic variables to include in final datafile
-demogr.vars<-read.csv("../data/demographicVariables.csv")
+demogr.vars <- read.csv("../data/demographicVariables.csv")
 demogr.vars <- demogr.vars$demogr.vars
 
 # all analyzed items
 allAnalyzedItems <- read.csv("../data/allitems.csv")
 
+##### NOTE:
+### when comparing datafiles in order to enable binding them together, the function
+### janitor::compared_df_cols() will be very useful and is not (yet) used in the code below
 
 
 ## Stockholm stad ----------------------------------------------------------
@@ -30,6 +33,7 @@ allAnalyzedItems <- read.csv("../data/allitems.csv")
 df.1420 <- read.spss("../data/SE 2014-2020 KI Leifman.sav", to.data.frame = TRUE)
 df.0612 <- read.spss("../data/2006-2012 Stockholmsenkäten 201126.sav", to.data.frame = TRUE)
 df.sthlm <- rbind(df.0612,df.1420)
+
 
 # subset selected demographic variables and items
 df.sthlm <- df.sthlm %>% 
@@ -86,8 +90,6 @@ df.vtuna <- rbind(df.vtuna1,df.vtuna2,df.vtuna22)
 df.vtuna <- df.vtuna %>% 
   add_column(SkolID_gammal = NA, SkolSDO = NA) %>% 
   add_column(DIDkommun = 'Vallentuna')
-
-#setdiff(names(df.sthlm),names(df.vtuna))
 
 
 ## Vaxholm ----------------------------------------------------------
@@ -248,6 +250,27 @@ df.botkyrka <- df.botkyrka %>%
 #   group_by(ar) %>% 
 #   summarise(na = sum(is.na(Skolenhetskod)))
 
+
+## Haninge -----------------------------------------------------------------
+
+haninge <- read.spss("/Volumes/Framtidens socialtjänst/Data från Haninge/Stockholmsenkäten 2002-2022 Haninge.sav", to.data.frame = TRUE)
+df.haninge <- haninge %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(DIDkommun = "Haninge")
+
+
+
+## Sundbyberg --------------------------------------------------------------
+
+sundbyberg <- read.spss("~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/Sundbyberg/Sundbyberg Rådata/Stockholmsenkäten 2002-2022 Sundbyberg.sav", to.data.frame = TRUE)
+
+df.sundbyberg <- sundbyberg %>% 
+  select(any_of(c(demogr.vars,allAnalyzedItems$itemnr,"SkolID_gammal","SkolSDO"))) %>% 
+  add_column(DIDkommun = "Sundbyberg")
+
+
+#df <- rbind(df.haninge,df.sundbyberg)
+
 ### compare within municipality
 # setdiff(names(df.jfl1),names(df.jfl2))
 # setdiff(names(df.jfl2),names(df.jfl1))
@@ -290,6 +313,8 @@ df <- rbind(df.sthlm,
             df.jfl,
             df.sigtuna,
             df.lidingö,
-            df.botkyrka)
+            df.botkyrka,
+            #df.haninge,
+            df.sundbyberg)
 
 ## On to next script! 02 for recodings.

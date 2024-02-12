@@ -11,6 +11,9 @@ rename <- dplyr::rename
 
 # General recode preprocess -----------------------------------------------
 
+### NOTE:
+# if you need to retain any variable as it is in the raw unprocessed data, 
+# you should make a copy of it (with a new variable name) prior to running the code below.
 
 #replace all 99* codes with missing (NA)
 for (i in 1:ncol(df)) {

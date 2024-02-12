@@ -48,16 +48,29 @@ library(broom)
 library(formattable)
 library(grateful)
 library(GGally)
-library(ggiraph)
+#library(ggiraph)
 library(ggdist)
 library(pscl)
 library(car)
 library(easystats)
-library(emmeans)
+#library(emmeans)
 library(marginaleffects)
 library(modelsummary)
 library(kableExtra)
 library(glue)
+library(lavaan)
+library(lavaanPlot)
+library(quantreg)
+library(readxl)
+library(MASS)
+library(patchwork)
+
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
 
 ### set up color palette based on RISE guidelines
 RISEprimGreen <- "#009ca6"
@@ -108,6 +121,8 @@ gender_colors <- c("Pojke" = "#F5A127", "Flicka" = "#009CA6")
 scale_color_gender <- partial(scale_color_manual, values = gender_colors)
 scale_fill_gender <- partial(scale_fill_manual, values = gender_colors)
 
+DIDcolorsGGYR <- c("lightgrey","#509B8E", "#E2C578", "#DB7358")
+DIDcolorsRYGG <- c("#DB7358", "#E2C578", "#509B8E", "lightgrey")
 
 kbl_rise <- function(data, tbl_width = 65, fontsize = 14, fontfamily = "Arial",
                      options = c("striped", "hover"), ...) {
@@ -128,40 +143,82 @@ kbl_rise <- function(data, tbl_width = 65, fontsize = 14, fontfamily = "Arial",
 
 
 # read data
-df <- read_parquet("../data/2023-10-27_ScoredRev.parquet")
+df.all <- read_parquet("../data/2023-10-27_ScoredRev.parquet")
 
 årtal <- c(2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020,2022)
 sthlm.index.all <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv","Wellbeing")
+
+sthlm.index <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv")
+
+df <- df.all %>%
+  filter(ar > 2004 & ar < 2024) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  rename(År = ar,
+         Årskurs = ARSKURS,
+         Kommun = DIDkommun)
+
+
+
+## riskgruppsindelningar
+
+# läs in gränsvärden
+rslimits <- read_csv("../DIDapp/data/2023-05-07_rslimitsNoRev.csv")
+rslimits.prot <- read_csv("../DIDapp/data/2023-05-07_protective.csv")
+
+# skapa nya variabler för respektive indexvärde
+df <- df %>% 
+  mutate(riskUtagerande = case_when(Utagerande < rslimits$Utagerande[1] ~ "Låg risk",
+                                    Utagerande > rslimits$Utagerande[2] ~ "Förhöjd risk",
+                                    Utagerande <= rslimits$Utagerande[2] & Utagerande >= rslimits$Utagerande[1] ~ "Något förhöjd risk")) %>% 
+  mutate(riskSkolaNegativ = case_when(SkolaNegativ < rslimits$SkolaNegativ[1] ~ "Låg risk",
+                                      SkolaNegativ > rslimits$SkolaNegativ[2] ~ "Förhöjd risk",
+                                      SkolaNegativ <= rslimits$SkolaNegativ[2] & SkolaNegativ >= rslimits$SkolaNegativ[1] ~ "Något förhöjd risk")) %>%
+  mutate(riskParenting = case_when(Parenting < rslimits$Parenting[1] ~ "Låg risk",
+                                   Parenting > rslimits$Parenting[2] ~ "Förhöjd risk",
+                                   Parenting <= rslimits$Parenting[2] & Parenting >= rslimits$Parenting[1] ~ "Något förhöjd risk")) %>%
+  mutate(riskCommunity = case_when(Community < rslimits$Community[1] ~ "Låg risk",
+                                   Community > rslimits$Community[2] ~ "Förhöjd risk",
+                                   Community <= rslimits$Community[2] & Community >= rslimits$Community[1] ~ "Något förhöjd risk")) %>%
+  mutate(riskPsykSomBesv = case_when(PsykSomBesv < rslimits$PsykSomBesv[1] ~ "Låg risk",
+                                     PsykSomBesv > rslimits$PsykSomBesv[2] ~ "Förhöjd risk",
+                                     PsykSomBesv <= rslimits$PsykSomBesv[2] & PsykSomBesv >= rslimits$PsykSomBesv[1] ~ "Något förhöjd risk")) %>%
+  mutate(skyddSkolaPositiv = case_when(SkolaPositiv < rslimits.prot$SkolaPositiv[2] ~ "<85",
+                                      SkolaPositiv > rslimits.prot$SkolaPositiv[2] ~ "Förhöjt skydd")) %>% 
+  mutate(across(starts_with("risk"), ~ factor(.x, levels = c("Låg risk", "Något förhöjd risk", "Förhöjd risk"))))
+
+
+
+df.f <- df %>% 
+  filter(Kön == "Flicka")
+
+df.p <- df %>%
+  filter(Kön == "Pojke")
 ```
 
 ## Deskriptiva data
 
 Vi har tagit fram indexvärden för flera faktorer, och börjar med att titta på hur det ser ut med antal svar per år och index, samt andel missing data. Det krävs svar på minst fem ingående frågor för att ett indexvärde ska beräknas med tillförlitlighet, så de som svarat på färre än fem saknar indexvärde.
 
-Vi tittar först enbart på årskurs 9, eftersom de är intressanta som yngre målgrupp ur ett preventionsperspektiv.
+Vi tittar först enbart på årskurs 9 eftersom de är intressanta som yngre målgrupp ur ett preventionsperspektiv. Vi inkluderar enbart individer som svarat antingen pojke eller flicka på frågan om könstillhörighet. 
+
+Analyserna görs separat för pojkar och flickor. Enbart individer med kompletta svar på variabler som ingår i respektive analys tas med i analyserna i detta skede.
 
 ::: panel-tabset
-### Antal svar
+### Antal svar per år och kommun
 ```{r}
-df2 <- df %>%
-  filter(ar > 2004 & ar < 2024) %>%
-  filter(ARSKURS == "Åk 9") %>% 
-  filter(Kön %in% c("Pojke","Flicka"))
-
 # check number of respondents per year
-df2 %>%
-  count(ar) %>%
+df %>%
+  count(År) %>%
   rename(
-    År = ar,
     Antal = n
   ) %>%
   kbl_rise()
 
 # per municipality
-df2 %>%
-  count(DIDkommun) %>%
+df %>%
+  count(Kommun) %>%
   rename(
-    Kommun = DIDkommun,
     Antal = n
   ) %>%
   arrange(desc(Antal)) %>% 
@@ -170,9 +227,7 @@ df2 %>%
 ```
 ### Fördelat på kön
 ```{r}
-df2 %>% 
-  rename(År = ar,
-         Årskurs = ARSKURS) %>% 
+df %>%
   select(all_of(sthlm.index.all),År,Kön) %>% 
   pivot_longer(sthlm.index.all, names_to = "Index", values_to = "Indexvärde") %>% 
   group_by(År,Index,Kön) %>% 
@@ -180,28 +235,20 @@ df2 %>%
   ggplot(aes(x = År, y = Antal, color = Kön)) + 
   geom_line(linewidth = 1) +
   geom_point(size = 2.5) +
-  #geom_point_interactive(aes(tooltip = Antal),
-  #                       size = 2.5) +
   scale_color_brewer(type = "qual", palette = "Dark2") +
   scale_x_continuous(guide = guide_axis(n.dodge = 1), breaks = årtal) +
   scale_y_continuous(limits = c(0,NA)) +
   labs(title = "Antal respondenter per år",
        subtitle = "Fördelat på kön")
-
-#girafe(ggobj = responsesGender)
-
 ```
-
 ### Andel med missing data
 ```{r}
-
-df2 %>% 
-  rename(År = ar) %>% 
-  select(all_of(sthlm.index.all),År) %>% 
+df %>% 
+  select(all_of(sthlm.index.all),År,Kön) %>% 
   pivot_longer(sthlm.index.all, 
                names_to = "Index", 
                values_to = "Indexvärde") %>% 
-  group_by(År,Index) %>%
+  group_by(År,Index,Kön) %>%
   mutate(Svar = case_when(
     is.na(Indexvärde) ~ "För få svar",
     TRUE ~ "Har svar"
@@ -217,12 +264,13 @@ df2 %>%
   scale_y_continuous(limits = c(0,NA)) +
   labs(title = "Andel saknade svar per år",
        subtitle = "Fördelat på index") +
-  ylab("Andel i procent")
+  ylab("Andel i procent") +
+  facet_wrap(~Kön)
 
 ```
 :::
 
-## Fördelningar av indexvärden
+### Fördelningar av indexvärden
 
 Samtliga år tillsammans.
 
@@ -233,46 +281,714 @@ Höga värden av skyddsfaktor "Positiv skolanknytning" (SkolaPositiv) = högt sk
 Höga värden av Välbefinnande/Wellbeing = högt välbefinnande.
 
 ```{r}
-df2 %>% 
-  rename(År = ar) %>% 
+df %>% 
   select(all_of(sthlm.index.all),År,Kön) %>% 
   pivot_longer(sthlm.index.all, 
                names_to = "Index", 
                values_to = "Indexvärde") %>% 
   ggplot(aes(x = Indexvärde, fill = Kön)) +
   geom_histogram(alpha = 0.8) +
-  # stat_slab(
-  #   slab_type = "histogram",
-  #   side = "right", show.legend = F,
-  #   scale = 0.85, # defines the height that a slab can reach
-  #   position = position_dodge(width = .7), # distance between elements for dodging
-  #   aes(fill_ramp = after_stat(level), fill = Index),
-  #   .width = c(.50, .75, 1)
-  # ) +
-  #scale_fill_manual(values = RISEpalette8) +
   scale_fill_gender() +
   facet_wrap(~Index) +
   labs(title = "Fördelning av indexvärden",
-       subtitle = "Samtliga år tillsammans",
+       subtitle = "2006-2022, pojkar och flickor, enbart åk 9",
        x = "Indexvärde",
        y = "Antal")
-  #scale_fill_brewer(type = "qual", palette = "Dark2")
 ```
 
 ```{r}
-df2 %>% 
-  rename(År = ar) %>% 
-  select(all_of(sthlm.index.all),År) %>% 
+df %>% 
+  select(all_of(sthlm.index.all),År,Kön) %>% 
   pivot_longer(sthlm.index.all, 
                names_to = "Index", 
                values_to = "Indexvärde") %>% 
   mutate(Index = factor(Index, levels = sthlm.index.all)) %>% 
-  ggplot(aes(y = Indexvärde, x = Index, fill = Index)) +
+  ggplot(aes(y = Indexvärde, x = Index, fill = Kön)) +
   geom_boxplot(outlier.shape = NA) +
-  #scale_fill_manual(values = RISEpalette2)
-  scale_fill_brewer(type = "qual", palette = "Dark2") +
-  theme(legend.position = "none") 
+  scale_fill_gender() +
+  labs(title = "Fördelning av indexvärden",
+       subtitle = "2006-2022, pojkar och flickor, enbart åk 9",
+       x = "Index",
+       y = "Indexvärde")
 ```
+
+### Fördelning av riskgrupp
+
+```{r}
+df %>% 
+  select(starts_with("risk")) %>% 
+  pivot_longer(everything()) %>%
+  separate_wider_delim(name, names = c(NA,"Riskgrupp"), delim = "isk") %>% 
+  count(Riskgrupp,value) %>%
+  mutate(value = factor(value, levels = c("Låg risk","Något förhöjd risk","Förhöjd risk"),
+                            labels = c("Låg risk","Något förhöjd risk","Förhöjd risk")
+                        )) %>% 
+  mutate(value = forcats::fct_rev(value)) %>% 
+  
+  ggplot(aes(x = Riskgrupp, y = n, fill = value)) +
+  geom_col() +
+  geom_text(aes(label = n),
+            position = position_stack(vjust = .5)) +
+  scale_fill_manual('Riskgrupp', values = DIDcolorsRYGG) +
+  labs(title = "Fördelning av riskgrupp",
+       subtitle = "2006-2022, pojkar och flickor, enbart åk 9",
+       x = "Riskfaktor",
+       y = "Antal") +
+  update_geom_defaults("text", list(family = "Lato"))
+  
+```
+
+
+## Psykiska/psykosomatiska besvär
+
+Vi utgår från att bristande föräldraskap, vantrivsel i skolan, och närsamhället är riskfaktorer.
+
+### Flickor
+
+Först visualisering av data utifrån kontinuerliga variabler
+
+```{r}
+df.f %>% 
+  ggplot(aes(x = Parenting, y = PsykSomBesv)) +
+  geom_point() +
+  geom_smooth(se = TRUE) 
+
+df.f %>% 
+  ggplot(aes(x = SkolaNegativ, y = PsykSomBesv)) +
+  geom_point() +
+  geom_smooth(se = TRUE) 
+
+df.f %>% 
+  ggplot(aes(x = Community, y = PsykSomBesv)) +
+  geom_point() +
+  geom_smooth(se = TRUE) 
+```
+
+Sedan visualisering med riskgruppsindelning
+
+```{r}
+#| echo: false
+
+# df.f %>% 
+#   drop_na(riskParenting) %>% 
+#   ggplot(aes(x = riskParenting, y = PsykSomBesv, color = riskParenting, fill = riskParenting)) +
+#   geom_jitter(alpha = 0.1, width = 0.2) +
+#   geom_boxplot(alpha = 0.7, width = 0.5, notch = T) +
+#   scale_color_manual('Riskgrupp', values = DIDcolorsGGYR[2:4], aesthetics = c("color","fill")) +
+#   labs(title = "Bristande föräldraskap",
+#        subtitle = "2006-2022, flickor, enbart åk 9",
+#        x = "Riskgrupp",
+#        y = "Psykiska/psykosomatiska besvär")
+```
+
+```{r}
+riskVSoutcome <- function(data,riskfactor,outcome,title) {
+  data %>% 
+    drop_na(riskfactor) %>% 
+    ggplot(aes(x = !!sym(riskfactor), y = !!sym(outcome), color = !!sym(riskfactor), fill = !!sym(riskfactor))) +
+    geom_jitter(alpha = 0.1, width = 0.2) +
+    geom_boxplot(alpha = 0.7, width = 0.5, notch = T) +
+    scale_color_manual('Riskgrupp', values = DIDcolorsGGYR[2:4], aesthetics = c("color","fill")) +
+    labs(title = paste0(title),
+         subtitle = "2006-2022, flickor åk 9",
+         x = "Riskgrupp",
+         y = "Psykiska/psykosomatiska besvär")
+}
+
+riskVSoutcome(df.f,"riskParenting","PsykSomBesv","Bristande föräldraskap")
+riskVSoutcome(df.f,"riskSkolaNegativ","PsykSomBesv","Vantrivsel i skolan")
+riskVSoutcome(df.f,"riskCommunity","PsykSomBesv","Närsamhälle risk")
+```
+
+#### Statistisk modellering
+
+##### Med kontinuerliga variabler
+
+```{r}
+psy1_f <- 
+  df.f %>% 
+  lm(PsykSomBesv ~ Parenting + SkolaNegativ + Community, 
+     data = .)
+check_model(psy1_f)
+```
+
+VIF is low, which is good. Residuals are non-normal, which is not good. We can use a robust estimator (HC3 as implemented in [marginaleffects](https://marginaleffects.com/vignettes/uncertainty.html#robust-standard-errors)) to get better standard errors.
+
+```{r}
+avg_slopes(psy1_f, vcov = "HC3")
+plot_predictions(psy1_f, condition = "Parenting", vcov = "HC3") +
+  coord_cartesian(ylim = c(-2,2))
+```
+
+#### Quantile regression
+
+```{r}
+
+```
+
+
+#### Random forest regression
+
+
+#### SEM
+
+First CFA to review the measurement model fit.
+
+```{r}
+allItemInfo <- read_csv("../data/2024-01-23_allItemParams.csv")
+items.psyk <- allItemInfo %>% 
+  filter(Index == "PsykSomBesv") %>% 
+  pull(itemnr)
+items.parent <- allItemInfo %>% 
+  filter(Index == "Parenting") %>% 
+  pull(itemnr)
+items.skolaneg <- allItemInfo %>% 
+  filter(Index == "SkolaNegativ") %>% 
+  pull(itemnr)
+
+utfall_psy <- "PsykSomBesvCFA =~ F88 + F89 + F91 + F92 + F93 + F95 + F97 + F98 + F99
+             ParentingCFA =~ F80 + f83b + f83d + f83e + f83f + F58
+             SkolaNegativCFA =~ f54e +f54f+ f54i+ f54k + f54m +f54o +f54q
+              "
+
+mm1 <- cfa(
+  model = utfall_psy,
+  data = df.f,
+  rotation = "oblimin",
+  estimator = "WLSMV",
+  ordered = TRUE
+)
+
+# create table with model fit metrics
+# define fit metrics of interest
+fit_metrics_robust <- c("chisq.scaled", "df", "pvalue.scaled", 
+                         "cfi.scaled", "tli.scaled", "rmsea.scaled", "srmr")
+fitmeasures(mm1, fit_metrics_robust) %>% 
+  rbind() %>% 
+  as.data.frame() %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  rename(Chi2 = chisq.scaled,
+         p = pvalue.scaled,
+         CFI = cfi.scaled,
+         TLI = tli.scaled,
+         RMSEA = rmsea.scaled,
+         SRMR = srmr) %>% 
+  formattable(.,
+              table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+```
+
+```{r}
+lavaanPlot(model = mm1, 
+           coefs = T, stand = T, covs = T,
+           node_options = list(fontname = "Helvetica"), 
+           edge_options = list(color = "grey"),
+           graph_options = list(rankdir = "LR"))
+```
+
+SEM
+
+```{r}
+utfall_psy <- "PsykSomBesvCFA =~ F88 + F89 + F91 + F92 + F93 + F95 + F97 + F98 + F99
+             ParentingCFA =~ F80 + f83b + f83d + f83e + f83f + F58
+             SkolaNegativCFA =~ f54e +f54f+ f54i+ f54k + f54m +f54o +f54q
+             PsykSomBesvCFA ~ a*ParentingCFA + b*SkolaNegativCFA
+              "
+
+psy_sem1 <- sem(
+  model = utfall_psy,
+  data = df.f,
+  rotation = "oblimin",
+  estimator = "WLSMV",
+  ordered = TRUE
+)
+
+fitmeasures(psy_sem1, fit_metrics_robust) %>% 
+  rbind() %>% 
+  as.data.frame() %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  rename(Chi2 = chisq.scaled,
+         p = pvalue.scaled,
+         CFI = cfi.scaled,
+         TLI = tli.scaled,
+         RMSEA = rmsea.scaled,
+         SRMR = srmr) %>% 
+  formattable(.,
+              table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+
+lavResiduals(psy_sem1)
+
+lavaanPlot(model = psy_sem1,
+           coefs = T, stand = T, covs = T,
+           node_options = list(fontname = "Helvetica"), 
+           edge_options = list(color = "grey"),
+           graph_options = list(rankdir = "LR"))
+
+library(semPlot)
+semPaths(object = psy_sem1,
+         whatLabels="est")
+
+psy_sem1_out <- summary(psy_sem1, standardized = TRUE)
+
+psy_sem1_out$pe %>% 
+  filter(op == "~") %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  kbl_rise()
+```
+
+check residuals for SEM
+
+```{r}
+# https://github.com/yrosseel/lavaan/issues/269
+lavResidualsY <- function(object,
+                          ynames = lavNames(object, "ov.nox"),
+                          xnames = lavNames(object, "ov.x")){
+  pred <- lavPredictY(object,
+                      ynames = ynames,
+                      xnames = xnames) |> 
+    as.data.frame()
+  
+  d <- inspect(object, "data") |> 
+    as.data.frame()
+
+  r <- lapply(names(pred), function(x){
+    pred[[x]] - d[[x]]
+  })
+
+  res <- do.call(cbind, r) |> 
+    as.data.frame()
+  names(res) <- names(pred)
+  
+  res
+}
+
+lavResidualsY(psy_sem1,
+              ynames = c("F88","F89","F91","F92","F93","F95","F97","F98","F99"),
+              xnames = c("F80","f83b","f83d","f83e","f83f","F58"))
+
+# "f54e","f54f","f54i","f54k","f54m","f54o","f54q"
+
+```
+
+no support for DWLS estimator output in lavPredictY. Let's pretend our variables are continuous.
+
+```{r}
+psy_sem1c <- sem(
+  model = utfall_psy,
+  data = df.f,
+  rotation = "oblimin",
+  estimator = "ML",
+)
+
+summary(psy_sem1c, fit.measures = TRUE, standardized = TRUE)
+
+psy_sem1c_resids <- lavResidualsY(psy_sem1c,
+              ynames = c("F88","F89","F91","F92","F93","F95","F97","F98","F99"),
+              xnames = c("F80","f83b","f83d","f83e","f83f","F58"))
+
+glimpse(psy_sem1c_resids)
+
+mvnormtest::mshapiro.test(t(sample(psy_sem1c_resids, 100, replace = TRUE)))
+
+```
+
+SEM with fixed factor loadings @1
+
+```{r}
+utfall_psy2 <- "PsykSomBesvCFA =~ 1*F88 + 1*F89 + 1*F91 + 1*F92 + 1*F93 + 1*F95 + 1*F97 + 1*F98 + 1*F99
+             ParentingCFA =~ 1*F80 + 1*f83b + 1*f83d + 1*f83e + 1*f83f + 1*F58
+             SkolaNegativCFA =~ 1*f54e + 1*f54f + 1*f54i + 1*f54k + 1*f54m + 1*f54o + 1*f54q
+             PsykSomBesvCFA ~ a*ParentingCFA + b*SkolaNegativCFA
+              "
+
+psy_sem2 <- sem(
+  model = utfall_psy2,
+  data = df.f,
+  rotation = "oblimin",
+  estimator = "WLSMV",
+  ordered = TRUE
+)
+
+fitmeasures(psy_sem2, fit_metrics_robust) %>% 
+  rbind() %>% 
+  as.data.frame() %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  rename(Chi2 = chisq.scaled,
+         p = pvalue.scaled,
+         CFI = cfi.scaled,
+         TLI = tli.scaled,
+         RMSEA = rmsea.scaled,
+         SRMR = srmr) %>% 
+  formattable(.,
+              table.attr = 'class=\"table table-striped\" style="font-size: 14px; font-family: Lato; width: 80%"')
+```
+
+
+##### Riskgrupp
+
+```{r}
+psy2_f <- 
+  df.f %>% 
+  lm(PsykSomBesv ~ riskParenting + riskSkolaNegativ + riskCommunity, 
+     data = .)
+#check_model(psy2_f)
+check_normality(psy2_f)
+avg_slopes(psy2_f)
+```
+
+```{r}
+plot_predictions(psy2_f, "riskParenting") +
+  coord_cartesian(ylim = c(-2, 2))
+plot_predictions(psy2_f, "riskSkolaNegativ") +
+  coord_cartesian(ylim = c(-2, 2))
+plot_predictions(psy2_f, "riskCommunity") +
+  coord_cartesian(ylim = c(-2, 2))
+```
+
+
+## Kriminalitet
+
+Det finns 19 frågor som handlar om självrapportering av att ha begått olika typer av brott.
+
+#### Antal brott
+```{r}
+items.brott <- df %>% 
+  select(starts_with("f75")) %>% 
+  names()
+
+itemlabels_brott <- read_excel("10_Brott/BrottItemlabels.xls")
+
+itemlabels_brott %>% 
+  filter(itemnr %in% items.brott) %>%
+  kbl_rise() 
+```
+
+Summerar vi dem per respondent ser distributionen av individer som rapporterar att ha begått ett visst antal brott vid ett och samma mättillfälle enligt nedan.
+
+```{r}
+df <- df %>% 
+  mutate(AntalBrott = rowSums(across(all_of(items.brott)), na.rm = T))
+
+df %>% 
+  ggplot(aes(x = AntalBrott)) +
+  geom_bar(fill = RISEprimGreen)
+
+df %>% 
+  ggplot(aes(x = AntalBrott, fill = Kön)) +
+  geom_bar(alpha = 0.8, position = "fill") +
+  scale_fill_manual(values = c(RISEprimGreen, "orange")) +
+  labs(title = "Antal brott fördelat på kön",
+       x = "Antal brott",
+       y = "Andel")
+```
+
+Flickor begår något oftare 1-2 brott än pojkar, men sedan vänder trenden.
+
+Vilken typ av brott är vanligare bland pojkar respektive flickor?
+
+```{r}
+brott.kön <- 
+  df %>% 
+  select(Kön, all_of(items.brott)) %>% 
+  glm(Kön ~ ., data = ., family = binomial(link = "logit"))
+
+#modelsummary(brott.kön, exponentiate = TRUE)
+
+tidy(brott.kön) %>% 
+  filter(!p.value > 0.05) %>% 
+  arrange(desc(estimate)) %>% 
+  left_join(itemlabels_brott, by = c("term" = "itemnr")) %>% 
+  mutate_if(is.numeric, round, 2) %>%
+  kbl_rise()
+```
+
+Brott ovanför Intercept-raden är vanligare bland pojkar. Desto längre från Intercept, desto större skillnad mellan pojkars och flickors sannolikhet att begå brott av den typen. Brott som ej har en statistiskt signifikant skillnad är inte med i tabellen. Men p.g.a. vårt stora sampel är statistisk signifikans inte nödvändigtvis en indikator på att det är stor skillnad, här gäller det snarare att titta på "estimate" i tabellen.
+
+```{r}
+brottlabels <- itemlabels_brott$item[c(1:19)] %>% 
+  rev()
+
+parameters(brott.kön, ci_method="wald") %>% 
+  plot() +
+  scale_color_manual(values = c("orange", RISEprimGreen)) +
+  labs(title = str_wrap("Skillnad mellan pojkar och flickor i sannolikhet att självrapportera olika typer av brott"),
+       subtitle = str_wrap("Blågröna prickar indikerar brott med högre sannolikhet att begås av flickor, om linjen för konfidensintervallet inte korsar noll-strecket. Längre avstånd från 0 = större skillnad mellan könen."),
+       #x = "",
+       y = "Brottstyp") +
+  theme_rise() +
+  guides(color = "none") +
+  scale_y_discrete(labels = str_wrap(paste0(brottlabels), width = 36))
+```
+
+
+Vi kan också titta på hur stor andel av respondenterna som rapporterar att ha begått ett visst antal brott vid ett och samma mättillfälle.
+
+```{r}
+df %>% 
+  count(AntalBrott) %>%
+  mutate(Andel = 100*n/sum(n)) %>%
+  ggplot(aes(y = Andel, x = AntalBrott)) +
+  geom_col(fill = RISEprimGreen) +
+  geom_text(aes(label = paste0(round(Andel, 1), "%")), 
+            vjust = -0.5, size = 3) 
+
+df %>% 
+  count(AntalBrott) %>%
+  mutate(Andel = 100*n/sum(n)) %>%
+  slice(1:4) %>% 
+  summarise(Andel = sum(Andel) %>% round(1)) %>% 
+  kbl_rise()
+```
+
+82.3 % av respondenterna rapporterar max 3 brott, varav 36.5 % rapporterar 0 brott.
+
+Vilka brott som självrapporteras oftast?
+
+```{r}
+df %>% 
+  select(all_of(items.brott)) %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "svar") %>% 
+  filter(svar == 1) %>% 
+  count(item) %>% 
+  arrange(desc(n)) %>% 
+  mutate(Andel = 100*n/sum(n)) %>%
+  ggplot(aes(y = Andel, x = reorder(item, n))) +
+  geom_col(fill = RISEprimGreen) +
+  geom_text(aes(label = paste0(round(Andel, 1), "%")), 
+            hjust = -0.3, size = 4) +
+  coord_flip() +
+  theme(axis.text.y = element_text(size = 8)) +
+  labs(x = "Brott", y = "Andel (%)") 
+
+df %>% 
+  select(all_of(items.brott)) %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "svar") %>% 
+  filter(svar == 1) %>% 
+  count(item) %>% 
+  arrange(desc(n)) %>% 
+  slice(1:5) %>% 
+  left_join(itemlabels_brott, by = c("item" = "itemnr")) %>%
+  select(!n) %>% 
+  kbl_rise()
+
+df %>% 
+  select(all_of(items.brott)) %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "svar") %>% 
+  filter(svar == 1) %>% 
+  count(item) %>% 
+  mutate(Andel = 100*n/sum(n)) %>%
+  arrange(desc(n)) %>% 
+  slice(1:3) %>% 
+  summarise(Summa = sum(Andel))
+```
+
+De tre vanligaste brotten står för 49% av alla brott som självrapporteras. 
+
+Vilka brott rapporteras när man rapporterar fler än 0?
+
+```{r}
+df %>% 
+  filter(AntalBrott > 0) %>% 
+  select(all_of(items.brott),AntalBrott) %>% 
+  pivot_longer(all_of(items.brott), names_to = "item", values_to = "svar") %>% 
+
+  ggplot(aes(y = svar, x = AntalBrott, fill = item)) +
+  geom_col() +
+  scale_fill_viridis_d()
+  
+```
+
+### Statistisk modell för pojkar
+
+Vi tittar först på Antal Brott som utfall. Distributionen av data följer en negativ exponentiell kurva, vilket är vanligt för räknevariabler. Vi använder därför en negativ binomial regressionsmodell. Det är också möjligt att en s.k. hurdle-modell fungerar väl med denna typ av data.
+
+#### Negative binomial regression
+
+```{r}
+brott.nb <- glm.nb(AntalBrott ~ Utagerande + Parenting + SkolaNegativ + Community, 
+            data = df %>% filter(Kön == "Pojke"))
+modelsummary(brott.nb)
+
+p1 <- plot_predictions(brott.nb, cond = "Utagerande", vcov = "HC3") +
+  coord_cartesian(ylim = c(0, 20))
+p2 <- plot_predictions(brott.nb, cond = "Parenting", vcov = "HC3") +
+  coord_cartesian(ylim = c(0, 20))
+p3 <- plot_predictions(brott.nb, cond = "SkolaNegativ", vcov = "HC3") +
+  coord_cartesian(ylim = c(0, 20))
+p4 <- plot_predictions(brott.nb, cond = "Community", vcov = "HC3") +
+  coord_cartesian(ylim = c(0, 20))
+p1 + p2 + p3 + p4 
+```
+
+Var passeras antal brott = 3 på de två prediktorerna som visar starkast samband, enligt modellen? OBS att det enbart är pojkar i modellen.
+
+```{r}
+predictions(brott.nb, newdata = datagrid(Utagerande = seq(0.5,1.2, 0.05)), vcov = "HC3")
+predictions(brott.nb, newdata = datagrid(Parenting = seq(1,1.5, 0.05)), vcov = "HC3")
+```
+
+Enligt modellen är det vid Utagerande 0.75 (även nedre konfidensintervallet går över 3) och Parenting = 1.3 (eller 1.5 där nedre konfidensintervall överstiger 3) som AntalBrott överstiger 3.
+
+```{r}
+rslimits %>% 
+  select(Utagerande, Parenting) %>%
+  kbl_rise()
+
+```
+
+Sett till brott som utfall ser vi alltså vissa skillnader mot de distributionsbaserade gränsvärden som hittills använts, om vi tänker att det är rimligt att se 3 brott som en gräns. 
+
+
+#### Hurdle negative binomial
+```{r}
+brott.hrd <- pscl::hurdle(AntalBrott ~ Utagerande + Parenting + SkolaNegativ + Community, 
+            data = df %>% filter(Kön == "Pojke"),
+            dist = "negbin")
+modelsummary(brott.hrd)
+```
+
+```{r}
+p1 <- plot_predictions(brott.hrd, cond = "Utagerande") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p2 <- plot_predictions(brott.hrd, cond = "Parenting") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p3 <- plot_predictions(brott.hrd, cond = "SkolaNegativ") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p4 <- plot_predictions(brott.hrd, cond = "Community") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p1 + p2 + p3 + p4 +
+  plot_annotation(title = "Riskfaktorer för självrapporterat antal begångna brott - Pojkar",
+       subtitle = "Hurdle negative binomial regression model")
+```
+
+```{r}
+predictions(brott.hrd, newdata = datagrid(Utagerande = seq(0.6,1, 0.02)))
+predictions(brott.hrd, newdata = datagrid(Parenting = seq(1,1.5, 0.02)))
+
+predictions(brott.hrd, newdata = datagrid(Utagerande = seq(0.5,1.5, 0.01))) %>% 
+  ggplot(aes(x = Utagerande, y = estimate)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  geom_hline(yintercept = 3, linetype = "dashed") +
+  labs(x = "Utagerande", y = "Antal brott")
+
+```
+
+Hurdle-modellen ger liknande resultat, Utagerande = 0.7 (CI lower = 0.74) och Parenting ca 1.2 (CI lower = 1.34). 
+
+```{r}
+predictions(brott.hrd, newdata = datagrid(Utagerande = seq(1.1, 1.36, 0.02)))
+predictions(brott.hrd, newdata = datagrid(Parenting = seq(2.3,2.7, 0.02)))
+```
+
+För antal brott = 4 blir 
+
+- Utagerande = 1.26 (CI lower 1.32)
+- Parenting = 2.38 (CI lower 2.66)
+```{r}
+AIC(brott.nb,brott.hrd)
+```
+
+Hurdle-modellen verkar passa data något bättre. Vi såg i modelsummary-outputen tidigare även att RMSE var något lägre för Hurdle-modellen. 
+
+
+### Statistisk modell för flickor
+
+#### Hurdle negative binomial
+
+```{r}
+df %>% 
+  filter(Kön == "Flicka") %>% 
+  ggplot(aes(x = AntalBrott)) +
+  geom_histogram(binwidth = 1)
+```
+
+
+```{r}
+brott.hrd <- pscl::hurdle(AntalBrott ~ Utagerande + Parenting + SkolaNegativ + Community, 
+            data = df %>% filter(Kön == "Flicka"),
+            dist = "negbin")
+modelsummary(brott.hrd)
+
+```
+
+```{r}
+p1 <- plot_predictions(brott.hrd, cond = "Utagerande") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p2 <- plot_predictions(brott.hrd, cond = "Parenting") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p3 <- plot_predictions(brott.hrd, cond = "SkolaNegativ") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p4 <- plot_predictions(brott.hrd, cond = "Community") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed")
+p1 + p2 + p3 + p4 +
+  plot_annotation(title = "Riskfaktorer för självrapporterat antal begångna brott - Flickor",
+       subtitle = "Hurdle negative binomial regression model")
+```
+
+```{r}
+predictions(brott.hrd, newdata = datagrid(Utagerande = seq(1,1.5, 0.02)))
+predictions(brott.hrd, newdata = datagrid(Parenting = seq(2,4, 0.1)))
+```
+
+Gränsvärden för flickor:
+
+- Utagerande = 1.12 och CI lower 1.16
+- Parenting = når ej upp till antal brott = 3 någonstans längs riskfaktorns skala.
+
+### Skolresultat som riskfaktor
+
+```{r}
+df <- df %>% 
+  mutate(across(starts_with("F65"), ~ car::recode(.x,"'Streck' = 0;
+                                                  'F' = 1;
+                                                  'E' = 2;
+                                                  'D' = 3;
+                                                  'C' = 4;
+                                                  'B' = 5;
+                                                  'A' = 6;
+                                                  ",as.factor=FALSE),
+         .names = "{col}_num")) %>%
+  df <- df %>% mutate(Skola3betygMedel = rowMeans(.[,c("F65a_num","F65b_num","F65c_num")], na.rm = FALSE))
+
+hist(df$Skola3betygMedel, breaks = 25)
+```
+
+```{r}
+brott.hrd <- pscl::hurdle(AntalBrott ~ Utagerande + Parenting + SkolaNegativ + Community + Skola3betygMedel, 
+            data = df %>% filter(Kön == "Pojke"),
+            dist = "negbin")
+plot_predictions(brott.hrd, cond = "Skola3betygMedel") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed") +
+  labs(title = "Riskfaktorer för självrapporterat antal begångna brott - Pojkar",
+       subtitle = "Hurdle negative binomial regression model")
+```
+
+```{r}
+brott.hrd <- pscl::hurdle(AntalBrott ~ Utagerande + Parenting + SkolaNegativ + Community + Skola3betygMedel, 
+            data = df %>% filter(Kön == "Flicka"),
+            dist = "negbin")
+plot_predictions(brott.hrd, cond = "Skola3betygMedel") +
+  coord_cartesian(ylim = c(0, 20)) +
+  geom_hline(yintercept = 3, linetype = "dashed") +
+  labs(title = "Riskfaktorer för självrapporterat antal begångna brott - Flickor",
+       subtitle = "Hurdle negative binomial regression model")
+```
+
+
+## Substansbruk
+
+
+
+
 
 
 ## Stabilitet i sambandsmodeller
@@ -287,9 +1003,7 @@ Alla variabler utom välbefinnande. Enbart utifrån år 2020.
 #| fig-width: 9
 #| fig-height: 6
 
-sthlm.index <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv")
-
-df2 %>% 
+df %>% 
   filter(ar == 2020) %>% 
   select(all_of(sthlm.index),Kön) %>% 
   ggpairs(aes(color = Kön), alpha = 0.8) +
@@ -797,17 +1511,17 @@ plot(predicted.nb) +
 #### Dikotomiserat utfall
 Vi kodar en variabel där antal brott 0-2 = 0, och 3 eller fler blir 1.
 ```{r}
-df2 <- df2 %>% 
+df <- df %>% 
   mutate(BrottDik = car::recode(AntalBrott,"0:2=0;3:19=1", as.factor = FALSE))
 
-brott.poi.dik <- glm(BrottDik ~ Utagerande + Kön, 
-            data = df2 %>% filter(ar == 2020),
+brott.dik <- glm(BrottDik ~ Utagerande + Parenting, 
+            data = df %>% filter(Kön == "Pojke"),
             family = binomial)
-summary(brott.poi.dik)
+modelsummary(brott.dik)
 ```
 
 ```{r}
-plot(parameters(brott.poi.dik))
+plot(parameters(brott.dik))
 
 predicted <- estimate_expectation(brott.poi.dik, data = "grid")
 plot(predicted) +

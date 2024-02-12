@@ -113,4 +113,4 @@ for (i in items.brott){
 
 # Write new datafile ------------------------------------------------------
 
-write_parquet(df, sink = glue("../data/{Sys.Date()}_recodedData2b.parquet"))
+#write_parquet(df, sink = glue("../data/{Sys.Date()}_recodedData2b.parquet"))

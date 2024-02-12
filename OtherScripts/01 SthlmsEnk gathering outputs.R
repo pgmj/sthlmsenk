@@ -4,7 +4,7 @@
 # both are needed for the estimation of person locations for each subscale
 library(arrow)
 library(tidyverse)
-library(xlsx)
+library(readxl)
 library(glue)
 # read all item data into dataframes
 IFitemParams <- read_csv_arrow("02_IF/IFnegativaItems.csv")
