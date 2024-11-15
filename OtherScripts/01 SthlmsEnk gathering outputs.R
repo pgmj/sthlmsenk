@@ -38,6 +38,8 @@ itemParams$Parenting <- as.matrix(ParentingParams)
 itemParams$Community <- as.matrix(CommunityParams)
 itemParams$Wellbeing <- as.matrix(WellbeingParams)
 
+#saveRDS(itemParams, "itemParams.Rdata")
+
 # collect all itemnr and descriptions in a list object (as tibble)
 # itemNumber[[1]]$itemnr will access a vector of IF items, that can be use for item selection
 # we also add an index variable to each dataframe
@@ -77,7 +79,7 @@ for (i in 2:length(itemParams)){
 
 # join params and descriptions
 allItemInfo <- cbind(allItems,allItemParams)
-write.xlsx(allItemInfo, glue("../DIDapp/data/{Sys.Date()}_allItemInfo.xls"), row.names = F)
+#write.xlsx(allItemInfo, glue("../DIDapp/data/{Sys.Date()}_allItemInfo.xls"), row.names = F)
 
 # add itemnr identifyer to params df
 allItemParams <- allItemParams %>% 
@@ -90,5 +92,5 @@ allItemInfoNonDup <- left_join(allItems %>%
                          allItemParams %>% 
                            distinct(itemnr, .keep_all = TRUE),
                          by = "itemnr")
-
+#write_csv(allItems,"../DIDreport/Sthlmsenk/allItemsIndex.csv")
 

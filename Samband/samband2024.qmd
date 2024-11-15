@@ -1,0 +1,2003 @@
+---
+title: "Samband mellan variabler"
+subtitle: "Tvärsnittsdata över tid från Stockholmsenkäten"
+title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://www.ri.se/sv/vad-vi-gor/expertiser/kategoriskt-baserade-matningar
+  orcid: 0000-0003-1669-592X
+date: last-modified
+format: 
+  html:
+    toc: true
+    toc-depth: 5
+    toc-title: "Innehållsförteckning"
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-tools: true
+    code-fold: true
+    number-sections: true
+    fig-dpi: 150
+    layout-align: left
+    linestretch: 1.6
+    theme: materia
+    link-external-newwindow: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: console
+bibliography: grateful-refs.bib
+---
+
+```{r}
+library(tidyverse)
+library(arrow)
+library(knitr)
+# library(lme4)
+library(broom)
+library(broom.mixed)
+# library(formattable)
+# library(grateful)
+# library(GGally)
+# #library(ggiraph)
+# library(ggdist)
+# library(pscl)
+library(car)
+# library(easystats)
+# #library(emmeans)
+library(marginaleffects)
+library(modelsummary)
+options("modelsummary_factory_default" = "kableExtra")
+library(kableExtra)
+# library(glue)
+# library(lavaan)
+# library(lavaanPlot)
+# library(quantreg)
+library(readxl)
+library(MASS)
+library(sandwich)
+library(lmtest) 
+library(performance)
+# library(patchwork)
+
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+
+### set up color palette based on RISE guidelines
+RISEprimGreen <- "#009ca6"
+RISEprimRed <- "#e83c63"
+RISEprimYellow <- "#ffe500"
+RISEprimGreenMid <- "#8dc8c7"
+RISEprimRedMid <- "#f5a9ab"
+RISEprimYellowMid <- "#ffee8d"
+RISEprimGreenLight <- "#ebf5f0"
+RISEprimRedLight <- "#fde8df"
+RISEprimYellowLight <- "#fff7dd"
+RISEcompPurple <- "#482d55"
+RISEcompGreenDark <- "#0e4e65"
+
+# create a wide palette based on RISE colors
+RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6)
+# "#009CA6" "#5C758B" "#B94F70" "#EC5D4F" "#F5A127" "#FFE500"
+RISEpalette2 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(10)
+#"#009CA6" "#338697" "#677188" "#9A5C79" "#CE466A" "#EA4E58" "#EF7442" "#F4992C" "#F9BF16" "#FFE500"
+theme_rise <- function(fontfamily = "Lato", axissize = 13, titlesize = 15, margins = 12, axisface = "plain", panelDist = 0.6, ...) {
+  theme_minimal() + 
+    theme(text = element_text(family = fontfamily), 
+          axis.title.x = element_text(margin = margin(t = margins), size = axissize), 
+          axis.title.y = element_text(margin = margin(r = margins), size = axissize), 
+          plot.title = element_text(face = "bold", size = titlesize), 
+          axis.title = element_text(face = axisface), 
+          plot.caption = element_text(face = "italic"), 
+          legend.text = element_text(family = fontfamily), 
+          legend.background = element_rect(color = "lightgrey"), 
+          strip.background = element_rect(color = "lightgrey"), 
+          panel.spacing = unit(panelDist, "cm", data = NULL), 
+          panel.border = element_rect(color = "grey", fill = NA), ...)
+}
+# set theme default for the session/document
+theme_set(theme_rise())
+
+### RISE color palettes 
+# the two palettes below have been checked for color blindness compatibility using library(colorblindcheck) 
+RISEpalette8 <- c("#009CA6", "#428092", "#84657F", "#C6496C", "#EB5454", "#F18438", "#F8B41C", "#FFE500") 
+RISEpalette6 <- c("#009CA6", "#5C758B", "#B94F70", "#EC5D4F", "#F5A127", "#FFE500") 
+
+### palettes can be created using the three RISE primary colors and changing the number at the end: 
+# RISEpalette1 <- colorRampPalette(colors = c("#009ca6", "#e83c63", "#ffe500"))(6) 
+
+# gender split colors, replace label based on your dataset
+gender_colors <- c("Pojke" = "#F5A127", "Flicka" = "#009CA6")
+# these can be used in ggplots as `+ scale_color_gender()` or `+ scale_fill_gender()`
+scale_color_gender <- partial(scale_color_manual, values = gender_colors)
+scale_fill_gender <- partial(scale_fill_manual, values = gender_colors)
+
+DIDcolorsGGYR <- c("lightgrey","#509B8E", "#E2C578", "#DB7358")
+DIDcolorsRYGG <- c("#DB7358", "#E2C578", "#509B8E", "lightgrey")
+
+kbl_rise <- function(data, tbl_width = 65, fontsize = 14, fontfamily = "Arial",
+                     options = c("striped", "hover"), ...) {
+  kbl(data, booktabs = T, escape = F,
+      table.attr = glue("data-quarto-disable-processing='true' style='width:{tbl_width}%;'")) %>%
+    kable_styling(
+      bootstrap_options = options,
+      position = "left",
+      full_width = T,
+      font_size = fontsize,
+      fixed_thead = T,
+      latex_options = c("striped", "scale_down"),
+      ...
+    ) %>%
+    row_spec(0, bold = T) %>%
+    kable_classic(html_font = fontfamily)
+}
+
+
+# read data
+datafolder <- "~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/"
+
+df.all <- read_parquet(paste0(datafolder,"DID_klart/2024-10-08_ScoredRev.parquet"))
+
+årtal <- c(2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020,2022,2024)
+sthlm.index.all <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv","Wellbeing")
+
+sthlm.index <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv")
+
+df <- df.all %>%
+  filter(ar > 2004) %>%
+  filter(ARSKURS == "Åk 9") %>% 
+  filter(Kön %in% c("Pojke","Flicka")) %>% 
+  rename(År = ar,
+         Årskurs = ARSKURS,
+         Kommun = DIDkommun)
+
+
+
+## riskgruppsindelningar
+
+# läs in gränsvärden
+rslimits <- read_csv("Samband/2024-09-23_rslimitsNoRev.csv")
+rslimits.prot <- read_csv("Samband/2024-09-23_protective.csv")
+
+# skapa nya variabler för respektive indexvärde
+df <- df %>% 
+  mutate(riskUtagerande = case_when(Utagerande < rslimits$Utagerande[1] ~ "Låg risk",
+                                    Utagerande > rslimits$Utagerande[2] ~ "Förhöjd risk",
+                                    Utagerande <= rslimits$Utagerande[2] & Utagerande >= rslimits$Utagerande[1] ~ "Något förhöjd risk")) %>% 
+  mutate(riskSkolaNegativ = case_when(SkolaNegativ < rslimits$SkolaNegativ[1] ~ "Låg risk",
+                                      SkolaNegativ > rslimits$SkolaNegativ[2] ~ "Förhöjd risk",
+                                      SkolaNegativ <= rslimits$SkolaNegativ[2] & SkolaNegativ >= rslimits$SkolaNegativ[1] ~ "Något förhöjd risk")) %>%
+  mutate(riskParenting = case_when(Parenting < rslimits$Parenting[1] ~ "Låg risk",
+                                   Parenting > rslimits$Parenting[2] ~ "Förhöjd risk",
+                                   Parenting <= rslimits$Parenting[2] & Parenting >= rslimits$Parenting[1] ~ "Något förhöjd risk")) %>%
+  mutate(riskCommunity = case_when(Community < rslimits$Community[1] ~ "Låg risk",
+                                   Community > rslimits$Community[2] ~ "Förhöjd risk",
+                                   Community <= rslimits$Community[2] & Community >= rslimits$Community[1] ~ "Något förhöjd risk")) %>%
+  mutate(riskPsykSomBesv = case_when(PsykSomBesv < rslimits$PsykSomBesv[1] ~ "Låg risk",
+                                     PsykSomBesv > rslimits$PsykSomBesv[2] ~ "Förhöjd risk",
+                                     PsykSomBesv <= rslimits$PsykSomBesv[2] & PsykSomBesv >= rslimits$PsykSomBesv[1] ~ "Något förhöjd risk")) %>%
+  mutate(skyddSkolaPositiv = case_when(SkolaPositiv < rslimits.prot$SkolaPositiv[2] ~ "<85",
+                                      SkolaPositiv > rslimits.prot$SkolaPositiv[2] ~ "Förhöjt skydd")) %>% 
+  mutate(across(starts_with("risk"), ~ factor(.x, levels = c("Låg risk", "Något förhöjd risk", "Förhöjd risk"))))
+
+
+
+df.f <- df %>% 
+  filter(Kön == "Flicka")
+
+df.p <- df %>%
+  filter(Kön == "Pojke")
+```
+
+## Psykiska/psykosomatiska besvär
+
+```{r}
+# ta bort individer med missing data på någon av variablerna eftersom de ändå exkluderas av lm() och vi vill kunna beräkna residualer manuellt.
+df.fr <- df.f %>% 
+  drop_na(PsykSomBesv,Parenting,SkolaNegativ,Community)
+
+df.pr <- df.p %>% 
+  drop_na(PsykSomBesv,Parenting,SkolaNegativ,Community)
+
+# we need the time variable to start at 1
+df.fr <- df.fr %>% 
+  mutate(year = År - 2005) %>% 
+  mutate(yearF = factor(year))
+
+
+df.pr <- df.pr %>% 
+  mutate(year = År - 2005) %>% 
+  mutate(yearF = factor(year))
+
+df.f.lm <- 
+  df.f %>% 
+  mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"))) %>% # , ordered = TRUE
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab, levels = c("Folkskola eller grundskola (max 9 år i skolan)", "Gymnasium","Universitet och högskola"))) %>% #, ordered = TRUE
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>% 
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+df.p.lm <- 
+  df.p %>% 
+  mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"))) %>% # , ordered = TRUE
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab, levels = c("Folkskola eller grundskola (max 9 år i skolan)", "Gymnasium","Universitet och högskola"))) %>% # , ordered = TRUE
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>% 
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+lm_items <- data.frame(
+  term = c(
+    "Utagerande", "SkolaNegativ", "Parenting", "Community", "SkolaPositiv", "f_utb", "mobbad1", "bott",
+    "fr_aktiv1"
+  ),
+  desc = c(
+    "Utagerande/\nnormbrytande beteende", "Negativ skolanknytning",
+    "Bristande föräldraskap", "Otryggt närsamhälle",
+    "Positiv skolanknytning", "Föräldrarnas utbildningsnivå",
+    "Utsatt för någon typ\nav mobbning", "Boendetid i Sverige",
+    "Brukar delta i ledarledd\nfritidsaktivitet eller träning"
+  )
+)
+
+lm_items <-
+  lm_items %>% 
+  add_row(term = "bottHela mitt liv",
+          desc = "Bott i Sverige hela livet") %>% 
+  add_row(term = "bott.L",
+          desc = "Bott i Sverige hela livet")
+
+```
+
+### Exempel med enbart parenting
+
+```{r}
+psy0_f <- 
+  rlm(PsykSomBesv ~ Parenting, 
+     data = df.f.lm)
+
+#check_collinearity(psy0_f)
+glance(psy0_f)
+
+psy0_fr <- coeftest(psy0_f,
+                    vcov = vcovCL,
+                    #type = "HC2",
+                    df = 9,  # clusters - 1 (we have 10 years in this dataset)
+                    cluster = ~year)
+
+tidy(psy0_fr, conf.int = TRUE)%>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_text(aes(label = round(estimate,2)), 
+            color = "black", vjust = -1, hjust = -0.2,
+            size = 5) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+  #scale_y_discrete(labels = rev(c("Brukar delta i ledarledd\nfritidsaktivitet eller träning","Utsatt för någon typ\nav mobbning","Positiv skolanknytning","Utagerande/\nnormbrytande beteende","Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+  labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Hur länge bott i Sverige; Föräldrarnas utbildningsnivå", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1)) +
+  update_geom_defaults("text", list(family = "Lato"))
+
+tidy(psy0_fr) %>% 
+  kable()
+```
+
+### Adding 2 variables
+
+```{r}
+psy1_f <- 
+  rlm(PsykSomBesv ~ Parenting + SkolaNegativ + Community, 
+     data = df.f.lm)
+
+glance(psy1_f)
+# get cluster robust SE
+psy1_fr <- coeftest(psy1_f,
+                    vcov = vcovCL,
+                    #type = "HC2",
+                    df = 9,  # clusters - 1, if needed
+                    cluster = ~year)
+
+tidy(psy1_fr, conf.int = TRUE)%>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_text(data = . %>% filter(term == "Parenting"),
+            aes(label = round(estimate,2)), 
+            color = "black", vjust = -1, hjust = -0.2,
+            size = 5) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+  #scale_y_discrete(labels = rev(c("Brukar delta i ledarledd\nfritidsaktivitet eller träning","Utsatt för någon typ\nav mobbning","Positiv skolanknytning","Utagerande/\nnormbrytande beteende","Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+  labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Hur länge bott i Sverige; Föräldrarnas utbildningsnivå", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+```
+
+### Primär modell flickor
+
+```{r}
+# robust LM
+psy2_f <- 
+  rlm(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott + fr_aktiv, 
+      data = df.f.lm)
+
+# get cluster robust SE
+psy2_fr <- coeftest(psy2_f,
+                     vcov = vcovCL,
+                     #type = "HC2",
+                     df = 9,  # clusters - 1, if needed
+                     cluster = ~year)
+
+#MASS:::summary.rlm(psy2_f)
+plot(psy2_f)
+
+tidy(psy2_fr, conf.int = TRUE)%>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_text(data = . %>% filter(term == "Parenting"),
+            aes(label = round(estimate,2)), 
+            color = "black", vjust = -1, hjust = -0.2,
+            size = 5) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+  labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Robusta regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Hur länge bott i Sverige; Föräldrarnas utbildningsnivå.", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+```
+
+Compare models
+
+```{r}
+modelsummary(models = list(psy0_f,
+                           psy1_f,
+                           psy2_f))
+
+# modelsummary(models = list(psy0_fr,
+#                            psy1_fr,
+#                            psy2_fr))
+```
+
+#### GAM test
+
+```{r}
+library(mgcv)
+psy3_f <- 
+  gam(PsykSomBesv ~ s(Parenting) + s(SkolaNegativ) + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott + fr_aktiv, 
+      data = df.f.lm)
+glance(psy3_f)
+glance(psy2_f)
+
+summary(psy3_f)
+plot_predictions(psy3_f, "Parenting")
+plot_predictions(psy2_f, "Parenting")
+plot_predictions(psy3_f, "SkolaNegativ")
+plot_predictions(psy2_f, "SkolaNegativ")
+```
+
+
+### "Viktighetsgrad"
+
+```{r}
+tidy(psy2_fr) %>% 
+  arrange(desc(abs(statistic))) %>% 
+  kable()
+
+tidy(psy2_fr) %>% 
+  mutate(rs = ifelse(statistic < 0, "skydd","risk")) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)",
+         statistic > 12) %>% 
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, statistic)) %>% 
+  ggplot(aes(x = statistic, y = desc)) +
+  geom_col(aes(fill = rs)) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "T-värde från robust linjär regression",
+       y = "") +
+  guides(fill = "none")
+```
+
+
+### Primär modell pojkar
+
+```{r}
+# robust LM
+psy2_p <- 
+  rlm(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott + fr_aktiv, 
+      data = df.p.lm)
+
+# get cluster robust SE
+psy2_pr <- coeftest(psy2_p,
+                    vcov = vcovCL,
+                    df = 9, 
+                    cluster = ~year)
+
+# R's default is to fit a series of polynomial functions or contrasts to the levels of the variable. The first is linear (.L), the second is quadratic (.Q), the third is cubic (.C), the fourth is quartic (Year^4), and so on
+
+tidy(psy2_pr, conf.int = TRUE) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  # geom_text(data = . %>% filter(term == "Parenting"),
+  #           aes(label = round(estimate,2)), 
+  #           color = "black", vjust = -1.6, hjust = -0.2,
+  #           size = 5) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+  labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Robusta regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Föräldrarnas utbildningsnivå.", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+tidy(psy2_pr, conf.int = TRUE)
+```
+
+### "Viktighetsgrad"
+
+```{r}
+tidy(psy2_pr) %>% 
+  arrange(desc(abs(statistic))) %>% 
+  kable()
+
+tidy(psy2_pr) %>% 
+  mutate(rs = ifelse(statistic < 0, "skydd","risk")) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)",
+         statistic > 10) %>% 
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, statistic)) %>% 
+  ggplot(aes(x = statistic, y = desc)) +
+  geom_col(aes(fill = rs)) +
+    labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "T-värde från robust linjär regression",
+       y = "") +
+  guides(fill = "none")
+```
+
+### Mobbning uppdelat
+
+```{r}
+items_mobbning <- c("f60b", "f60c", "f60d", "f60e", "f60f", "f60g", "f60h", "f60i", "F63")
+itemdesc_mobbning <- c("Jag har blivit hånad, förlöjligad, kallad öknamn eller blivit retad på ett obehagligt och sårande sätt", "Jag har blivit utfrusen av andra elever", "Jag har blivit slagen, sparkad, knuffad eller stängd inne", "Någon elev har spritt lögner eller falska rykten om mig och försökt få andra att tycka illa om mig", "Jag har blivit fråntagen pengar eller saker eller fått saker förstörda", "Jag har blivit hotad eller tvingad att göra saker som jag inte ville göra", "Lärare har psykat eller på annat sätt varit elaka mot mig", "Jag har mobbats på annat sätt.", "Mobbad eller trakasserad via internet eller SMS/MMS det här läsåret.")
+
+names(itemdesc_mobbning) <- items_mobbning
+itemdesc_mobbning
+
+i_mobb <- data.frame(itemnr = items_mobbning,
+                     item = itemdesc_mobbning)
+```
+
+#### Flickor
+```{r}
+# df.f %>% 
+#   select(all_of(items_mobbning)) %>% 
+#   pivot_longer(everything()) %>% 
+#   distinct(value)
+
+f_mobb <- df.f %>% 
+  select(all_of(items_mobbning),PsykSomBesv,År) %>%
+  filter(År > 2019) %>% 
+  mutate(year = factor(År)) %>% 
+  select(!År) %>% 
+  rlm(PsykSomBesv ~ . - year,
+     data = .) 
+
+summary(f_mobb)
+check_collinearity(f_mobb)
+f_mobbr <- coeftest(f_mobb,
+                     vcov = vcovCL,
+                     df = 2,
+                     cluster = ~year)
+
+# f_mobb %>% 
+#   modelplot(coef_omit = "(Intercept)", coef_map = itemdesc_mobbning) +
+#   geom_vline(xintercept = 0, linetype = "dashed") +
+#   #aes(color = ifelse(estimate < 0, "red","green")) +
+#   guides(color = "none") +
+#   coord_cartesian(xlim = c(-0.5,0.5)) +
+#   scale_y_discrete(labels = ~ str_wrap(.x, 32)) +
+#   labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+#         x = "Regressionskoefficienter och 95% konfidensintervall")
+
+tidy(f_mobbr) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)") %>% 
+  arrange(desc(statistic)) %>% 
+  head(5) %>% 
+  left_join(i_mobb, by = join_by("term" == "itemnr")) %>% 
+  mutate(item = fct_reorder(item, statistic)) %>% 
+  ggplot(aes(x = statistic, y = item)) +
+  geom_col(fill = "#5C758B") +
+  scale_y_discrete(labels = ~ str_wrap(.x,28)) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med olika typer av mobbning (data från 2020-2024)",
+       x = "T-värde från robust linjär regression",
+       y = "")
+
+tidy(f_mobbr) %>% 
+  left_join(i_mobb, by = join_by("term" == "itemnr")) %>% 
+  arrange(desc(abs(statistic))) %>% 
+  select(!c(term,p.value)) %>% 
+  kable()
+```
+
+#### Pojkar
+```{r}
+p_mobb <- df.p %>% 
+  select(all_of(items_mobbning),PsykSomBesv,År) %>%
+  filter(År > 2019) %>% 
+  mutate(year = factor(År)) %>% 
+  select(!År) %>% 
+  rlm(PsykSomBesv ~ . -year,
+     data = .) 
+
+check_collinearity(p_mobb)
+p_mobbr <- coeftest(p_mobb,
+                     vcov = vcovCL,
+                     df = 2,
+                     cluster = ~year)
+
+tidy(p_mobbr) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)") %>% 
+  arrange(desc(statistic)) %>% 
+  head(5) %>% 
+  left_join(i_mobb, by = join_by("term" == "itemnr")) %>% 
+  mutate(item = fct_reorder(item, statistic)) %>% 
+  ggplot(aes(x = statistic, y = item)) +
+  geom_col(fill = "#FFE500") +
+  scale_y_discrete(labels = ~ str_wrap(.x,28)) +
+    labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med olika typer av mobbning (data från 2020-2024)",
+       x = "T-värde från robust linjär regression",
+       y = "")
+
+# p_mobb %>% 
+#   modelplot(vcov = "HC3", coef_omit = "(Intercept)", coef_map = itemdesc_mobbning) +
+#   geom_vline(xintercept = 0, linetype = "dashed") +
+#   #aes(color = ifelse(estimate < 0, "red","green")) +
+#   guides(color = "none") +
+#   coord_cartesian(xlim = c(-0.5,0.5)) +
+#   scale_y_discrete(labels = ~ str_wrap(.x, 32)) +
+#   labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+#        subtitle = "Samband med utsatthet för mobbning",
+#         x = "Regressionskoefficienter och 95% konfidensintervall")
+
+tidy(p_mobbr) %>% 
+  left_join(i_mobb, by = join_by("term" == "itemnr")) %>% 
+  arrange(desc(abs(statistic))) %>% 
+  select(!c(term,p.value)) %>% 
+  kable()
+```
+
+## Självrapporterad kriminalitet
+
+Det finns 19 frågor som handlar om självrapportering av att ha begått olika typer av brott.
+
+#### Antal brott
+```{r}
+items.brott <- df %>% 
+  select(starts_with("f75")) %>% 
+  names()
+
+itemlabels_brott <- read_excel("10_Brott/BrottItemlabels.xls")
+
+df <- df %>% 
+  mutate(AntalBrott = rowSums(across(all_of(items.brott)), na.rm = T))
+
+itemlabels_brott %>% 
+  filter(itemnr %in% items.brott) %>%
+  kable() 
+```
+
+Summerar vi dem per respondent ser distributionen av individer som rapporterar att ha begått ett visst antal brott vid ett och samma mättillfälle enligt nedan.
+
+```{r}
+df %>% 
+  count(AntalBrott) %>%
+  mutate(Andel = 100*n/sum(n)) %>%
+  ggplot(aes(y = Andel, x = AntalBrott)) +
+  geom_col(aes(fill = ifelse(AntalBrott > 0,"#0072B2","green"))) +
+  geom_text(aes(label = paste0(round(Andel, 1), "%")), 
+            vjust = -0.5, size = 3) +
+  labs(title = "Antal självrapporterade brott (summerat)",
+       y = "Andel elever",
+       x = "Antal självrapporterade brott",
+       subtitle = "Årskurs 9") +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5,10,15,20), minor_breaks = NULL) +
+  theme_rise() +
+  guides(fill = "none")
+
+df %>% 
+  filter(År > 2017) %>% 
+  group_by(År) %>% 
+  count(AntalBrott, drop = F) %>%
+  mutate(Andel = 100*n/sum(n),
+         År = factor(År)) %>%
+  ungroup() %>% 
+  filter(AntalBrott < 6) %>% 
+  ggplot(aes(y = Andel, x = AntalBrott, fill = År)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = paste0(round(Andel, 0), "%")), 
+            vjust = -0.5, size = 3, position = position_dodge(width = 0.9)) +
+  labs(title = "Antal självrapporterade brott (summerat)",
+       y = "Andel elever",
+       x = "Antal självrapporterade brott",
+       subtitle = "Årskurs 9") +
+  theme_rise() +
+  scale_fill_brewer() +
+  scale_x_continuous(breaks = 0:5, minor_breaks = NULL)
+
+
+df %>% 
+  filter(Årskurs == "Åk 9") %>% 
+  ggplot(aes(x = AntalBrott, fill = Kön)) +
+  geom_bar(alpha = 0.8, position = "fill") +
+  geom_hline(yintercept = 0.5, color = "black", linetype = "dashed") +
+  scale_fill_manual(values = c(RISEprimGreen, "orange")) +
+  labs(title = "Antal självrapporterade brott fördelat på kön",
+       subtitle = "Årskurs 9",
+       x = "Antal brott",
+       y = "Andel i %") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5,10,15,20), minor_breaks = NULL)
+  
+```
+
+Flickor begår något oftare 1-2 brott än pojkar, sedan blir det allt mer tvärtom.
+
+Vilken typ av brott är vanligare bland pojkar respektive flickor?
+
+```{r}
+brott.kön <- 
+  df %>% 
+  filter(Årskurs == "Åk 9") %>% 
+  select(Kön, all_of(items.brott)) %>% 
+  glm(Kön ~ ., data = ., family = binomial(link = "logit"))
+
+summary(brott.kön)
+#modelsummary(brott.kön, exponentiate = TRUE)
+#modelplot(brott.kön, exponentiate = TRUE)
+
+brott.kön.plot.df <- tidy(brott.kön,exponentiate = TRUE,conf.int = TRUE) %>% 
+  filter(!p.value > 0.05) %>% 
+  arrange(desc(estimate)) %>% 
+  left_join(itemlabels_brott, by = c("term" = "itemnr")) %>% 
+  mutate_if(is.numeric, round, 2)
+
+brott.kön.plot.df %>% 
+  ggplot(aes(x = estimate, y = fct_reorder(item,desc(estimate)), color = ifelse(estimate > 1, "Pojke","Flicka"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  geom_segment(aes(x = conf.low, xend = conf.high)) +
+  scale_color_gender(guide = "none") +
+  labs(x = "", y = "",
+       title = "Sannolikhet för kön (flicka/pojke) beroende på självrapporterat brott") +
+  scale_y_discrete(labels = ~ str_wrap(.x, 44))
+```
+
+38.1 + 23.1 + 13.8 + 8
+
+```{r}
+df %>% 
+  filter(Årskurs == "Åk 9") %>% 
+  select(all_of(items.brott)) %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "svar") %>% 
+  #left_join(itemlabels_brott, by = "itemnr") %>% 
+  filter(svar == 1) %>% 
+  count(item) %>% 
+  arrange(desc(n)) %>% 
+  mutate(Andel = 100*n/sum(n)) %>%
+  ggplot(aes(y = Andel, x = reorder(item, n))) +
+  geom_col(fill = "#677188") +
+  geom_text(aes(label = paste0(round(Andel, 1), "%")), 
+            hjust = -0.12, size = 4) +
+  coord_flip() +
+  theme(axis.text.y = element_text(size = 8)) +
+  labs(x = "Brott", y = "Andel (%)",
+       title = "Vanligast självrapporterade begångna brott") +
+  scale_y_continuous(limits = c(0,27), breaks = c(0,5,10,15,20,25)) +
+  scale_x_discrete(labels = ~ str_wrap(.x,44))
+
+df %>% 
+  select(all_of(items.brott)) %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "svar") %>% 
+  filter(svar == 1) %>% 
+  count(item) %>% 
+  arrange(desc(n)) %>% 
+  slice(1:5) %>% 
+  left_join(itemlabels_brott, by = c("item" = "itemnr")) %>%
+  select(!n) %>% 
+  kable()
+
+df %>% 
+  select(all_of(items.brott)) %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "svar") %>% 
+  filter(svar == 1) %>% 
+  count(item) %>% 
+  mutate(Andel = 100*n/sum(n)) %>%
+  arrange(desc(n)) %>% 
+  slice(1:3) %>% 
+  summarise(Summa = sum(Andel))
+```
+
+De tre vanligaste brotten står för ca 45% av alla brott som självrapporteras. 
+
+Vi gör en utfallsvariabel som är binär, utifrån om man begått något av brotten utöver de tre vanligaste.
+
+### Statistiska modeller
+
+```{r}
+#| eval: false
+# load data in next chunk instead, rowwise() is slow, second approach computes much faster
+lowest3 <- c("f75p","f75i","f75a")
+over3 <- items.brott[-c(1,9,16)]
+
+df.brott <- df %>% 
+  drop_na(all_of(items.brott)) %>% 
+  rowwise() %>%
+  mutate(begått = case_when(any(c_across(all_of(over3)) == 1) ~ "brott3",
+                            
+                              TRUE ~ "ej_brott3"))# %>% 
+ # mutate(begått = factor(begått, levels = c(0,1),
+ #                        labels = c("ej_brott","brott")))
+df.brott %>% 
+  group_by(Kön) %>% 
+  count(begått) %>% 
+  mutate(percent = 100*n/sum(n))
+
+# verify with cumbersome approach
+df.brott2 <- df %>% 
+  drop_na(all_of(items.brott)) %>% 
+  mutate(begått = case_when(f75g == 1 | f75b == 1 | f75s == 1 | f75m == 1 | f75c == 1 | f75j == 1 | f75n == 1 | f75o == 1 | f75h == 1 | f75l == 1 | f75r == 1 | f75q == 1 | f75f == 1 | f75d == 1 | f75e == 1 | f75k == 1 ~ "brott3",
+                            TRUE ~ "ej_brott3"))
+
+df.brott2 %>% 
+  group_by(Kön) %>% 
+  count(begått) %>% 
+  mutate(percent = 100*n/sum(n))
+# stämmer 
+```
+
+```{r}
+df.bp <- df.brott %>% 
+  filter(Kön == "Pojke") %>% 
+  mutate(begått = factor(begått)) %>% 
+  mutate(begått = fct_rev(begått)) %>% 
+    mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"), ordered = TRUE)) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab, levels = c("Folkskola eller grundskola (max 9 år i skolan)", "Gymnasium","Universitet och högskola"), ordered = TRUE)) %>% 
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70,begått) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>%
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+#levels(df.bp$begått)
+
+df.bf <- df.brott %>% 
+  filter(Kön == "Flicka") %>% 
+  mutate(begått = factor(begått)) %>% 
+  mutate(begått = fct_rev(begått)) %>% 
+    mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"), ordered = TRUE)) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab, levels = c("Folkskola eller grundskola (max 9 år i skolan)", "Gymnasium","Universitet och högskola"), ordered = TRUE)) %>% 
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70,begått) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>%
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+# write_parquet(df.bp, paste0(datafolder,"DID_klart/2024-10-09_brott_pojkar.parquet"))
+# write_parquet(df.bf, paste0(datafolder,"DID_klart/2024-10-09_brott_flickor.parquet"))
+
+```
+
+```{r}
+df.bp <- read_parquet(paste0(datafolder,"DID_klart/2024-10-09_brott_pojkar.parquet")) %>% 
+  mutate(bott = factor(bott, ordered = FALSE),
+         f_utb = factor(f_utb, ordered = FALSE))
+df.bf <- read_parquet(paste0(datafolder,"DID_klart/2024-10-09_brott_flickor.parquet")) %>% 
+  mutate(bott = factor(bott, ordered = FALSE),
+         f_utb = factor(f_utb, ordered = FALSE))
+
+df.bp %>% 
+  #group_by(Kön) %>% 
+  count(begått) %>% 
+  mutate(percent = 100*n/sum(n))
+
+df.bf %>% 
+  #group_by(Kön) %>% 
+  count(begått) %>% 
+  mutate(percent = 100*n/sum(n))
+
+lm_items <- data.frame(
+  term = c(
+    "Utagerande", "SkolaNegativ", "Parenting", "Community", "SkolaPositiv", 
+    "f_utbUniversitet och högskola", "mobbad1", "bott",
+    "fr_aktiv1"
+  ),
+  desc = c(
+    "Utagerande/\nnormbrytande beteende", "Negativ skolanknytning",
+    "Bristande föräldraskap", "Otryggt närsamhälle",
+    "Positiv skolanknytning", 
+    "Föräldrarnas utb.nivå:\nUniversitet och högskola",
+    "Utsatt för någon typ\nav mobbning", "Boendetid i Sverige",
+    "Brukar delta i ledarledd\nfritidsaktivitet eller träning"
+  )
+)
+
+lm_items <-
+  lm_items %>% 
+  add_row(term = "bottHela mitt liv",
+          desc = "Bott i Sverige hela livet") %>% 
+  add_row(term = "bott.L",
+          desc = "Bott i Sverige hela livet")
+
+
+lm_items <-
+  lm_items %>%
+  add_row(term = "bott5-9 år",
+          desc = "Bott i Sverige:\n5-9 år")# %>%
+  # add_row(term = "bott.Q",
+  #         desc = "Bott i Sverige:\n10 år eller mer") %>%
+  # add_row(term = "bott.C",
+  #         desc = "Bott i Sverige:\nHela mitt liv")
+  
+#   add_row(term = "f_utb.L",
+#           desc = "Föräldrarnas utbildningsnivå:\nGymnasium") %>% 
+#   add_row(term = "f_utb.Q",
+#           desc = "Föräldrarnas utbildningsnivå:\nUniversitet och högskola") %>% 
+#   add_row(term = "bott.L",
+#           desc = "Bott i Sverige:\n5-9 år") %>% 
+#   add_row(term = "bott.Q",
+#           desc = "Bott i Sverige:\n10 år eller mer") %>% 
+#   add_row(term = "bott.C",
+#           desc = "Bott i Sverige:\nHela mitt liv")
+#   
+# lm_items <- lm_items[-11,]
+
+lm_items <-
+  lm_items %>% 
+  add_row(term = "PsykSomBesv",
+          desc = "Psykiska/\npsykosomatiska besvär")
+```
+
+
+
+### Logistisk regression
+
+Med standardiserade robusta prediktorer.
+
+```{r}
+bp0 <- glm(formula = begått ~ Utagerande,
+    data = df.bp,
+    family = binomial(link = "logit"))
+
+bp0s <- datawizard::standardize(bp0, robust = TRUE)
+tidy(bp0)
+tidy(bp0s)
+
+modelplot(bp0s)
+plot_predictions(bp0s, "Utagerande") +
+  scale_x_continuous(breaks = seq(-5,5,1)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed")
+modelsummary(bp0s, exponentiate = T)
+
+```
+
+```{r}
+# (PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott + fr_aktiv
+bp1 <- glm(formula = begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bp,
+    family = binomial(link = "logit"))
+
+bp1s <- datawizard::standardize(bp1, robust = TRUE)
+check_collinearity(bp1)
+plot(bp1s)
+modelplot(bp1s)
+
+tidy(bp1, exponentiate = T)
+tidy(bp1s, exponentiate = T)
+modelsummary(bp1s, exponentiate = T)
+```
+
+```{r}
+bp1s_tidy <-
+  tidy(bp1s, conf.int = TRUE, exponentiate = T) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05)
+
+bp1s_tidy %>% 
+  left_join(lm_items, by = "term") %>%
+  mutate(desc = factor(desc),
+       desc = fct_reorder(desc, estimate)) %>%
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 1, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  # geom_text(data = . %>% filter(term == "Parenting"),
+  #           aes(label = round(estimate,2)), 
+  #           color = "black", vjust = -1.6, hjust = -0.2,
+  #           size = 5) +
+  guides(color = "none") +
+  #coord_cartesian(xlim = c(-0.4,0.5)) +
+  labs(title = "Pojkar åk 9: Begått allvarliga brott",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren.", 66),
+       y = "") 
+```
+
+Using marginaleffects average comparisons for risk differences instead, what are the coefficients?
+
+```{r}
+avg_comparisons(bp1s, variables = "Utagerande") # 0.172
+avg_comparisons(bp1s, variables = "SkolaPositiv") # -0.0203
+avg_comparisons(bp1s, variables = "f_utb") # uni -0.0674
+
+```
+
+Population-averaged (marginal) odds ratios:
+
+```{r}
+avg_comparisons(
+    bp1s,
+    variables = "Utagerande", # 2.01
+    comparison = "lnoravg",
+    transform = "exp")
+avg_comparisons(
+    bp1s,
+    variables = "SkolaPositiv", # 0.917
+    comparison = "lnoravg",
+    transform = "exp")
+avg_comparisons(
+    bp1s,
+    variables = "f_utb", # uni 0.756
+    comparison = "lnoravg",
+    transform = "exp")
+```
+
+
+
+Risk ratios
+
+```{r}
+avg_comparisons(
+    bp1s,
+    variables = "Utagerande", # 1.45
+    comparison = "lnratioavg",
+    transform = exp)
+avg_comparisons(
+    bp1s,
+    variables = "SkolaPositiv", # 0.947
+    comparison = "lnratioavg",
+    transform = "exp")
+avg_comparisons(
+    bp1s,
+    variables = "f_utb", # 0.846
+    comparison = "lnratioavg",
+    transform = "exp")
+```
+
+### Pojkar robust poisson regression
+
+"When the outcome is not rare, Poisson regression or log-binomial model are preferred to obtain RR instead of logistic regression."
+Kim, H.-Y. (2017). Statistical notes for clinical researchers: Risk difference, risk ratio, and odds ratio. Restorative Dentistry & Endodontics, 42(1), 72–76. https://doi.org/10.5395/rde.2017.42.1.72
+
+"logistic regression is inappropriate for non-rare event cases" 
+Kitano, T., & Noma, H. (2024). Ridge, lasso, and elastic-net estimations of the modified Poisson and least-squares regressions for binary outcome data (No. arXiv:2408.13474). arXiv. https://doi.org/10.48550/arXiv.2408.13474
+
+"For the risk ratio, one may use a GLM with a Poisson dis- tribution and log link function. Doing so will return an expo- sure coefficient whose natural exponent can be interpreted as a risk ratio. However, the model-based standard errors (i.e., the standard errors one typically obtains directly from the GLM output) are no longer valid. Instead, one should use the robust (or sandwich) variance estimator to obtain valid standard errors (the bootstrap can also be used)"
+Naimi, A. I., & Whitcomb, B. W. (2020). Estimating Risk Ratios and Risk Differences Using Regression. American Journal of Epidemiology, 189(6), 508–510. https://doi.org/10.1093/aje/kwaa044
+
+
+
+```{r}
+library(robustbase)
+
+df.bpr <- df.bp %>% 
+  mutate(begått = as.numeric(begått))
+
+table(df.bpr$begått)
+
+bp2 <- glmrob(formula = begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bpr,
+    family = poisson(link = "log"))
+
+library(mfx)
+# poisson marginal effects, cluster SE
+bp2mfx <- poissonmfx(formula = begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bpr,
+    #robust = TRUE,
+    clustervar1 = "year")
+# robust SE instead of cluster SE
+bp2mfxr <- poissonmfx(formula = begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bpr,
+    robust = TRUE)
+
+tidy(bp2)
+tidy(bp2mfx)
+tidy(bp2mfxr)
+
+bp2glm <- glm(formula = begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bpr,
+    family = poisson(link = "log"))
+# get cluster robust SE
+bp2glmr <- coeftest(bp2glm,
+                     vcov = vcovCL,
+                     #type = "HC2",
+                     df = 9,  # clusters - 1, if needed
+                     cluster = ~year)
+
+tidy(bp2)
+tidy(bp2glmr)
+
+# Population-averaged (aka “marginal”) adjusted risk difference
+avg_comparisons(bp2, variables= "Utagerande")
+avg_comparisons(bp2, variables= "PsykSomBesv")
+avg_comparisons(bp2, variables= "Parenting")
+
+#bp2s <- datawizard::standardize(bp2, robust = TRUE)
+#bp2glmrs <- datawizard::standardize(bp2glmr, robust = TRUE)
+#tidy(bp2s)
+check_collinearity(bp2)
+#plot(bp2)
+#modelplot(bp1s)
+
+modelsummary(bp2)
+modelplot(bp2)
+
+```
+
+### Pojkar plot
+
+```{r}
+tidy(bp2mfxr, conf.int = TRUE) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  # geom_text(data = . %>% filter(term == "Parenting"),
+  #           aes(label = round(estimate,2)), 
+  #           color = "black", vjust = -1.6, hjust = -0.2,
+  #           size = 5) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.2,0.2)) +
+  labs(title = "Pojkar åk 9: Risk att begå allvarliga brott",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Robusta regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Föräldrarnas utbildningsnivå; Boendetid i Sverige; Brukar delta i ledarledd fritidsaktivitet eller träning; Negativ skolanknytning.", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+tidy(bp2, conf.int = TRUE) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value > .05)
+```
+
+### Pojkar "viktighetsgrad"
+
+```{r}
+tidy(bp2) %>% 
+  arrange(desc(abs(statistic))) %>% 
+  kable()
+
+tidy(bp2) %>% 
+  mutate(rs = ifelse(statistic < 0, "skydd","risk")) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)",
+         statistic > 2) %>% 
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, statistic)) %>% 
+  ggplot(aes(x = statistic, y = desc)) +
+  geom_col(aes(fill = rs)) +
+    labs(title = "Pojkar åk 9: Risk att begå allvarliga brott",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "T-värde från robust poisson regression",
+       y = "") +
+  guides(fill = "none")
+```
+
+### Pojkar binary regression
+
+Doubly robust, men oklart hur man använder denna?
+
+```{r}
+library(brm)
+bp3 <- brm::brm(x = begått,
+                va = Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bpr,
+    param = "RD",
+    est.method="DR")
+
+summary(bp2)
+
+bp2s <- datawizard::standardize(bp2, robust = TRUE)
+#check_collinearity(bp2)
+#plot(bp2)
+#modelplot(bp1s)
+
+tidy(bp2)
+tidy(bp2s)
+
+modelsummary(bp2s)
+modelplot(bp2s)
+```
+
+
+### Flickor robust poisson
+
+```{r}
+df.bfr <- df.bf %>% 
+  mutate(begått = as.numeric(begått))
+
+table(df.bfr$begått)
+# seems reversed
+df.bfr$begått <- car::recode(df.bfr$begått,"1=2;2=1", as.factor = F)
+
+table(df.bfr$begått)
+
+bf1 <- glmrob(formula = begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bfr,
+    family = poisson(link = "log"))
+
+
+summary(bf1)
+tidy(bf1)
+#bf1s <- datawizard::standardize(bf1, robust = TRUE)
+#check_collinearity(bp2)
+#plot(bp2)
+#modelplot(bp1s)
+
+modelsummary(bf1)
+modelplot(bf1)
+```
+
+### Flickor plot
+
+```{r}
+tidy(bf1, conf.int = TRUE) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  # geom_text(data = . %>% filter(term == "Parenting"),
+  #           aes(label = round(estimate,2)), 
+  #           color = "black", vjust = -1.6, hjust = -0.2,
+  #           size = 5) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.2,0.2)) +
+  labs(title = "Flickor åk 9: Risk att begå allvarliga brott",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Robusta regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Föräldrarnas utbildningsnivå; Boendetid i Sverige; Brukar delta i ledarledd fritidsaktivitet eller träning; Negativ skolanknytning.", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+tidy(bf1, conf.int = TRUE) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value > .05)
+```
+
+### Flickor "viktighetsgrad"
+
+```{r}
+tidy(bf1) %>% 
+  arrange(desc(abs(statistic))) %>% 
+  kable()
+
+tidy(bf1) %>% 
+  mutate(rs = ifelse(statistic < 0, "skydd","risk")) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)",
+         statistic > 2) %>% 
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, statistic)) %>% 
+  ggplot(aes(x = statistic, y = desc)) +
+  geom_col(aes(fill = rs)) +
+    labs(title = "Flickor åk 9: Risk att begå allvarliga brott",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "T-värde från robust poisson regression",
+       y = "") +
+  guides(fill = "none") +
+  scale_x_continuous(limits = c(0,20))
+```
+
+
+
+```{r}
+tidy(bp1s) %>% 
+  mutate(rs = ifelse(statistic < 0, "skydd","risk")) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)",
+         statistic > 5) %>% 
+  #left_join(lm_items, by = "term") %>% 
+  #mutate(desc = fct_reorder(desc, statistic)) %>% 
+  ggplot(aes(x = statistic, y = term)) +
+  geom_col(aes(fill = rs)) +
+    labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "T-värde från robust linjär regression",
+       y = "") +
+  guides(fill = "none")
+```
+
+#### Pojkar brms binary
+
+```{r}
+library(brms)
+get_prior(begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + mo(f_utb) + mobbad + mo(bott) + fr_aktiv, 
+          data = df.bp)
+
+df.bpb <- df.bp <- read_parquet(paste0(datafolder,"DID_klart/2024-10-09_brott_pojkar.parquet")) %>% 
+        mutate(begått = as.numeric(begått))
+
+bp1brms <- 
+  brms::brm(data = df.bpb, 
+      family = bernoulli(link = "logit"),
+      begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + mo(f_utb) + mobbad + mo(bott) + fr_aktiv,
+      prior = c(prior(normal(0, 3), class = Intercept),
+                prior(normal(0, 3), class = b)
+                ),
+      iter = 2000, warmup = 1000, 
+      cores = 4, chains = 4,
+      seed = 15)
+
+summary(bp1brms)
+saveRDS(bp1brms,"bp1brms.Rdata")
+
+pp_check(bp1brms, ndraws = 200)
+
+avg_comparisons(bp1brms, variables = "Utagerande") # 0.172 -> brms 0.198
+avg_comparisons(bp1brms, variables = "SkolaPositiv") # -0.0203 -> brms -0.02
+avg_comparisons(bp1brms, variables = "f_utb") # uni -0.0674
+
+# risk ratios
+avg_comparisons(
+    bp1brms,
+    variables = "Utagerande", # 1.45 -> brms 1.52
+    comparison = "lnratioavg",
+    transform = exp)
+avg_comparisons(
+    bp1brms,
+    variables = "SkolaPositiv", # 0.947 -> brms 0.947
+    comparison = "lnratioavg",
+    transform = "exp")
+avg_comparisons(
+    bp1brms,
+    variables = "f_utb", # 0.846 -> brms 0.85
+    comparison = "lnratioavg",
+    transform = "exp")
+
+conditional_effects(bp1brms, "Utagerande")
+conditional_effects(bp1brms, "f_utb")
+conditional_effects(bp1brms, "SkolaNegativ")
+
+```
+
+#### Modified Poisson
+
+Modified Poisson regression for binary outcomes
+
+```{r}
+library(rqlm)
+bp4 <- rqlm(formula = begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+    data = df.bpr,
+    family = poisson,
+    eform=TRUE)
+
+# risk ratio and robust SE 
+bp4 %>% 
+  # set tidy naming
+  rename(estimate = "exp(coef)",
+         conf.low = CL,
+         conf.high = CU,
+         p.value = "P-value") %>% 
+  rownames_to_column("term") %>% 
+  
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 1, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  # geom_text(data = . %>% filter(term == "Parenting"),
+  #           aes(label = round(estimate,2)), 
+  #           color = "black", vjust = -1.6, hjust = -0.2,
+  #           size = 5) +
+  guides(color = "none") +
+  labs(title = "Flickor åk 9: Risk att begå allvarliga brott",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Robusta regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Föräldrarnas utbildningsnivå; Boendetid i Sverige; Brukar delta i ledarledd fritidsaktivitet eller träning; Negativ skolanknytning.", 66),
+       y = "") 
+  #scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+```
+
+
+#### ML: Logistic penalized regression
+
+LASSO.
+
+```{r}
+library(tidymodels)
+#library(dotwhisker)
+library(vip)         # for variable importance plots
+#library(ranger)
+
+splits <- initial_validation_split(df.bp, strata = year)
+df_train <- training(splits)
+df_test  <- testing(splits)
+val_set <- initial_validation_split(df_train, 
+                            strata = year, 
+                            #prop = c(0.8,0.2)
+                            )
+df_fold <- vfold_cv(df_train, v = 10)
+```
+
+```{r}
+lr_mod <- 
+  logistic_reg(penalty = tune(), mixture = 1) %>% # mixture = 1 is LASSO
+  set_engine("glmnet")
+
+lr_fit <- 
+  lr_mod %>% 
+  fit(begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+      data = df_train)
+
+lr_recipe <- 
+  recipe(begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+         data = df_train) %>%
+  step_ordinalscore(all_ordered_predictors()) %>% 
+  #step_dummy(all_ordered_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_zv(all_predictors())
+
+lr_workflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(lr_recipe)
+```
+
+```{r}
+penalty_grid <- grid_regular(penalty(range = c(-5, 5)), levels = 50)
+
+lr_res <- 
+  tune_grid(lr_workflow,
+            resamples = df_fold,
+            grid = penalty_grid,
+            control = control_grid(save_pred = TRUE),
+            metrics = metric_set(roc_auc))
+
+lr_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = penalty, y = mean)) + 
+  geom_point() + 
+  geom_line() + 
+  ylab("Area under the ROC") +
+  scale_x_log10(labels = scales::label_number()) 
+
+top_models <-
+  lr_res %>% 
+  show_best(metric = "roc_auc", n = 10) %>% 
+  arrange(penalty) 
+top_models
+
+lr_best <- lr_res %>% 
+  select_best(metric = "roc_auc")
+
+lr_auc <- 
+  lr_res %>% 
+  collect_predictions(parameters = lr_best) %>% 
+  roc_curve(begått, `.pred_brott3`) %>% 
+  mutate(model = "Penalized Logistic Regression")
+
+autoplot(lr_auc) +
+  labs(title = "Penalized Logistic Regression")
+```
+
+
+```{r}
+#| eval: true
+
+last_lr_mod <- 
+  logistic_reg(penalty = lr_best$penalty, mixture = 1) %>% 
+  set_engine("glmnet")
+
+last_lr_workflow <- 
+  lr_workflow %>% 
+  update_model(last_lr_mod)
+
+last_lr_fit <- 
+  last_lr_workflow %>% 
+  last_fit(splits)
+
+fp <- 
+  last_lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  tidy(conf.int = TRUE) %>% 
+  arrange(estimate)
+
+fp
+
+last_lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 10)
+  #scale_y_discrete(labels = c("Utagerande","Fldr utb:\nUniversitet och högskola","Bristande föräldraskap",
+  #                            "Utsatt för mobbning","Psykiska/\npsykosomatiska besvär","Bott i Sverige hela mitt liv"))
+
+last_lr_fit %>% 
+  collect_metrics()
+
+```
+
+#### ML: XGBoost
+
+```{r}
+library(xgboost)
+xgb_mod <- 
+  boost_tree() |>
+  set_engine("xgboost") |>
+  set_mode("classification") 
+
+xgb_fit <- 
+  xgb_mod %>% 
+  fit(begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+      data = df_train)
+
+xgb_recipe <- 
+  recipe(begått ~ Utagerande + PsykSomBesv + Parenting + SkolaNegativ + SkolaPositiv + Community + f_utb + mobbad + bott + fr_aktiv,
+         data = df_train) %>%
+  step_ordinalscore(all_ordered_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_zv(all_predictors())
+
+xgb_workflow <- 
+  workflow() %>% 
+  add_model(xgb_mod) %>% 
+  add_recipe(xgb_recipe)
+
+xgb_res <- 
+  xgb_workflow |>
+  fit_resamples(
+    resamples = df_fold, 
+    metrics = metric_set(
+      recall, precision, f_meas, 
+      accuracy, kap,
+      roc_auc, sens, spec),
+    control = control_resamples(save_pred = TRUE)
+    ) 
+
+xgb_res |> 
+  collect_metrics(summarize = TRUE)
+
+xgb_res %>% 
+  collect_predictions() %>% 
+  roc_curve(begått, `.pred_brott3`) %>% 
+  autoplot() +
+  labs(title = "XGBoost")
+
+xgb_res %>% 
+  collect_predictions() %>% 
+  roc_curve(begått, `.pred_ej_brott3`) %>% 
+  autoplot() +
+  labs(title = "XGBoost")
+
+last_xgb_fit <- 
+  xgb_workflow %>% 
+  last_fit(splits)
+
+last_lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 10)
+  scale_y_discrete(labels = c("Utagerande","Fldr utb:\nUniversitet och högskola","Bristande föräldraskap",
+                              "Utsatt för mobbning","Psykiska/\npsykosomatiska besvär","Bott i Sverige hela mitt liv"))
+
+last_lr_fit %>% 
+  collect_metrics()
+```
+
+```{r}
+penalty_grid <- grid_regular(paenalty(range = c(-5, 5)), levels = 50)
+
+lr_res <- 
+  tune_grid(lr_workflow,
+            resamples = df_fold,
+            grid = penalty_grid,
+            control = control_grid(save_pred = TRUE),
+            metrics = metric_set(roc_auc))
+
+lr_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = penalty, y = mean)) + 
+  geom_point() + 
+  geom_line() + 
+  ylab("Area under the ROC") +
+  scale_x_log10(labels = scales::label_number()) 
+
+top_models <-
+  lr_res %>% 
+  show_best(metric = "roc_auc", n = 10) %>% 
+  arrange(penalty) 
+top_models
+
+lr_best <- lr_res %>% 
+  select_best(metric = "roc_auc")
+
+lr_auc <- 
+  lr_res %>% 
+  collect_predictions(parameters = lr_best) %>% 
+  roc_curve(begått, `.pred_brott3`) %>% 
+  mutate(model = "Penalized Logistic Regression")
+
+autoplot(lr_auc) +
+  labs(title = "Penalized Logistic Regression")
+```
+
+
+```{r}
+#| eval: true
+
+last_lr_mod <- 
+  logistic_reg(penalty = lr_best$penalty, mixture = 1) %>% 
+  set_engine("glmnet")
+
+last_lr_workflow <- 
+  lr_workflow %>% 
+  update_model(last_lr_mod)
+
+last_lr_fit <- 
+  lr_workflow %>% 
+  last_fit(splits)
+
+fp <- 
+last_lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  tidy()
+fp
+
+last_lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 20)
+  scale_y_discrete(labels = c("Utagerande","Fldr utb:\nUniversitet och högskola","Bristande föräldraskap",
+                              "Utsatt för mobbning","Psykiska/\npsykosomatiska besvär","Bott i Sverige hela mitt liv"))
+
+last_lr_fit %>% 
+  collect_metrics()
+
+#The Brier score is analogous to the mean squared error in regression models. The difference between a binary indicator for a class and its corresponding class probability are squared and averaged.
+#This function uses the convention in Kruppa et al (2014) and divides the result by two.
+#Smaller values of the score are associated with better model performance.
+```
+
+
+
+
+
+
+
+
+
+## Ej fullständiga betyg i kärnämnen
+
+Klar riskfaktor för utanförskap.
+
+```{r}
+df.f.lm <- 
+  df.f %>% 
+  mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"), ordered = TRUE)) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab, levels = c("Folkskola eller grundskola (max 9 år i skolan)", "Gymnasium","Universitet och högskola"), ordered = TRUE)) %>% 
+  mutate(year = factor(År)) %>% 
+  mutate(across(starts_with("F65"), ~ car::recode(.x,"'Streck' = 0;
+                                                  'F' = 1;
+                                                  'E' = 2;
+                                                  'D' = 3;
+                                                  'C' = 4;
+                                                  'B' = 5;
+                                                  'A' = 6;
+                                                  ",as.factor=FALSE),
+         .names = "{col}_num")) %>% 
+  #mutate(betyg = rowMeans(.[,c("F65a_num","F65b_num","F65c_num")], na.rm = FALSE)) %>% 
+# betyg som dikotom variabel, där godkända betyg är A-E och underkända är F och streck
+# ej godkänd i något ämne kodas som ej godkänd (1)
+  mutate(betyg = case_when(F65a_num < 2 | F65b_num < 2 | F65c_num < 2 ~ 1, 
+                                   TRUE ~ 0)) %>% 
+  mutate(betyg = factor(betyg)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70,betyg) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>% 
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+df.p.lm <- 
+  df.p %>% 
+  mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"), ordered = TRUE)) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab, levels = c("Folkskola eller grundskola (max 9 år i skolan)", "Gymnasium","Universitet och högskola"), ordered = TRUE)) %>% 
+  mutate(year = factor(År)) %>% 
+  mutate(across(starts_with("F65"), ~ car::recode(.x,"'Streck' = 0;
+                                                  'F' = 1;
+                                                  'E' = 2;
+                                                  'D' = 3;
+                                                  'C' = 4;
+                                                  'B' = 5;
+                                                  'A' = 6;
+                                                  ",as.factor=FALSE),
+         .names = "{col}_num")) %>% 
+  #mutate(betyg = rowMeans(.[,c("F65a_num","F65b_num","F65c_num")], na.rm = FALSE)) %>% 
+# betyg som dikotom variabel, där godkända betyg är A-E och underkända är F och streck
+# ej godkänd i något ämne kodas som ej godkänd (1)
+  mutate(betyg = case_when(F65a_num < 2 | F65b_num < 2 | F65c_num < 2 ~ 1, 
+                                   TRUE ~ 0)) %>% 
+  mutate(betyg = factor(betyg)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70,betyg) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>% 
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+```
+
+### Primär modell flickor
+
+```{r}
+#| eval: false
+#| echo: false
+
+glm_f0 <- glm(betyg ~ PsykSomBesv + Parenting + f_utb + SkolaNegativ + Community + Utagerande + SkolaPositiv + mobbad + fr_aktiv + bott,
+    data = df.f.lm,
+    family = binomial(link = "logit"))
+
+glm_f1 <- glm(betyg ~ PsykSomBesv + Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv,
+    data = df.f.lm,
+    family = binomial(link = "logit"))
+
+# library(easy.glmnet)
+# data.f.glmnet <- data.frame2glmnet.matrix_fit(df.f.lm)
+# data.f.glmnet2 <- data.frame2glmnet.matrix(data.f.glmnet,df.f.lm)
+# 
+# glm_f1 <- glmnet_fit(x = data.f.glmnet2,
+#                  y = pull(df.f.lm,betyg),
+#     family = "binomial")
+# summary(glm_f1)
+# tidy(glm_f1)
+# plot(glm_f1)
+# glmnet_get.main.model(glm_f1)
+# 
+# df.f.lm %>% 
+#   mutate(Parenting = round(Parenting,1)) %>% 
+#   count(betyg,Parenting) %>% 
+#   ggplot(aes(x = Parenting, y = n, fill = betyg)) +
+#   geom_col()
+# 
+# df.f.lm %>% 
+#   mutate(Parenting = round(Parenting,1)) %>% 
+#   count(betyg,Parenting) %>% 
+#   group_by(betyg) %>% 
+#   mutate(Procent = n *100 /sum(n)) %>% 
+#   ungroup() %>% 
+#   mutate(betyg = factor(betyg)) %>% 
+#   #filter(betyg == 0) %>% 
+#   ggplot(aes(x = Parenting, y = Procent, fill = betyg)) +
+#   geom_col(position = "dodge")
+
+# df.f.lm %>% 
+#   pivot_longer(all_of(sthlm.index)) %>% 
+#   ggplot(aes(x = value, fill = betyg)) +
+#     geom_density() +
+#     facet_wrap(~name)
+df.f %>% 
+  mutate(across(starts_with("F65"), ~ car::recode(.x,"'Streck' = 0;
+                                                  'F' = 1;
+                                                  'E' = 2;
+                                                  'D' = 3;
+                                                  'C' = 4;
+                                                  'B' = 5;
+                                                  'A' = 6;
+                                                  ",as.factor=FALSE),
+         .names = "{col}_num")) %>% 
+  #mutate(betyg = rowMeans(.[,c("F65a_num","F65b_num","F65c_num")], na.rm = FALSE)) %>% 
+# betyg som dikotom variabel, där godkända betyg är A-E och underkända är F och streck
+# ej godkänd i något ämne kodas som ej godkänd (1)
+  mutate(betyg = case_when(F65a_num < 2 | F65b_num < 2 | F65c_num < 2 ~ 1, 
+                                   TRUE ~ 0)) %>% 
+  mutate(betyg = factor(betyg)) %>% 
+  mutate(betyg_na = ifelse(is.na(betyg), "Missing betyg","Complete betyg")) %>% 
+  ggplot(aes(x = Parenting)) +
+    geom_histogram() +
+    facet_wrap(~betyg_na)
+
+
+glm_f0r <- coeftest(glm_f0,
+                     vcov = vcovCL,
+                     df = 9, 
+                     cluster = ~year)
+
+glm_f1r <- coeftest(glm_f1,
+                     vcov = vcovCL,
+                     df = 9, 
+                     cluster = ~year)
+
+avg_comparisons(
+    glm_f1,
+    variables = "Parenting",
+    comparison = "lnratioavg",
+    transform = exp)
+
+plot_predictions(glm_f0, "Parenting",transform = exp) +
+  coord_cartesian(ylim = c(0.5,1.5))
+
+tidy(glm_f0, exponentiate = T)
+glance(glm_f0)
+
+# standardize predictors for comparable coefficients
+library(datawizard)
+glm_f0s <- datawizard::standardize(glm_f0, robust = TRUE)
+glm_f1s <- datawizard::standardize(glm_f1, robust = TRUE)
+
+# glm_f0sr <- coeftest(glm_f0s,
+#                      vcov = vcovCL,
+#                      df = 9, 
+#                      cluster = ~year)
+
+tidy()
+
+check_collinearity(glm_f0)
+modelplot(glm_f0s)
+
+lm_items2 <- data.frame(term = c("PsykSomBesv","bott5-9 år","bott10 år eller mer","f_utbUniversitet och högskola"),
+                        desc = c("Psykiska/psykosomatiska\nbesvär","Bott i Sverige 5-9 år","Bott i Sverige 10 år eller mer","Föräldrarnas utb.nivå:\n Universitet/högskola"))
+lmi3 <- rbind(lm_items,lm_items2)
+
+tidy(glm_f1s, conf.int = TRUE, exponentiate = T) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lmi3, by = "term") %>% 
+  mutate(desc = factor(desc),
+         desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 6, shape = 18) +
+  geom_segment(aes(x = conf.low, xend = conf.high), linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  # geom_text(data = . %>% filter(term == "Parenting"),
+  #           aes(label = round(estimate,2)), 
+  #           color = "black", vjust = -1.6, hjust = -0.2,
+  #           size = 5) +
+  guides(color = "none") +
+  #coord_cartesian(xlim = c(-0.4,0.5)) +
+  labs(title = "Flickor åk 9: Ofullständiga betyg i kärnämnen",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren.", 66),
+       y = "") 
+  #scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+```
+
+

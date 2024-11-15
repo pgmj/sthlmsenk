@@ -1,6 +1,6 @@
 ---
 title: "Samband mellan variabler"
-subtitle: "Tvärsnittsdata från Stockholmsenkäten"
+subtitle: "Tvärsnittsdata över tid från Stockholmsenkäten"
 title-block-banner: "#009ca6"
 title-block-banner-color: "#FFFFFF"
 author: 
@@ -23,7 +23,7 @@ format:
     code-tools: true
     code-fold: true
     number-sections: true
-    fig-dpi: 150
+    fig-dpi: 96
     layout-align: left
     linestretch: 1.6
     theme: materia
@@ -43,27 +43,28 @@ bibliography: grateful-refs.bib
 ```{r}
 library(tidyverse)
 library(arrow)
-library(lme4)
-library(broom)
-library(formattable)
-library(grateful)
-library(GGally)
-#library(ggiraph)
-library(ggdist)
-library(pscl)
-library(car)
-library(easystats)
-#library(emmeans)
+library(knitr)
+# library(lme4)
+# library(broom)
+# library(formattable)
+# library(grateful)
+# library(GGally)
+# #library(ggiraph)
+# library(ggdist)
+# library(pscl)
+# library(car)
+# library(easystats)
+# #library(emmeans)
 library(marginaleffects)
 library(modelsummary)
-library(kableExtra)
-library(glue)
-library(lavaan)
-library(lavaanPlot)
-library(quantreg)
+# library(kableExtra)
+# library(glue)
+# library(lavaan)
+# library(lavaanPlot)
+# library(quantreg)
 library(readxl)
-library(MASS)
-library(patchwork)
+# library(MASS)
+# library(patchwork)
 
 
 ### some commands exist in multiple packages, here we define preferred ones that are frequently used
@@ -145,15 +146,15 @@ kbl_rise <- function(data, tbl_width = 65, fontsize = 14, fontfamily = "Arial",
 # read data
 datafolder <- "~/Library/CloudStorage/OneDrive-SharedLibraries-RISE/SHIC - Data i Dialog - Data i Dialog/data/"
 
-df.all <- read_parquet(paste0(datafolder,"DID_klart/2023-10-27_ScoredRev.parquet"))
+df.all <- read_parquet(paste0(datafolder,"DID_klart/2024-09-12_ScoredRev.parquet"))
 
-årtal <- c(2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020,2022)
+årtal <- c(2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020,2022,2024)
 sthlm.index.all <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv","Wellbeing")
 
 sthlm.index <- c("Utagerande","SkolaNegativ","Parenting","Community","PsykSomBesv","SkolaPositiv")
 
 df <- df.all %>%
-  filter(ar > 2004 & ar < 2024) %>%
+  filter(ar > 2004) %>%
   filter(ARSKURS == "Åk 9") %>% 
   filter(Kön %in% c("Pojke","Flicka")) %>% 
   rename(År = ar,
@@ -165,8 +166,8 @@ df <- df.all %>%
 ## riskgruppsindelningar
 
 # läs in gränsvärden
-rslimits <- read_csv("../DIDapp/data/2023-05-07_rslimitsNoRev.csv")
-rslimits.prot <- read_csv("../DIDapp/data/2023-05-07_protective.csv")
+rslimits <- read_csv("Samband/2024-09-23_rslimitsNoRev.csv")
+rslimits.prot <- read_csv("Samband/2024-09-23_protective.csv")
 
 # skapa nya variabler för respektive indexvärde
 df <- df %>% 
@@ -207,7 +208,7 @@ Vi tittar först enbart på årskurs 9 eftersom de är intressanta som yngre må
 Analyserna görs separat för pojkar och flickor. Enbart individer med kompletta svar på variabler som ingår i respektive analys tas med i analyserna i detta skede.
 
 ::: panel-tabset
-### Antal svar per år och kommun
+### Antal svar per år och per kommun
 ```{r}
 # check number of respondents per year
 df %>%
@@ -215,7 +216,7 @@ df %>%
   rename(
     Antal = n
   ) %>%
-  kbl_rise()
+  kable()
 
 # per municipality
 df %>%
@@ -224,14 +225,14 @@ df %>%
     Antal = n
   ) %>%
   arrange(desc(Antal)) %>% 
-  kbl_rise()
+  kable()
   
 ```
 ### Fördelat på kön
 ```{r}
 df %>%
   select(all_of(sthlm.index.all),År,Kön) %>% 
-  pivot_longer(sthlm.index.all, names_to = "Index", values_to = "Indexvärde") %>% 
+  pivot_longer(all_of(sthlm.index.all), names_to = "Index", values_to = "Indexvärde") %>% 
   group_by(År,Index,Kön) %>% 
   summarise(Antal = n()) %>% 
   ggplot(aes(x = År, y = Antal, color = Kön)) + 
@@ -247,7 +248,7 @@ df %>%
 ```{r}
 df %>% 
   select(all_of(sthlm.index.all),År,Kön) %>% 
-  pivot_longer(sthlm.index.all, 
+  pivot_longer(all_of(sthlm.index.all), 
                names_to = "Index", 
                values_to = "Indexvärde") %>% 
   group_by(År,Index,Kön) %>%
@@ -285,7 +286,7 @@ Höga värden av Välbefinnande/Wellbeing = högt välbefinnande.
 ```{r}
 df %>% 
   select(all_of(sthlm.index.all),År,Kön) %>% 
-  pivot_longer(sthlm.index.all, 
+  pivot_longer(all_of(sthlm.index.all), 
                names_to = "Index", 
                values_to = "Indexvärde") %>% 
   ggplot(aes(x = Indexvärde, fill = Kön)) +
@@ -301,7 +302,7 @@ df %>%
 ```{r}
 df %>% 
   select(all_of(sthlm.index.all),År,Kön) %>% 
-  pivot_longer(sthlm.index.all, 
+  pivot_longer(all_of(sthlm.index.all), 
                names_to = "Index", 
                values_to = "Indexvärde") %>% 
   mutate(Index = factor(Index, levels = sthlm.index.all)) %>% 
@@ -333,11 +334,309 @@ df %>%
             position = position_stack(vjust = .5)) +
   scale_fill_manual('Riskgrupp', values = DIDcolorsRYGG) +
   labs(title = "Fördelning av riskgrupp",
-       subtitle = "2006-2022, pojkar och flickor, enbart åk 9",
+       subtitle = "2006-2024, pojkar och flickor, enbart åk 9",
        x = "Riskfaktor",
        y = "Antal") +
   update_geom_defaults("text", list(family = "Lato"))
   
+```
+
+## Additive Bayesian Network analysis
+
+Denna typ av modeller fungerar enbart med kontinuerliga, binomiala, eller poisson data.
+
+Vi testar att dikotomisera `Hur länge har du bott i Sverige?` = F5 samt `Vilken högsta utbildning har din mamma/pappa?` = f6ab.
+
+```{r}
+library(abn)
+
+# filter variables to include in network
+mydata <- 
+  df.f %>% 
+  mutate(F5 = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"))) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ "Ja",
+                            f60c == 1 ~ "Ja",
+                            f60d == 1 ~ "Ja",
+                            f60e == 1 ~ "Ja",
+                            f60f == 1 ~ "Ja",
+                            f60g == 1 ~ "Ja",
+                            f60h == 1 ~ "Ja",
+                            f60i == 1 ~ "Ja",
+                            F63 == 1 ~ "Ja",
+                            f60a == 1 ~ "Nej",
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+                          F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(bott = factor(bott)) %>% 
+  mutate(f_utb = case_when(f6ab == "Universitet och högskola" | f6ab == "Gymnasium" ~ "Gymnasium+",
+                           f6ab == "Folkskola eller grundskola (max 9 år i skolan)" ~ "Max 9 år skola")) %>% 
+  mutate(f_utb = factor(f_utb)) %>% 
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year) %>% 
+  select(!Wellbeing) %>% 
+  na.omit() %>% 
+  as.data.frame()
+```
+
+börjar med en simpel modell med fyra variabler
+
+```{r}
+mydists0 <- list(SkolaNegativ = "gaussian",
+                Parenting = "gaussian",
+                PsykSomBesv = "gaussian",
+                mobbad = "binomial"
+                )
+
+mydata0 <- mydata %>% 
+  select(SkolaNegativ,Parenting,PsykSomBesv,mobbad,year) %>% 
+  as.data.frame()
+
+sc0 <- buildScoreCache(
+  data.df = mydata0,
+  data.dists = mydists0,
+  #dag.banned = banmat,
+  group.var = "year",
+  method = "bayes",
+  max.parents = 2
+)
+
+mp.sc0 <- mostProbable(score.cache = sc0,
+                            max.parents = 2)
+
+fit.sc1.mp <- fitAbn(object = mp.sc0,
+                        method = "bayes",
+                        max.parents = 2)
+plot(fit.sc1.mp)
+```
+
+
+
+```{r}
+
+mydists <- list(Utagerande = "gaussian",
+                SkolaNegativ = "gaussian",
+                Parenting = "gaussian",
+                Community = "gaussian",
+                PsykSomBesv = "gaussian",
+                SkolaPositiv = "gaussian",
+                f_utb = "binomial",
+                mobbad = "binomial",
+                bott = "binomial"
+                )
+
+### first
+# https://r-bayesian-networks.org/reference/buildScoreCache.html
+
+banmat <- matrix(0, nrow = length(mydists), ncol = length(mydists), dimnames = list(names(mydists), names(mydists)))
+
+# inget påverkar hur länge man bott i SE, rimligtvis
+banmat[9,] <- 1
+banmat[9, 9] <- 0
+
+# PSB bör ej påverka trivsel i närområdet, föräldrarnas utb
+banmat[4, 5] <- 1
+banmat[7, 5] <- 1
+
+# fldr utb bör ej påverka hur man trivs i boendeområdet 
+banmat[4, 7] <- 1
+
+# Utagerande borde inte påverka föräldrarnas utbildning 
+banmat[7, 1] <- 1
+
+# community ej f_utb
+banmat[7, 4] <- 1
+
+banmat
+
+sc1 <- buildScoreCache(
+  data.df = mydata,
+  data.dists = mydists,
+  dag.banned = banmat,
+  #group.var = "PID",
+  method = "bayes",
+  max.parents = 2
+)
+
+#saveRDS(sc1, "sc1.Rdata")
+
+### then two options for deciding which model to go with
+# https://r-bayesian-networks.org/reference/mostProbable.html
+
+mp.sc1 <- mostProbable(score.cache = sc1,
+                            max.parents = 2)
+
+
+# https://r-bayesian-networks.org/reference/searchHillClimber.html
+hc.sc1 <- searchHillClimber(score.cache = sc1,
+                            max.parents = 2)
+
+sh.sc1 <- searchHeuristic(score.cache = sc1,
+                            max.parents = 2)
+                         
+# myfit.sc1.mp <- fitAbn(object = mp.sc1,
+#                         method = "mle",
+#                         max.parents = 2)
+# 
+# myfit.sc1.hc <- fitAbn(object = hc.sc1,
+#                         method = "mle",
+#                         max.parents = 2)
+# 
+# myfit.sc1.sh <- fitAbn(object = sh.sc1,
+#                         method = "mle",
+#                         max.parents = 2)
+
+myfit.sc1.mp <- fitAbn(object = mp.sc1,
+                        method = "bayes",
+                        max.parents = 2)
+
+myfit.sc1.hc <- fitAbn(object = hc.sc1,
+                        method = "bayes",
+                        max.parents = 2)
+
+
+
+plot(myfit.sc1.mp)
+
+plot(myfit.sc1.hc)
+
+# infoDag(dag.sc1)
+# infoDag(hc.sc1)
+```
+
+nested in years
+
+```{r}
+mydata2 <- 
+  df.f %>% 
+    mutate(F5 = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"))) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+    mutate(mobbad = case_when(f60b == 1 ~ "Ja",
+                            f60c == 1 ~ "Ja",
+                            f60d == 1 ~ "Ja",
+                            f60e == 1 ~ "Ja",
+                            f60f == 1 ~ "Ja",
+                            f60g == 1 ~ "Ja",
+                            f60h == 1 ~ "Ja",
+                            f60i == 1 ~ "Ja",
+                            F63 == 1 ~ "Ja",
+                            f60a == 1 ~ "Nej",
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+    mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+                            F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+    mutate(bott = factor(bott)) %>% 
+ mutate(f_utb = case_when(f6ab == "Universitet och högskola" | f6ab == "Gymnasium" ~ "Gymnasium+",
+                            f6ab == "Folkskola eller grundskola (max 9 år i skolan)" ~ "Max 9 år skola")) %>% 
+    mutate(f_utb = factor(f_utb)) %>% 
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year) %>% 
+  select(!Wellbeing) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+
+sc2 <- buildScoreCache(
+  data.df = mydata2,
+  data.dists = mydists, 
+  group.var = "year",
+  method = "bayes",
+  max.parents = 2
+)
+```
+
+```{r}
+mp.sc2 <- mostProbable(score.cache = sc2,
+                            max.parents = 2)
+
+
+# https://r-bayesian-networks.org/reference/searchHillClimber.html
+hc.sc2 <- searchHillClimber(score.cache = sc2,
+                            max.parents = 2)
+
+myfit.sc2.mp <- fitAbn(object = mp.sc2,
+                        method = "bayes",
+                        max.parents = 2)
+
+myfit.sc2.hc <- fitAbn(object = hc.sc2,
+                        method = "bayes",
+                        max.parents = 2)
+
+
+
+plot(myfit.sc2.mp)
+
+plot(myfit.sc2.hc)
+```
+
+
+## bnlearn
+
+```{r}
+library(bnlearn)
+library(qgraph) 
+```
+
+```{r}
+BNgs <- gs(mydata) # this performs the algorithm 
+#qgraph(BNgs) # this plots the network
+
+BSTgs <- boot.strength(mydata, # this includes the data set 
+                     R = 200, # this sets the number of boots 
+                     algorithm = "gs") # this sets the algorithm
+
+plot(BSTgs)
+
+BSTgs <- BSTgs[BSTgs$strength > 0.85 & # this sets the strength 
+              BSTgs$direction > 0.5,] # this sets the minimum direction
+
+avgnetGS <- averaged.network(BSTgs,
+                            threshold = 0.85) ## compute the average network
+
+qgraph(avgnetGS, layout="circle")
+```
+
+no output... let's try other methods
+
+```{r}
+BNiamb <- iamb(mydata) # this performs the algorithm 
+#qgraph(BNiamb) # this plots the network
+
+BSTiamb <- boot.strength(mydata, # this includes the data set 
+                     R = 200, # this sets the number of boots 
+                     algorithm = "iamb") # this sets the algorithm
+
+plot(BSTiamb)
+
+BSTiamb <- BSTiamb[BSTiamb$strength > 0.85 & # this sets the strength 
+              BSTiamb$direction > 0.5,] # this sets the minimum direction
+
+avgnetIAMB <- averaged.network(BSTiamb,
+                            threshold = 0.85) ## compute the average network
+qgraph(avgnetIAMB, layout="circle")
+```
+hill climbing
+```{r}
+BNhc <- hc(mydata) # this performs the algorithm 
+#qgraph(BNhc) # this plots the network
+
+BSThc<- boot.strength(mydata, # this includes the data set 
+                     R = 200, # this sets the number of boots 
+                     algorithm = "hc") # this sets the algorithm
+plot(BSThc)
+BSThc <- BSThc[BSThc$strength > 0.85 & # this sets the strength 
+              BSThc$direction > 0.5,] # this sets the minimum direction
+
+avgnetHC <- averaged.network(BSThc,
+                            threshold = 0.85) ## compute the average network
+qgraph(avgnetHC, layout="circle")
 ```
 
 
@@ -369,21 +668,6 @@ df.f %>%
 Sedan visualisering med riskgruppsindelning
 
 ```{r}
-#| echo: false
-
-# df.f %>% 
-#   drop_na(riskParenting) %>% 
-#   ggplot(aes(x = riskParenting, y = PsykSomBesv, color = riskParenting, fill = riskParenting)) +
-#   geom_jitter(alpha = 0.1, width = 0.2) +
-#   geom_boxplot(alpha = 0.7, width = 0.5, notch = T) +
-#   scale_color_manual('Riskgrupp', values = DIDcolorsGGYR[2:4], aesthetics = c("color","fill")) +
-#   labs(title = "Bristande föräldraskap",
-#        subtitle = "2006-2022, flickor, enbart åk 9",
-#        x = "Riskgrupp",
-#        y = "Psykiska/psykosomatiska besvär")
-```
-
-```{r}
 riskVSoutcome <- function(data,riskfactor,outcome,title) {
   data %>% 
     drop_na(riskfactor) %>% 
@@ -392,7 +676,7 @@ riskVSoutcome <- function(data,riskfactor,outcome,title) {
     geom_boxplot(alpha = 0.7, width = 0.5, notch = T) +
     scale_color_manual('Riskgrupp', values = DIDcolorsGGYR[2:4], aesthetics = c("color","fill")) +
     labs(title = paste0(title),
-         subtitle = "2006-2022, flickor åk 9",
+         subtitle = "2006-2024, flickor åk 9",
          x = "Riskgrupp",
          y = "Psykiska/psykosomatiska besvär")
 }
@@ -402,14 +686,18 @@ riskVSoutcome(df.f,"riskSkolaNegativ","PsykSomBesv","Vantrivsel i skolan")
 riskVSoutcome(df.f,"riskCommunity","PsykSomBesv","Närsamhälle risk")
 ```
 
+Närsamhälle verkar inte ha någon påtaglig inverkan, medan vantrivsel i skolan och bristande föräldraskap visar tydligare skillnader.
+
 #### Statistisk modellering
 
 ##### Med kontinuerliga variabler
 
 ```{r}
-library(gvlma)
 # ta bort individer med missing data på någon av variablerna eftersom de ändå exkluderas av lm() och vi vill kunna beräkna residualer manuellt.
 df.fr <- df.f %>% 
+  drop_na(PsykSomBesv,Parenting,SkolaNegativ,Community)
+
+df.pr <- df.p %>% 
   drop_na(PsykSomBesv,Parenting,SkolaNegativ,Community)
 
 psy1_f <- 
@@ -419,11 +707,11 @@ psy1_f <-
 psy1_f_resids <- (psy1_f$fitted.values - df.fr$PsykSomBesv)
 qqnorm(psy1_f_resids)
 qqline(psy1_f_resids)
-gvlma(psy1_f)
-# https://stats.stackexchange.com/questions/481413/how-to-interpret-this-shape-of-qq-plot-of-standardized-residuals
+
+modelsummary(psy1_f, vcov = "HC3")
 ```
 
-VIF is low, which is good. Residuals are non-normal, which is not good. We can use a robust estimator (HC3 as implemented in [marginaleffects](https://marginaleffects.com/vignettes/uncertainty.html#robust-standard-errors)) to get better standard errors.
+VIF is low, which is good. Residuals are non-normal. We can use a robust estimator (HC3 as implemented in [marginaleffects](https://marginaleffects.com/vignettes/uncertainty.html#robust-standard-errors)) to get more accurate standard errors.
 
 ```{r}
 avg_slopes(psy1_f, vcov = "HC3")
@@ -437,17 +725,15 @@ library(estimatr)
 
 # https://declaredesign.org/r/estimatr/articles/getting-started.html
 
-psy1r_f <- 
-  df.fr %>% 
-  lm_robust(PsykSomBesv ~ Parenting + SkolaNegativ + Community, 
+psy1r_f <-
+  df.fr %>%
+  lm_robust(PsykSomBesv ~ Parenting + SkolaNegativ + Community,
      data = .)
 #  clusters = clust
 psy1r_f_resids <- (psy1r_f$fitted.values - df.fr$PsykSomBesv)
 qqnorm(psy1r_f_resids)
+qqline(psy1r_f_resids)
 ```
-
-
-
 
 #### Quantile regression
 
@@ -477,8 +763,830 @@ ggplot(df.fr, aes(PsykSomBesv, Parenting)) +
   )
 ```
 
+#### GAM skolaNeg
+
+Linjär modell först, som jämförelse. Vi passar även på att testa interaktionseffekten mellan tid och SkolaNegativ.
+
+```{r}
+library(mgcv)
+library(estimatr)
+# we need the time variable to start at 1
+df.fr <- df.fr %>% 
+  mutate(year = År - 2005) %>% 
+  mutate(yearF = factor(year))
+
+df.pr <- df.pr %>% 
+  mutate(year = År - 2005) %>% 
+  mutate(yearF = factor(year))
+
+# linear model for comparison, time as factor
+psy1_lm <- lm(PsykSomBesv ~ yearF * SkolaNegativ,
+              data = df.fr)
+modelsummary(psy1_lm, vcov = "HC3")
+plot_predictions(psy1_lm, "yearF", vcov = "HC3") +
+  scale_x_discrete(labels = årtal)
+plot_predictions(psy1_lm, "SkolaNegativ", vcov = "HC3")
+
+# lm with time as continuous
+psy1_lm2 <- lm(PsykSomBesv ~ year * SkolaNegativ,
+              data = df.fr)
+modelsummary(psy1_lm2, vcov = "HC3")
+plot_predictions(psy1_lm2, "year", vcov = "HC3")
+```
+
+Väldigt liten interaktionseffekt mellan tid och SkolaNegativ, så vi bortser från den i nästa modell.
+
+Jämför linjär och loess smoothad
+
+```{r}
+ggplot(df.fr) +
+  aes(x = year, y = PsykSomBesv) +
+  geom_smooth(method = "lm") +
+  geom_smooth(method = "loess")
+```
+
+
+```{r}
+psy1_gam <- gam(PsykSomBesv ~ s(year) + SkolaNegativ,
+                data = df.fr)
+modelsummary(psy1_gam)
+plot_predictions(psy1_gam, "year")
+plot_predictions(psy1_gam, "SkolaNegativ")
+```
+
+Utvecklingen över tid är helt klart inte linjär. SkolaNegativ används som linjär prediktor här, men är den det?
+
+```{r}
+psy_skolaneg_gam <- gam(PsykSomBesv ~ s(SkolaNegativ),
+                data = df.fr)
+plot_predictions(psy_skolaneg_gam, "SkolaNegativ")
+psy_skolaneg_gam_pred <- predictions(psy_skolaneg_gam)
+max(psy_skolaneg_gam_pred$estimate)
+rslimits
+```
+
+Vi ser att högsta nivån för sambandet mellan SkolaNegativ och PSB är när SkolaNegativ är 1.1, men trenden börjar plana ut runt ca 1.0. Det distributionsbaserade gränsvärdet för "Förhöjd risk" är satt till 1.18. Med hänsyn till PSB bör det nog sänkas till 1.0-1.1.
+
+Men vi behöver titta på sambandet över tid, d.v.s. köra gam() på varje mättillfälle
+
+```{r}
+psb_sn_gam <- map(seq(1,19,2), ~ gam(PsykSomBesv ~ s(SkolaNegativ),
+                       data = df.fr %>% 
+                         filter(year == .x)))
+
+psb_sn_gam_preds <- map(1:10, ~ predictions(psb_sn_gam[[.x]]))
+
+psb_sn_gam_max <- map(1:10, ~ max(psb_sn_gam_preds[[.x]]$estimate)) %>% 
+  unlist()
+
+psb_sn_gam_n <- map(1:10, ~ length(psb_sn_gam_preds[[.x]]$estimate)) %>% 
+  unlist()
+
+weighted.mean(psb_sn_gam_max, psb_sn_gam_n)
+library(summarytools)
+descr(psb_sn_gam_max, stats = c("min", "q1", "med", "q3", "max","mean"))
+descr(psb_sn_gam_n, stats = c("min", "q1", "med", "q3", "max","mean"))
+```
+
+Viktat medelvärde från 10 mätningar blir 1.11, omfånget är 0.90 till 1.34.
+
+```{r}
+tibble("År" = seq(1,19,2) + 2005,
+           `Antal svar` = psb_sn_gam_n,
+           `Högsta värde` = psb_sn_gam_max) %>% 
+  
+  ggplot(aes(x = År, y = `Högsta värde`)) +
+  geom_point(aes(size = `Antal svar`/1000)) +
+  geom_line() +
+  scale_x_continuous(breaks = årtal, minor_breaks = NULL) +
+  scale_y_continuous(limits = c(0,2))
+```
+
+Respondenter som har predicerat värde på ca 1.1 på SkolaNegativ, vad har de för faktiskt värde på PSB?
+
+```{r}
+psy_skolaneg_gam_pred %>% 
+  filter(estimate > 1.09) %>% 
+  pull(PsykSomBesv) %>% 
+  hist()
+
+psy_skolaneg_gam_pred %>% 
+  filter(estimate > 1.09) %>% 
+  pull(PsykSomBesv) %>% 
+  descr()
+```
+
+Stor spridning, vilket talar för försiktig tolkning, och kanske är vårt gränsvärde på 1.18 från distributionsbaserade 90:e percentilen förnuftigt. Gränsvärdet för PSB är 1.16.
+
+Medianvärde för PSB bland denna subpopulation är 1.06. Vi tittar på hur det förhåller sig till samtliga data.
+
+```{r}
+hist(df.fr$PsykSomBesv)
+abline(v = 1.06, col = "red")
+descr(df.fr$PsykSomBesv)
+rslimits
+quantile(df.fr$PsykSomBesv, .82)
+```
+
+
+
+
+#### GAM fldr
+
+Linjär modell först, som jämförelse. Vi passar även på att testa interaktionseffekten mellan tid och SkolaNegativ.
+
+```{r}
+# linear model for comparison
+psy2_lm <- lm(PsykSomBesv ~ year * Parenting,
+              data = df.fr)
+modelsummary(psy2_lm)
+plot_predictions(psy2_lm, "Parenting")
+
+psy2_lm <- lm(PsykSomBesv ~ Parenting,
+              data = df.fr)
+modelplot(psy2_lm)
+
+```
+
+Väldigt liten interaktionseffekt mellan tid och Parenting, så vi bortser från den i nästa modell.
+
+```{r}
+psy2_gam <- gam(PsykSomBesv ~ s(year) + Parenting,
+                data = df.fr)
+modelsummary(psy2_gam)
+plot_predictions(psy2_gam, "year")
+plot_predictions(psy2_gam, "Parenting")
+```
+
+Utvecklingen över tid är helt klart inte linjär. Parenting används som linjär prediktor här, men är den det?
+
+```{r}
+psy_parenting_gam <- gam(PsykSomBesv ~ s(Parenting),
+                data = df.fr)
+plot_predictions(psy_parenting_gam, "Parenting")
+psy_parenting_gam_pred <- predictions(psy_parenting_gam)
+max(psy_parenting_gam_pred$estimate)
+rslimits
+```
+
+Vi ser att högsta nivån för sambandet mellan SkolaNegativ och PSB är när SkolaNegativ är 1.1, men trenden börjar plana ut runt ca 1.0. Det distributionsbaserade gränsvärdet för "Förhöjd risk" är satt till 1.18. Med hänsyn till PSB bör det nog sänkas till 1.0-1.1.
+
+Men vi behöver titta på sambandet över tid, d.v.s. köra gam() på varje mättillfälle
+
+```{r}
+psb_sn_gam <- map(seq(1,19,2), ~ gam(PsykSomBesv ~ s(SkolaNegativ),
+                       data = df.fr %>% 
+                         filter(year == .x)))
+
+psb_sn_gam_preds <- map(1:10, ~ predictions(psb_sn_gam[[.x]]))
+
+psb_sn_gam_max <- map(1:10, ~ max(psb_sn_gam_preds[[.x]]$estimate)) %>% 
+  unlist()
+
+psb_sn_gam_n <- map(1:10, ~ length(psb_sn_gam_preds[[.x]]$estimate)) %>% 
+  unlist()
+
+weighted.mean(psb_sn_gam_max, psb_sn_gam_n)
+library(summarytools)
+descr(psb_sn_gam_max, stats = c("min", "q1", "med", "q3", "max","mean"))
+descr(psb_sn_gam_n, stats = c("min", "q1", "med", "q3", "max","mean"))
+```
+
+Viktat medelvärde från 10 mätningar blir 1.11, omfånget är 0.90 till 1.34.
+
+```{r}
+tibble("År" = seq(1,19,2) + 2005,
+           `Antal svar` = psb_sn_gam_n,
+           `Högsta värde` = psb_sn_gam_max) %>% 
+  
+  ggplot(aes(x = År, y = `Högsta värde`)) +
+  geom_point(aes(size = `Antal svar`/1000)) +
+  geom_line() +
+  scale_x_continuous(breaks = årtal, minor_breaks = NULL) +
+  scale_y_continuous(limits = c(0,2))
+```
+
+#### GAM fler variabler
+
+```{r}
+df.f.gam <- 
+  df.f %>% 
+  mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"))) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab)) %>% 
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>% 
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+# fr_aktiv = Brukar du delta i någon ledarledd fritidsaktivitet eller träning?, där 1 = ofta/ibland, och 0 = sällan/aldrig
+
+# df.f.gam %>% 
+#   count(F70)
+```
+
+```{r}
+df.p.gam <- 
+  df.p %>% 
+  mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"))) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ 1,
+                            f60c == 1 ~ 1,
+                            f60d == 1 ~ 1,
+                            f60e == 1 ~ 1,
+                            f60f == 1 ~ 1,
+                            f60g == 1 ~ 1,
+                            f60h == 1 ~ 1,
+                            f60i == 1 ~ 1,
+                            F63  == 1 ~ 1,
+                            f60a == 1 ~ 0,
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab)) %>% 
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,F70) %>% 
+  select(!Wellbeing) %>% 
+  mutate(fr_aktiv = car::recode(F70,"1=0;0=1", as.factor = T)) %>% 
+  select(!F70) %>% 
+  na.omit() %>% 
+  as.data.frame()
+```
+
+
+Linjär modell
+
+```{r}
+psy0_f <- 
+  lm(PsykSomBesv ~ Parenting, 
+     data = df.f.gam)
+
+glance(psy0_f)
+
+modelplot(psy0_f, vcov = "HC3", coef_omit = "(Intercept)") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  scale_y_discrete(labels = c("Bristande föräldraskap")) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med riskfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall"
+       ) +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+```
+
+
+```{r}
+psy1_f <- 
+  lm(PsykSomBesv ~ Parenting + SkolaNegativ + Community, 
+     data = df.f.gam)
+
+modelsummary(psy1_f, vcov = "HC3")
+
+glance(psy1_f)
+
+modelplot(psy1_f, vcov = "HC3", coef_omit = "(Intercept)") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  coord_cartesian(xlim = c(-0.5,0.5)) +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  scale_y_discrete(labels = rev(c("Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med riskfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall"
+       ) +
+  scale_x_continuous(breaks = seq(-0.5,0.5,0.1))
+```
+
+```{r}
+psy1_f2 <- 
+  lm_robust(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott + fr_aktiv, 
+            data = df.f.gam,
+            clusters = year)
+
+# robust LM
+psy1_f2rlm <- 
+  MASS::rlm(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott + fr_aktiv, 
+            data = df.f.gam)
+
+# get robust SE
+library(sandwich)
+library(lmtest) 
+psy1_f2rlm_se <- coeftest(psy1_f2rlm,
+                          vcov = vcovCL,
+                          #type = "HC3",
+                          df = 9,  # clusters - 1, if needed
+                          cluster = ~year)
+# and CI
+#confint(psy1_f2rlm_se)
+
+tidy(psy1_f2)%>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)))
+tidy(psy1_f2rlm, conf.int = TRUE) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)))
+tidy(psy1_f2rlm_se, conf.int = TRUE) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)))
+```
+
+rlm() verkar ge försiktigare resultat, och den ska också vara stabilare när det finns outliers.
+
+```{r}
+
+psy1_f2 <- psy1_f2rlm_se
+
+modelsummary(psy1_f2)
+
+modelplot(psy1_f2, coef_omit = "(Intercept)") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+    #scale_y_discrete(labels = c("Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap")) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med riskfaktorer")
+
+modelplot(psy1_f2,
+          coef_omit = "Intercept|bott|utb") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+    scale_y_discrete(labels = rev(c("Brukar delta i ledarledd\nfritidsaktivitet eller träning","Utsatt för någon typ\nav mobbning","Positiv skolanknytning","Utagerande/\nnormbrytande beteende","Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall",
+              caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Hur länge bott i Sverige; Föräldrarnas utbildningsnivå", 66)) +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+#modelplot(psy1_f2)
+glance(psy1_f2)
+
+library(performance)
+check_collinearity(psy1_f2)
+summary(psy1_f2)
+# VIP = t-value
+tidy(psy1_f2) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)",
+         statistic > 10) %>% 
+  ggplot(aes(x = statistic, y = term)) +
+  geom_col() +
+  scale_y_discrete(labels = rev(c("Negativ skolanknytning","Brukar delta i ledarledd\nfritidsaktivitet eller träning","Utsatt för någon typ\nav mobbning","Bristande föräldraskap","Positiv skolanknytning","Utagerande/\nnormbrytande beteende"))) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "T-värde från linjär regression",
+       y = "")
+
+lm_items <- data.frame(
+  term = c(
+    "Utagerande", "SkolaNegativ", "Parenting", "Community", "SkolaPositiv", "f_utb", "mobbad1", "bott",
+    "fr_aktiv1"
+  ),
+  desc = c(
+    "Utagerande/\nnormbrytande beteende", "Negativ skolanknytning",
+    "Bristande föräldraskap", "Otryggt närsamhälle",
+    "Positiv skolanknytning", "Föräldrarnas utbildningsnivå",
+    "Utsatt för någon typ\nav mobbning", "Boendetid i Sverige",
+    "Brukar delta i ledarledd\nfritidsaktivitet eller träning"
+  )
+)
+
+tidy(psy1_f2, conf.int = TRUE)%>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 4) +
+  geom_segment(aes(x = conf.low, xend = conf.high)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+  #scale_y_discrete(labels = rev(c("Brukar delta i ledarledd\nfritidsaktivitet eller träning","Utsatt för någon typ\nav mobbning","Positiv skolanknytning","Utagerande/\nnormbrytande beteende","Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+  labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Hur länge bott i Sverige; Föräldrarnas utbildningsnivå", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+```
+
+GAM
+
+```{r}
+df.f.gam %>% 
+  pivot_longer(c(Parenting,SkolaNegativ,Community,Utagerande,SkolaPositiv)) %>% 
+  ggplot() +
+  aes(x = value, y = PsykSomBesv) +
+  geom_smooth(method = "gam") +
+  facet_wrap(~ name)
+
+psy1_f2g <- 
+  gam(PsykSomBesv ~ Parenting + s(SkolaNegativ) + s(Community) + Utagerande + SkolaPositiv + f_utb + mobbad + bott, 
+     data = df.f.gam)
+
+glance(psy1_f2g)
+glance(psy1_f2)
+```
+
+Ger inte jättemycket bättre AIC/BIC eller r2.
+
+interaktion mellan f_utb och bott?
+
+```{r}
+psy1_f3 <- 
+  lm(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb * bott + mobbad, 
+     data = df.f.gam)
+
+summary(psy1_f3)
+```
+
+nej.
+
+#### pojkar
+
+```{r}
+# psy1_p2 <- 
+#   lm_robust(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott, 
+#             clusters = year,
+#             data = df.p.gam)
+
+# robust LM
+psy1_p2 <- 
+  MASS::rlm(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott + fr_aktiv, 
+            data = df.p.gam)
+
+check_collinearity(psy1_p2)
+# get robust SE
+# library(sandwich)
+# library(lmtest) 
+psy1_p2r <- coeftest(psy1_p2,
+                          vcov = vcovCL,
+                          #type = "HC3",
+                          df = 9,  # clusters - 1, if needed
+                          cluster = ~year)
+
+
+modelsummary(psy1_p2r)
+modelplot(psy1_p2r, coef_omit = "(Intercept)") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.5,0.5)) +
+    #scale_y_discrete(labels = c("Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap")) +
+    labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med riskfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall")
+
+modelplot(psy1_p2,
+          coef_omit = "Intercept|utb|9") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+    scale_y_discrete(labels = rev(c("Bott i Sverige hela mitt liv","Bott i Sverige 10 år eller mer","Utsatt för någon typ\nav mobbning","Positiv skolanknytning","Utagerande/\nnormbrytande beteende","Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+    labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       caption = "Ej statistiskt signifikanta variabler är bortplockade ur figuren.",
+       x = "Regressionskoefficienter och 95% konfidensintervall") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+#vip(psy1_p2)
+modelplot(psy1_p2r, draw = F)
+
+lm_items <-
+  lm_items %>% 
+  add_row(term = "bottHela mitt liv",
+          desc = "Bott i Sverige hela livet")
+
+tidy(psy1_p2r, conf.int = TRUE)%>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)),
+         term = factor(term)) %>% 
+  filter(!term == "(Intercept)",
+         p.value < .05) %>%
+  left_join(lm_items, by = "term") %>% 
+  mutate(desc = fct_reorder(desc, estimate)) %>% 
+  
+  ggplot(aes(x = estimate, y = desc, color = ifelse(estimate > 0, "green","red"))) +
+  geom_point(size = 4) +
+  geom_segment(aes(x = conf.low, xend = conf.high)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.4,0.5)) +
+  #scale_y_discrete(labels = rev(c("Brukar delta i ledarledd\nfritidsaktivitet eller träning","Utsatt för någon typ\nav mobbning","Positiv skolanknytning","Utagerande/\nnormbrytande beteende","Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+  labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "Regressionskoefficienter och 95% konfidensintervall",
+       caption = str_wrap("Ej statistiskt signifikanta variabler är bortplockade ur figuren: Föräldrarnas utbildningsnivå", 66),
+       y = "") +
+  scale_x_continuous(breaks = seq(-0.4,0.5,0.1))
+
+tidy(psy1_p2r) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(statistic > 10) %>% 
+  ggplot(aes(x = statistic, y = term)) +
+  geom_col() +
+  scale_y_discrete(labels = rev(c("Bristande föräldraskap","Utsatt för någon typ\nav mobbning","Negativ skolanknytning","Positiv skolanknytning","Utagerande/\nnormbrytande beteende"))) +
+    labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       x = "T-värde från linjär regression",
+       y = "")
+```
+
+Bristande föräldraskap framstår som den största riskfaktorn i denna modell.
+
+```{r}
+# jämförelse av klustrade SE under år
+psy1_p2c <- 
+  lm_robust(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott, 
+            clusters = year,
+            se_type = "CR2",
+            data = df.p.gam)
+
+psy1_p2 <- 
+  lm(PsykSomBesv ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb * bott + mobbad, 
+     data = df.p.gam)
+
+glance(psy1_p2c)
+glance(psy1_p2)
+
+
+tidy(psy1_p2c) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)))
+
+tidy(psy1_p2) %>% 
+  mutate(across(where(is.numeric), ~ round(.x,3)))
+```
+
+
+Vi tittar närmare på den med matchning?
+
+#### Matchning
+
+```{r}
+library(MatchIt)
+
+
+```
+
+
+
+#### Riskgrupp
+
+Ta fram en variabel med enbart hög/låg risk för PSB, kör samma analys som ovan.
+
+```{r}
+df.f2 <- 
+  df.f %>% 
+  mutate(bott = factor(F5, levels = c("Mindre än 5 år","5-9 år", "10 år eller mer", "Hela mitt liv"))) %>%
+  # rename(`Hur länge har du bott i Sverige?` = F5,
+  #        `Vilken högsta utbildning har din mamma/pappa?` = f6ab,
+  #        `Vad bor du i för typ av bostad?` = F7)
+  mutate(mobbad = case_when(f60b == 1 ~ "Ja",
+                            f60c == 1 ~ "Ja",
+                            f60d == 1 ~ "Ja",
+                            f60e == 1 ~ "Ja",
+                            f60f == 1 ~ "Ja",
+                            f60g == 1 ~ "Ja",
+                            f60h == 1 ~ "Ja",
+                            f60i == 1 ~ "Ja",
+                            F63 == 1 ~ "Ja",
+                            f60a == 1 ~ "Nej",
+                            TRUE ~ NA
+  )) %>%
+  mutate(mobbad = factor(mobbad)) %>%
+  #mutate(bott = case_when(F5 == "Hela mitt liv" | F5 == "10 år eller mer" ~ "10år+",
+  #                        F5 == "5-9 år" | F5 == "Mindre än 5 år" ~ "0-9 år")) %>% 
+  mutate(f_utb = factor(f6ab)) %>% 
+  mutate(year = factor(År)) %>% 
+  select(all_of(sthlm.index.all),f_utb,mobbad,bott,year,riskPsykSomBesv) %>%
+  mutate(riskPSB = car::recode(riskPsykSomBesv,"'Något förhöjd risk'=0;'Låg risk'=0;'Förhöjd risk'=1", as.factor = FALSE)) %>% 
+  #mutate(riskPSB = factor(riskPSB)) %>% #, levels = c(1,2), labels = c("Låg risk","Förhöjd risk"))) %>% 
+  select(!Wellbeing) %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+df.f2 %>% 
+  count(riskPSB)
+```
+
+
+```{r}
+psy2_f_risk <- 
+  glm(riskPSB ~ Parenting + SkolaNegativ + Community + Utagerande + SkolaPositiv + f_utb + mobbad + bott, 
+      family = "binomial",
+      data = df.f2)
+
+modelplot(psy2_f_risk, exponentiate = TRUE, vcov = "HC3", coef_omit = "Intercept|utb|bott") +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  aes(color = ifelse(estimate < 1, "red","green")) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(0,2)) +
+    scale_y_discrete(labels = rev(c("Ej mobbad","Positiv skolanknytning","Utagerande/normbrytande beteende","Otryggt närsamhälle","Negativ skolanknytning","Bristande föräldraskap"))) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med risk-/skyddsfaktorer",
+       caption = "Ej statistiskt signifikanta variabler är bortplockade ur figuren.",
+       x = "Regressionskoefficienter och 95% konfidensintervall")
+  
+```
+
+
+```{r}
+# relativ risk
+avg_comparisons(
+    psy2_f_risk,
+    variables = "mobbad",
+    comparison = "lnratioavg",
+    transform = exp)
+```
+
+
+#### Mobbning uppdelad
+
+```{r}
+items_mobbning <- c("f60b", "f60c", "f60d", "f60e", "f60f", "f60g", "f60h", "f60i", "F63")
+itemdesc_mobbning <- c("Jag har blivit hånad, förlöjligad, kallad öknamn eller blivit retad på ett obehagligt och sårande sätt", "Jag har blivit utfrusen av andra elever", "Jag har blivit slagen, sparkad, knuffad eller stängd inne", "Någon elev har spritt lögner eller falska rykten om mig och försökt få andra att tycka illa om mig", "Jag har blivit fråntagen pengar eller saker eller fått saker förstörda", "Jag har blivit hotad eller tvingad att göra saker som jag inte ville göra", "Lärare har psykat eller på annat sätt varit elaka mot mig", "Jag har mobbats på annat sätt.", "Har du blivit mobbad eller trakasserad via internet eller SMS/MMS det här läsåret?")
+
+names(itemdesc_mobbning) <- items_mobbning
+itemdesc_mobbning
+
+i_mobb <- data.frame(itemnr = items_mobbning,
+                     item = itemdesc_mobbning)
+
+# df.f %>% 
+#   select(all_of(items_mobbning)) %>% 
+#   pivot_longer(everything()) %>% 
+#   distinct(value)
+
+f_mobb <- df.f %>% 
+  select(all_of(items_mobbning),PsykSomBesv) %>% 
+  lm(PsykSomBesv ~ .,
+     data = .) 
+
+check_collinearity(f_mobb)
+
+f_mobb %>% 
+  modelplot(vcov = "HC3", coef_omit = "(Intercept)", coef_map = itemdesc_mobbning) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  #aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.5,0.5)) +
+  scale_y_discrete(labels = ~ str_wrap(.x, 32)) +
+  labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med utsatthet för mobbning",
+        x = "Regressionskoefficienter och 95% konfidensintervall")
+
+tidy(f_mobb) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)") %>% 
+  arrange(desc(statistic)) %>% 
+  head(5) %>% 
+  left_join(i_mobb, by = join_by("term" == "itemnr")) %>% 
+  mutate(item = fct_reorder(item, statistic)) %>% 
+  ggplot(aes(x = statistic, y = item)) +
+  geom_col() +
+  scale_y_discrete(labels = ~ str_wrap(.x,28)) +
+    labs(title = "Flickor åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med olika typer av mobbning",
+       x = "T-värde från linjär regression",
+       y = "")
+
+p_mobb <- df.p %>% 
+  select(all_of(items_mobbning),PsykSomBesv) %>% 
+  lm(PsykSomBesv ~ .,
+     data = .) 
+
+tidy(p_mobb) %>% 
+  mutate(statistic = abs(statistic),
+         term = factor(term),
+         term = fct_reorder(term,statistic)) %>% 
+  filter(!term == "(Intercept)") %>% 
+  arrange(desc(statistic)) %>% 
+  head(5) %>% 
+  left_join(i_mobb, by = join_by("term" == "itemnr")) %>% 
+  mutate(item = fct_reorder(item, statistic)) %>% 
+  ggplot(aes(x = statistic, y = item)) +
+  geom_col() +
+  scale_y_discrete(labels = ~ str_wrap(.x,28)) +
+    labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med olika typer av mobbning",
+       x = "T-värde från linjär regression",
+       y = "")
+
+p_mobb %>% 
+  modelplot(vcov = "HC3", coef_omit = "(Intercept)", coef_map = itemdesc_mobbning) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  #aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  coord_cartesian(xlim = c(-0.5,0.5)) +
+  scale_y_discrete(labels = ~ str_wrap(.x, 32)) +
+  labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med utsatthet för mobbning",
+        x = "Regressionskoefficienter och 95% konfidensintervall")
+```
+
+```{r}
+df.p %>% 
+  select(f60d,f60g,PsykSomBesv) %>% 
+  lm(PsykSomBesv ~ .,
+     data = .) %>% 
+  modelplot(vcov = "HC3", coef_omit = "(Intercept)", coef_map = itemdesc_mobbning) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none") +
+  #coord_cartesian(xlim = c(-0.5,0.5)) +
+  scale_y_discrete(labels = ~ str_wrap(.x, 32)) +
+  labs(title = "Pojkar åk 9: Psykiska/psykosomatiska besvär",
+       subtitle = "Samband med utsatthet för mobbning",
+        x = "Regressionskoefficienter och 95% konfidensintervall")
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+psy3_gam <- 
+  df.fr %>% 
+  gam(PsykSomBesv ~ s(Parenting) + s(SkolaNegativ) + s(Community), 
+     data = .)
+
+modelsummary(psy3_gam)
+summary(psy3_gam)
+plot_predictions(psy3_gam, "Parenting") + coord_cartesian(ylim = c(-1,2))
+plot_predictions(psy3_gam, "SkolaNegativ") + coord_cartesian(ylim = c(-1,2))
+plot_predictions(psy3_gam, "Community") + coord_cartesian(ylim = c(-1,2))
+
+```
+
+```{r}
+psy4_gam <- 
+  gam(PsykSomBesv ~ s(Parenting) + s(SkolaNegativ) + s(Community) + s(Utagerande) + s(SkolaPositiv) + f_utb + mobbad + bott, 
+     data = df.f.gam)
+glance(psy4_gam)
+
+plot_predictions(psy4_gam, "Utagerande") + coord_cartesian(ylim = c(-1,2)) +
+  scale_x_continuous(breaks = seq(-5,5,1))
+plot_predictions(psy4_gam, "SkolaPositiv") + coord_cartesian(ylim = c(-1,2))+
+  scale_x_continuous(breaks = seq(-5,5,1))
+
+rslimits.prot
+
+modelplot(psy4_gam, coef_omit = "(Intercept)") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  aes(color = ifelse(estimate < 0, "red","green")) +
+  guides(color = "none")
+
+
+```
+
+```{r}
+
+```
+
 
 #### Random forest regression
+
 
 
 #### SEM
@@ -710,7 +1818,7 @@ itemlabels_brott <- read_excel("10_Brott/BrottItemlabels.xls")
 
 itemlabels_brott %>% 
   filter(itemnr %in% items.brott) %>%
-  kbl_rise() 
+  kable() 
 ```
 
 Summerar vi dem per respondent ser distributionen av individer som rapporterar att ha begått ett visst antal brott vid ett och samma mättillfälle enligt nedan.
@@ -722,6 +1830,18 @@ df <- df %>%
 df %>% 
   ggplot(aes(x = AntalBrott)) +
   geom_bar(fill = RISEprimGreen)
+
+df %>% 
+  group_by(År) %>% 
+  count(AntalBrott) %>% 
+  ungroup() %>% 
+  filter(AntalBrott < 8) %>% 
+  mutate(AntalBrott = factor(AntalBrott)) %>% 
+  ggplot(aes(x = År, y = n, group = AntalBrott, color = AntalBrott)) +
+  geom_point() +
+  geom_line() +
+  scale_color_viridis_d(direction = -1) +
+  scale_x_continuous(breaks = årtal)
 
 df %>% 
   ggplot(aes(x = AntalBrott, fill = Kön)) +
@@ -743,13 +1863,13 @@ brott.kön <-
   glm(Kön ~ ., data = ., family = binomial(link = "logit"))
 
 #modelsummary(brott.kön, exponentiate = TRUE)
-
+library(broom.mixed)
 tidy(brott.kön) %>% 
   filter(!p.value > 0.05) %>% 
   arrange(desc(estimate)) %>% 
   left_join(itemlabels_brott, by = c("term" = "itemnr")) %>% 
   mutate_if(is.numeric, round, 2) %>%
-  kbl_rise()
+  kable()
 ```
 
 Brott ovanför Intercept-raden är vanligare bland pojkar. Desto längre från Intercept, desto större skillnad mellan pojkars och flickors sannolikhet att begå brott av den typen. Brott som ej har en statistiskt signifikant skillnad är inte med i tabellen. Men p.g.a. vårt stora sampel är statistisk signifikans inte nödvändigtvis en indikator på att det är stor skillnad, här gäller det snarare att titta på "estimate" i tabellen.
@@ -757,6 +1877,7 @@ Brott ovanför Intercept-raden är vanligare bland pojkar. Desto längre från I
 ```{r}
 brottlabels <- itemlabels_brott$item[c(1:19)] %>% 
   rev()
+library(parameters)
 
 parameters(brott.kön, ci_method="wald") %>% 
   plot() +
@@ -768,6 +1889,22 @@ parameters(brott.kön, ci_method="wald") %>%
   theme_rise() +
   guides(color = "none") +
   scale_y_discrete(labels = str_wrap(paste0(brottlabels), width = 36))
+```
+
+```{r}
+brott_items <- itemlabels_brott$item[c(1:19)]
+names(brott_items) <- itemlabels_brott$itemnr[c(1:19)]
+
+modelplot(brott.kön, exponentiate = TRUE, vcov = "HC3", coef_omit = "Intercept", coef_map = brott_items) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  aes(color = ifelse(estimate < 1, "orange", RISEprimGreen)) +
+  guides(color = "none") +
+  scale_y_discrete(labels = ~ str_wrap(.x, width = 36)) +
+    labs(title = str_wrap("Skillnad mellan pojkar och flickor i sannolikhet att självrapportera olika typer av brott"),
+       subtitle = str_wrap("Blågröna prickar indikerar brott med högre sannolikhet att begås av flickor, om linjen för konfidensintervallet inte korsar vertikala strecket. Längre avstånd från 1.0 = större skillnad mellan könen."),
+       x = "",
+       y = "")
+
 ```
 
 
@@ -788,10 +1925,10 @@ df %>%
   mutate(Andel = 100*n/sum(n)) %>%
   slice(1:4) %>% 
   summarise(Andel = sum(Andel) %>% round(1)) %>% 
-  kbl_rise()
+  kable()
 ```
 
-82.3 % av respondenterna rapporterar max 3 brott, varav 36.5 % rapporterar 0 brott.
+83.1 % av respondenterna rapporterar max 3 brott, varav 38.1 % rapporterar 0 brott.
 
 Vilka brott som självrapporteras oftast?
 
@@ -821,7 +1958,7 @@ df %>%
   slice(1:5) %>% 
   left_join(itemlabels_brott, by = c("item" = "itemnr")) %>%
   select(!n) %>% 
-  kbl_rise()
+  kable()
 
 df %>% 
   select(all_of(items.brott)) %>% 
@@ -860,10 +1997,10 @@ df %>%
                             TRUE ~ "Övriga")) %>%
   count(brott3) %>%
   mutate(Andel = round(100*n/sum(n),2)) %>% 
-  kbl_rise()
+  kable()
 
 ```
-60% självrapporterar något av de tre vanligaste brotten.
+ca 60% självrapporterar något av de tre vanligaste brotten.
 
 ### Statistisk modell för pojkar
 
@@ -874,7 +2011,7 @@ mean(df$AntalBrott, na.rm = TRUE)
 var(df$AntalBrott, na.rm = TRUE)
 ```
 
-Vi ser också att variansen är större än medelvärdet ("overdispersion"), vilket är en indikation på att en Poisson-modell inte är lämplig. Därför används en negativ binomial regressionsmodell. Det är också sannolikt att en s.k. hurdle-modell fungerar väl med denna typ av data, så vi jämför med båda.
+Vi ser också att variansen är större än medelvärdet ("overdispersion"), vilket är en indikation på att en Poisson-modell inte är lämplig. Därför används en negativ binomial regressionsmodell som utgångspunkt. Det är också sannolikt att en s.k. hurdle-modell fungerar väl med denna typ av data ("zero-inflated"), så vi jämför båda.
 
 #### Prediktorer
 
@@ -945,6 +2082,90 @@ df %>%
 
 ```
 
+##### Risk för ej godkända betyg
+
+borde läggas någon annanstans, men ovan här är data väl illustrerat
+
+```{r}
+betyg_f <- 
+  df %>% 
+  mutate(betyg_dik = car::recode(betyg_dik,"'Ej godkänd'=0;'Godkänd'=1")) %>% 
+  filter(Kön == "Flicka") %>% 
+  glm(betyg_dik ~ ParentEdu,
+      data = .,
+      family = "binomial")
+
+betyg_p <- 
+  df %>% 
+  mutate(betyg_dik = car::recode(betyg_dik,"'Ej godkänd'=0;'Godkänd'=1")) %>% 
+  filter(Kön == "Pojke") %>% 
+  glm(betyg_dik ~ ParentEdu,
+      data = .,
+      family = "binomial")
+
+# risk ratio
+avg_comparisons(
+    betyg_f,
+    variables = "ParentEdu",
+    comparison = "lnratioavg",
+    transform = exp)
+
+# risk ratio
+avg_comparisons(
+    betyg_p,
+    variables = "ParentEdu",
+    comparison = "lnratioavg",
+    transform = exp)
+
+```
+
+Större risk ratio för pojkar att ej få godkända betyg i grundämnen i grundskolan om föräldrarna är lågutbildade.
+
+lägg till bristande föräldraskap som prediktor
+
+```{r}
+betyg_f2 <- 
+  df %>% 
+  mutate(betyg_dik = car::recode(betyg_dik,"'Ej godkänd'=0;'Godkänd'=1")) %>% 
+  filter(Kön == "Flicka") %>% 
+  glm(betyg_dik ~ ParentEdu + Parenting,
+      data = .,
+      family = "binomial")
+
+betyg_p2 <- 
+  df %>% 
+  mutate(betyg_dik = car::recode(betyg_dik,"'Ej godkänd'=0;'Godkänd'=1")) %>% 
+  filter(Kön == "Pojke") %>% 
+  glm(betyg_dik ~ ParentEdu + Parenting,
+      data = .,
+      family = "binomial")
+
+avg_comparisons(
+    betyg_f2,
+    variables = "ParentEdu",
+    comparison = "lnratioavg",
+    transform = exp)
+
+avg_comparisons(
+    betyg_p2,
+    variables = "ParentEdu",
+    comparison = "lnratioavg",
+    transform = exp)
+
+modelplot(list("Pojke" = betyg_p2, 
+               "Flicka" = betyg_f2),
+          coef_omit = 'Interc', exponentiate = FALSE,
+          title = "Föräldrarnas utbildningsnivå och bristande föräldraskap") +
+  scale_color_gender() +
+  coord_cartesian(xlim = c(-0.5,2.5))
+
+modelsummary(list("Pojke" = betyg_p2, 
+               "Flicka" = betyg_f2))
+
+```
+
+Bristande föräldraskap har liten betydelse för sannolikheten att gå ut grundskolan med godkända betyg.
+
 Vi tittar på sambandet mellan föräldrarnas utbildningsnivå och Bristande föräldraskap. En negativ koefficient innebär att utbildningsnivån sänker riskfaktorn jämfört med den lägsta utbildningsnivån (enbart grundskola).
 
 ```{r}
@@ -970,13 +2191,16 @@ modelplot(list("Pojke" = pedu_p,
                "Flicka" = pedu_f),
           coef_omit = 'Interc',
           title = "Föräldrarnas utbildningsnivå och bristande föräldraskap") +
-  scale_color_gender()
+  scale_color_gender() +
+  coord_cartesian(xlim = c(-0.5,0.5))
 
 modelsummary(list("Pojke" = pedu_p, 
                   "Flicka" = pedu_f),
              title = "Föräldrarnas utbildningsnivå och bristande föräldraskap", 
              stars = TRUE, statistic = 'conf.int')
 ```
+
+
 
 ##### Noteringar
 
@@ -1048,8 +2272,9 @@ pedu_propensities <- augment(pedu_ipw, type.predict = "response") %>%
 # let's try matching instead
 library(MatchIt)  # For matching stuff
 
-matched <- matchit(ParentEdu ~ Parenting, data = df %>% filter(Kön == "Pojke") %>% drop_na(ParentEdu, Parenting),
-                   method = "nearest", distance = "mahalanobis", replace = TRUE,)
+matched <- matchit(ParentEdu ~ Parenting, 
+                   data = df %>% filter(Kön == "Pojke") %>% drop_na(ParentEdu, Parenting),
+                   method = "full", distance = "mahalanobis", replace = TRUE)
 
 ```
 
